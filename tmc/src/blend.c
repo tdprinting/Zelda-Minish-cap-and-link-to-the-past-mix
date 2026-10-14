@@ -22,6 +22,7 @@
 #include "room.h"
 #include "save.h"
 #include "sound.h"
+#include "enemy.h"
 #include "color.h"
 #include "object.h"
 
@@ -38,9 +39,10 @@ bool32 Blend_IsDarkWorldActive(void) {
     return BLEND_DARK_WORLD && (gArea.areaMetadata & AR_IS_OVERWORLD);
 }
 
-/** OBJ palette 0 (Link) and the partner's palette keep their colors in the Dark World. */
+/** Link's and the partner's OBJ palettes keep their colors in the Dark World. */
 static bool32 IsPaletteExempt(u32 palIdx) {
-    return palIdx == 16 || (gBlendLink.partnerPalette != 0 && palIdx == 16u + gBlendLink.partnerPalette);
+    return palIdx == 16u + gPlayerEntity.base.palette.b.b0 ||
+           (gBlendLink.partnerPalette != 0 && palIdx == 16u + gBlendLink.partnerPalette);
 }
 
 /**
@@ -93,12 +95,59 @@ static bool32 CanUseMirror(void) {
     return TRUE;
 }
 
+static void Warp(u32 area, u32 room, u32 x, u32 y, u32 layer) {
+    Transition t;
+    MemClear(&t, sizeof(t));
+    t.warp_type = 0;
+    t.endX = x;
+    t.endY = y;
+    t.area = area;
+    t.room = room;
+    t.layer = layer;
+    t.facing_direction = gPlayerEntity.base.animationState >> 1;
+    t.transitionSFX = SFX_NONE;
+    DoExitTransition(&t);
+}
+
+/** Reloads the current room at Link's position, so the room comes back in the other world. */
+static void WarpInPlace(void) {
+    Entity* p = &gPlayerEntity.base;
+    Warp(gRoomControls.area, gRoomControls.room, p->x.HALF.HI - gRoomControls.origin_x,
+         p->y.HALF.HI - gRoomControls.origin_y, p->collisionLayer);
+}
+
+/** Dark World versions of overworld enemies, using enemies Minish Cap already has. */
+static u32 DarkWorldEnemy(u32 id) {
+    switch (id) {
+        case OCTOROK:
+            return ROPE;
+        case CHUCHU:
+            return SPINY_CHUCHU;
+        case BEETLE:
+            return SPIKED_BEETLE;
+        default:
+            return id;
+    }
+}
+
+void Blend_ApplyDarkWorldEnemy(Entity* entity) {
+    u32 id;
+    if (!Blend_IsDarkWorldActive()) {
+        return;
+    }
+    id = DarkWorldEnemy(entity->id);
+    if (id != entity->id) {
+        entity->id = id;
+        entity->type = 0; // the replacement's default form
+    }
+}
+
 static void UpdateMirror(void) {
     if ((gInput.heldKeys & (L_BUTTON | R_BUTTON)) == (L_BUTTON | R_BUTTON) && CanUseMirror()) {
         if (++gBlendLink.mirrorTimer == MIRROR_HOLD_FRAMES) {
             BLEND_DARK_WORLD ^= 1;
             SoundReq(SFX_TELEPORTER);
-            RefreshAllPalettes();
+            WarpInPlace();
         }
     } else {
         gBlendLink.mirrorTimer = 0;
@@ -111,19 +160,19 @@ static void UpdateDevHooks(void) {
         gBlendLink.devSetDarkWorld = 0;
         RefreshAllPalettes();
     }
+    if (gBlendLink.devSpawnEnemy) {
+        Entity* e = CreateEnemy(gBlendLink.devSpawnEnemy - 1, 0);
+        gBlendLink.devSpawnEnemy = 0;
+        if (e != NULL) {
+            Blend_ApplyDarkWorldEnemy(e);
+            e->x.HALF.HI = gPlayerEntity.base.x.HALF.HI + 32;
+            e->y.HALF.HI = gPlayerEntity.base.y.HALF.HI;
+            e->collisionLayer = gPlayerEntity.base.collisionLayer;
+        }
+    }
     if (gBlendLink.devWarp) {
-        Transition t;
-        MemClear(&t, sizeof(t));
-        t.warp_type = 0;
-        t.endX = gBlendLink.devWarpX;
-        t.endY = gBlendLink.devWarpY;
-        t.area = gBlendLink.devWarpArea;
-        t.room = gBlendLink.devWarpRoom;
-        t.layer = 1;
-        t.facing_direction = 4;
-        t.transitionSFX = SFX_NONE;
         gBlendLink.devWarp = 0;
-        DoExitTransition(&t);
+        Warp(gBlendLink.devWarpArea, gBlendLink.devWarpRoom, gBlendLink.devWarpX, gBlendLink.devWarpY, 1);
     }
 }
 
@@ -153,7 +202,7 @@ static void PublishSelf(void) {
  */
 static void LoadPartnerPalette(Entity* this) {
     u32 slot = FindFreeObjPalette(1);
-    u16* src = &gPaletteBuffer[16 * 16];
+    u16* src = &gPaletteBuffer[(16 + gPlayerEntity.base.palette.b.b0) * 16];
     u16* dst;
     u32 i;
     if (slot >= 16) {

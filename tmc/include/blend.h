@@ -42,6 +42,7 @@ typedef struct {
     /*0x10*/ BlendPlayerSync self;    /**< written by the game every frame */
     /*0x24*/ BlendPlayerSync partner; /**< written by the host every frame */
     /*0x38*/ struct Entity_* partnerEntity;
+    /*0x3c*/ u8 devSpawnEnemy; /**< host test hook: enemy id + 1 to spawn next to Link */
 } BlendLink;
 
 #define BLEND_MAGIC 0x444E4C42 /* "BLND" */
@@ -53,6 +54,7 @@ extern BlendLink gBlendLink;
 
 bool32 Blend_IsDarkWorldActive(void);
 void Blend_GameUpdate(void);
+void Blend_ApplyDarkWorldEnemy(struct Entity_* entity);
 void Blend_TransformPalette(u16* pal, u32 palIdx);
 void LinkPartner(struct Entity_* this);
 

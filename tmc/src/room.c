@@ -1,3 +1,4 @@
+#include "blend.h"
 // TODO: original name is probably floor.c
 
 #include "area.h"
@@ -68,6 +69,8 @@ Entity* LoadRoomEntity(const EntityData* dat) {
         entity->kind = kind;
         entity->id = dat->id;
         entity->type = dat->type;
+        if (kind == ENEMY)
+            Blend_ApplyDarkWorldEnemy(entity);
         RegisterRoomEntity(entity, dat);
         if ((dat->flags & 0xF0) != 16) {
             u8 kind2;

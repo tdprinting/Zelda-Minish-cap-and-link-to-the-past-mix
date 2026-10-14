@@ -89,6 +89,15 @@ int main(int argc, char** argv) {
 				core->runFrame(core);
 			}
 		}
+		else if (!strcmp(cmd, "enemies")) {
+			// list live enemy entity ids (entity array follows gPlayerEntity, 0x50 entries of 0x88 bytes)
+			printf("enemies:");
+			for (int i = 0; i < 0x50; i++) {
+				uint32_t e = 0x03001160 + i * 0x88;
+				if (core->busRead32(core, e + 4) && core->busRead8(core, e + 8) == 3) printf(" %02x", core->busRead8(core, e + 9));
+			}
+			printf("\n");
+		}
 		else if (!strcmp(cmd, "peek")) { unsigned long ad = strtoul(a, 0, 0); for (int i = 0; i < n; i++) printf("%02x ", core->busRead8(core, ad + i)); printf("\n"); }
 	}
 	core->deinit(core);
