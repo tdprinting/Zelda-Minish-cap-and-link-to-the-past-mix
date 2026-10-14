@@ -15,3 +15,4 @@ build/
 tmc/tools/include/
 tmc/tools/lib/
 blend/host/build*/
+out/

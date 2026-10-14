@@ -220,10 +220,13 @@ int main(int argc, char** argv) {
 	mLogSetDefaultLogger(&logger);
 
 	struct Player p[2] = { 0 };
-	if (!startPlayer(&p[0], rom, "player1.sav"))
+	if (!startPlayer(&p[0], rom, "player1.sav") || (players == 2 && !startPlayer(&p[1], rom, "player2.sav"))) {
+		char msg[512];
+		snprintf(msg, sizeof(msg), "Could not load the game from \"%s\".\n\nBuild zelda-blend.gba from your own ROM "
+		         "(see README) and put it next to this program.", rom);
+		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Zelda: The Picori Seal", msg, NULL);
 		return 1;
-	if (players == 2 && !startPlayer(&p[1], rom, "player2.sav"))
-		return 1;
+	}
 
 	if (testScript) {
 		runScript(testScript, p, players);
