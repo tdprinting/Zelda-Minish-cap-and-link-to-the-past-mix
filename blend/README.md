@@ -9,7 +9,10 @@ Everything is made by restyling and reusing the art already in Minish Cap.
 | Feature | From | How it works |
 | --- | --- | --- |
 | Dark World | A Link to the Past | Every overworld area has a Dark World version. Its palettes are restyled at runtime (olive grass, brown earth, violet shadows), so no new art is needed. |
-| Magic Mirror | A Link to the Past | Hold **L + R** on the overworld to cross between the Light and Dark World. The room reloads in the other world, and the current world is saved with your file. |
+| Magic Mirror | A Link to the Past | Comes with the Fire Element from Mt. Crenel (this game's Death Mountain). Then hold **L + R** on the overworld to cross between the Light and Dark World. The room reloads in the other world, and the current world is saved with your file. |
+| Moon Pearl | A Link to the Past | Without it Link is a pink bunny in the Dark World and can't use his sword or items. It comes with the Ocarina after the Fortress of Winds, the third dungeon, like the Tower of Hera. |
+| Fire Rod | A Link to the Past | Minish Cap's unused Fire Rod, finished. It lies in the Dark World Minish Woods (Skull Woods). Link swings it like the Pacci Cane and shoots a red fireball. It shares the cane's menu slot: **L + A** or **L + B** swaps the rod on that button. |
+| Bombos, Ether, Quake | A Link to the Past | Medallions found in the Dark World: Bombos buried in the ruins (dig with the Mole Mitts), Ether on Mt. Crenel, Quake by Lake Hylia. **L + Select** picks one, **R + Select** casts it. A cast needs a sword, works once per room and strikes every enemy on screen. |
 | Dark World enemies | A Link to the Past | In the Dark World, Octoroks become Ropes, ChuChus become Spiny ChuChus and Beetles become Spiked Beetles. |
 | Blended legend | Both | The opening story now tells of the Golden Power, the shadow sealed in a Dark World and the seven sages. |
 | Split-screen co-op | New | Two copies of the game run side by side in one window. Each player sees the other as a second Link in red mail when they are in the same room and world, including sword swings. The partner's sword hits enemies on your screen too. |
@@ -54,7 +57,7 @@ make -C blend/host                               # needs libsdl2-dev, libmgba-de
 
 | File | What it does |
 | --- | --- |
-| `tmc/src/blend.c`, `tmc/include/blend.h` | Dark World palettes, Magic Mirror, co-op state sync, partner Link object |
+| `tmc/src/blend.c`, `tmc/include/blend.h` | Dark World palettes, Magic Mirror, Moon Pearl and bunny, Fire Rod, medallions, item placement, co-op state sync, partner Link object |
 | `tmc/src/fade.c` | Applies the Dark World palette as palettes are uploaded |
 | `tmc/src/game.c` | Calls the blend update every gameplay frame |
 | `blend/host/coop.c` | Split-screen co-op player (SDL2 + libmgba) |

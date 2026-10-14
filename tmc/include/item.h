@@ -28,6 +28,7 @@ extern void ItemPegasusBoots(ItemBehavior*, u32);
 extern void ItemOcarina(ItemBehavior*, u32);
 extern void ItemTryPickupObject(ItemBehavior*, u32);
 extern void ItemJarEmpty(ItemBehavior*, u32);
+extern void ItemFireRod(ItemBehavior*, u32);
 
 typedef enum {
     ITEM_NONE,

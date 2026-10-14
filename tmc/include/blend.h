@@ -58,6 +58,12 @@ typedef struct {
     /*0x5c*/ struct Entity_* partnerItemEntity;
     /*0x60*/ u8 devSpawnEnemy; /**< host test hook: enemy id + 1 to spawn next to Link */
     /*0x61*/ u8 devGiveItem;   /**< host test hook: item id to give and equip on B */
+    /*0x62*/ u8 devItemGet;    /**< host test hook: item id to award with the item-get cutscene */
+    /*0x63*/ u8 medallionUsed; /**< a medallion was cast in this room */
+    /*0x64*/ u16 roomKey;      /**< area << 8 | room of the room Link was last seen in */
+    /*0x66*/ u8 treasureSpawned;
+    /*0x67*/ u8 bunny;         /**< Link is a bunny (Dark World without the Moon Pearl) */
+    /*0x68*/ u8 awardCooldown;
 } BlendLink;
 
 #define BLEND_MAGIC 0x444E4C42 /* "BLND" */
@@ -66,6 +72,15 @@ extern BlendLink gBlendLink;
 
 /** Dark World flag, stored in an unused byte of the save file. */
 #define BLEND_DARK_WORLD (gSave.fillerA[0])
+/** The medallion cast with R + Select, chosen with L + Select. */
+#define BLEND_MEDALLION (gSave.fillerA[1])
+
+/* A Link to the Past items, stored in Minish Cap item ids the game never used. */
+#define ITEM_MAGIC_MIRROR ITEM_32
+#define ITEM_MOON_PEARL ITEM_33
+#define ITEM_QUAKE ITEM_ORB_GREEN
+#define ITEM_ETHER ITEM_ORB_BLUE
+#define ITEM_BOMBOS ITEM_ORB_RED
 
 bool32 Blend_IsDarkWorldActive(void);
 void Blend_GameUpdate(void);

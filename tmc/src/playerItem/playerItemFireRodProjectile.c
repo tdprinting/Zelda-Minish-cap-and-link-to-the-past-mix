@@ -13,6 +13,7 @@
 #include "collision.h"
 #include "room.h"
 #include "player.h"
+#include "item.h"
 
 typedef struct {
     /*0x00*/ Entity base;
@@ -55,6 +56,10 @@ void PlayerItemFireRodProjectile_Init(PlayerItemFireRodProjectileEntity* this) {
         super->timer = 6;
     }
     InitializeAnimation(super, 0x18);
+    if (this->unk_68 == ITEM_FIRE_ROD) {
+        // the Fire Rod's flames burn red; the Mirror Shield's reflected beam stays blue
+        super->palette.b.b0 = 0;
+    }
     PlayerItemFireRodProjectile_Action1(this);
 }
 

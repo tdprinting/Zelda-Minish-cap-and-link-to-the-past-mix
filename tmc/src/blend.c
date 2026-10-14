@@ -8,6 +8,8 @@
  *   Link crosses between worlds with the Magic Mirror (hold L + R).
  * - Co-op: publishes this player's state to gBlendLink so the PC host can
  *   mirror it into the other player's game.
+ * - A Link to the Past items: Magic Mirror, Moon Pearl (Link is a bunny in the
+ *   Dark World without it), Fire Rod, and the Bombos, Ether and Quake medallions.
  * - Dev hooks used by the automated test harness.
  */
 #include "blend.h"
@@ -27,18 +29,46 @@
 #include "physics.h"
 #include "color.h"
 #include "object.h"
+#include "item.h"
+#include "effects.h"
+#include "playeritem.h"
+#include "asm.h"
 
 #define MIRROR_HOLD_FRAMES 20
 
 u32 FindFreeObjPalette(u32 paletteCount);
 void SetEntityObjPalette(Entity* entity, s32 palette);
-/** Uploads the gfx of a sprite frame into the entity's swap gfx slots (asm). */
-void sub_080042D0(Entity* entity, u32 frameIndex, u32 spriteIndex);
 
 extern u32 gUsedPalettes;
 
 bool32 Blend_IsDarkWorldActive(void) {
     return BLEND_DARK_WORLD && (gArea.areaMetadata & AR_IS_OVERWORLD);
+}
+
+static bool32 HasItem(u32 item) {
+    return GetInventoryValue(item) != 0;
+}
+
+/** Like A Link to the Past, Link turns into a bunny in the Dark World until he finds the Moon Pearl. */
+static bool32 IsBunny(void) {
+    return Blend_IsDarkWorldActive() && !HasItem(ITEM_MOON_PEARL);
+}
+
+/** The bunny's pink coat: Link's green tunic shades turn pink. */
+static void BunnyTint(u16* pal) {
+    u32 i;
+    for (i = 0; i < 16; i++) {
+        u32 c = pal[i];
+        u32 r = c & 0x1F;
+        u32 g = (c >> 5) & 0x1F;
+        u32 b = (c >> 10) & 0x1F;
+        if (g > r + 2 && g > b + 2) {
+            r = g;
+            b = (g * 3) >> 2;
+            g = g >> 1;
+            pal[i] = r | (g << 5) | (b << 10);
+        }
+    }
 }
 
 /** Link's and the partner's OBJ palettes keep their colors in the Dark World. */
@@ -63,6 +93,9 @@ static u32 ColorsToTransform(u32 palIdx) {
 void Blend_TransformPalette(u16* pal, u32 palIdx) {
     u32 i, count;
     if (IsPaletteExempt(palIdx)) {
+        if (gBlendLink.bunny && palIdx == 16u + gPlayerEntity.base.palette.b.b0) {
+            BunnyTint(pal);
+        }
         return;
     }
     count = ColorsToTransform(palIdx);
@@ -87,14 +120,19 @@ static void RefreshAllPalettes(void) {
     gUsedPalettes = 0xffffffff;
 }
 
-static bool32 CanUseMirror(void) {
-    if (!(gArea.areaMetadata & AR_IS_OVERWORLD))
-        return FALSE;
+/** Link is standing or walking around, free to act. */
+static bool32 IsPlayerFree(void) {
     if (gMessage.state & MESSAGE_ACTIVE)
         return FALSE;
     if (gPlayerState.framestate != PL_STATE_IDLE && gPlayerState.framestate != PL_STATE_WALK)
         return FALSE;
-    return TRUE;
+    return gPlayerState.controlMode == CONTROL_ENABLED;
+}
+
+static bool32 CanUseMirror(void) {
+    if (!(gArea.areaMetadata & AR_IS_OVERWORLD))
+        return FALSE;
+    return HasItem(ITEM_MAGIC_MIRROR) && IsPlayerFree();
 }
 
 static void Warp(u32 area, u32 room, u32 x, u32 y, u32 layer) {
@@ -156,6 +194,305 @@ static void UpdateMirror(void) {
     }
 }
 
+
+/* ---- Fire Rod ---------------------------------------------------------- */
+
+/**
+ * The Fire Rod: Link swings it like the Pacci Cane and it shoots a fireball,
+ * using the fireball Minish Cap already had for the Mirror Shield.
+ */
+void ItemFireRod(ItemBehavior* this, u32 index) {
+    if (this->stateID == 0) {
+        this->priority |= 0xf;
+        sub_08077D38(this, index);
+        sub_0806F948(&gPlayerEntity.base);
+        sub_08077BB8(this);
+        this->subtimer = 0;
+        return;
+    }
+    if (this->playerFrame & 0x80) {
+        DeleteItemBehavior(this, index);
+        return;
+    }
+    // one fireball per swing, and one on screen at a time
+    if ((this->playerFrame & 0x40) && !this->subtimer &&
+        FindEntity(PLAYER_ITEM, PLAYER_ITEM_FIRE_ROD_PROJECTILE, 2, 0, 0) == NULL) {
+        Entity* fire = CreatePlayerItem(PLAYER_ITEM_FIRE_ROD_PROJECTILE, 0, 0, ITEM_FIRE_ROD);
+        if (fire != NULL) {
+            fire->parent = &gPlayerEntity.base;
+            fire->animationState = gPlayerEntity.base.animationState;
+            fire->collisionLayer = gPlayerEntity.base.collisionLayer;
+            this->subtimer = 1;
+        }
+    }
+    UpdateItemAnim(this);
+}
+
+/** L + A or L + B swaps the rod on that button between the Pacci Cane and the Fire Rod. */
+static void UpdateRodSwap(void) {
+    u32 slot;
+    u32 item;
+    if (!(gInput.heldKeys & L_BUTTON) || !IsPlayerFree()) {
+        return;
+    }
+    if (gInput.newKeys & A_BUTTON) {
+        slot = SLOT_A;
+    } else if (gInput.newKeys & B_BUTTON) {
+        slot = SLOT_B;
+    } else {
+        return;
+    }
+    item = gSave.stats.equipped[slot];
+    if (item == ITEM_PACCI_CANE && HasItem(ITEM_FIRE_ROD)) {
+        item = ITEM_FIRE_ROD;
+    } else if (item == ITEM_FIRE_ROD && HasItem(ITEM_PACCI_CANE)) {
+        item = ITEM_PACCI_CANE;
+    } else {
+        return;
+    }
+    ForceEquipItem(item, slot);
+    SoundReq(SFX_TEXTBOX_SELECT);
+    // the swap uses this press, so the rod doesn't also swing
+    gInput.newKeys &= ~(A_BUTTON | B_BUTTON);
+}
+
+/* ---- Medallions -------------------------------------------------------- */
+
+static const u8 sMedallions[] = { ITEM_BOMBOS, ITEM_ETHER, ITEM_QUAKE };
+static const u8 sMedallionFx[] = { FX_GIANT_EXPLOSION, FX_LIGHTNING_STRIKE, FX_ROCK_HUGE };
+static const u8 sMedallionChoiceFx[] = { FX_RED_AURA, FX_BLUE_AURA, FX_GREEN_ORB };
+static const u16 sMedallionSfx[] = { SFX_ITEM_BOMB_EXPLODE, SFX_SUMMON, SFX_BOSS_EXPLODE };
+
+static bool32 HasSword(void) {
+    u32 i;
+    for (i = ITEM_SMITH_SWORD; i <= ITEM_FOURSWORD; i++) {
+        if (HasItem(i)) {
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
+
+/** Wraps a medallion index around (the game has no division routine linked in). */
+static u32 WrapMedallion(u32 m) {
+    while (m >= ARRAY_COUNT(sMedallions)) {
+        m -= ARRAY_COUNT(sMedallions);
+    }
+    return m;
+}
+
+/** Index into sMedallions of the chosen medallion, or -1 if Link has none. */
+static s32 ChosenMedallion(void) {
+    u32 i;
+    for (i = 0; i < ARRAY_COUNT(sMedallions); i++) {
+        u32 m = WrapMedallion(BLEND_MEDALLION + i);
+        if (HasItem(sMedallions[m])) {
+            return m;
+        }
+    }
+    return -1;
+}
+
+static const Hitbox sSpellHitbox = { 0, 0, { 0, 0, 0, 0 }, 14, 14 };
+
+/** Type 2: an invisible strike that hits the enemy it was put on, for medallion spells. */
+static void LinkSpellHit(Entity* this) {
+    if (this->action == 0) {
+        this->action = 1;
+        this->timer = 8;
+        this->spriteSettings.draw = 0;
+        this->hitbox = (Hitbox*)&sSpellHitbox;
+        this->flags |= ENT_COLLIDE;
+        this->hurtType = 0x09; // a full spin attack
+        this->damage = 24;
+        this->collisionFlags = (gPlayerEntity.base.collisionFlags + 1) | 0x20;
+        this->collisionMask = gPlayerEntity.base.collisionMask;
+        sub_0801766C(this);
+    }
+    if (this->child != NULL && this->child->next != NULL) {
+        this->x.HALF.HI = this->child->x.HALF.HI;
+        this->y.HALF.HI = this->child->y.HALF.HI;
+    }
+    if (--this->timer == 0) {
+        DeleteThisEntity();
+    }
+}
+
+static void CastMedallion(u32 m) {
+    u32 i;
+    Entity* e;
+    SoundReq(sMedallionSfx[m]);
+    if (sMedallions[m] == ITEM_QUAKE) {
+        InitScreenShake(60, 1);
+    }
+    CreateFx(&gPlayerEntity.base, sMedallionChoiceFx[m], 0);
+    for (i = 0; i < ARRAY_COUNT(gEntityLists); i++) {
+        LinkedList* list = &gEntityLists[i];
+        for (e = list->first; (u32)e != (u32)list; e = e->next) {
+            Entity* hit;
+            if (e->kind != ENEMY || !(e->flags & ENT_COLLIDE) || e->health == 0 || !CheckOnScreen(e)) {
+                continue;
+            }
+            CreateFx(e, sMedallionFx[m], 0);
+            hit = CreateObject(LINK_PARTNER, 2, 0);
+            if (hit != NULL) {
+                CopyPosition(e, hit);
+                hit->child = e;
+            }
+        }
+    }
+    gBlendLink.medallionUsed = 1;
+}
+
+/**
+ * The medallions from A Link to the Past. L + Select chooses one, R + Select casts it.
+ * Casting needs a sword and works once per room; it strikes every enemy on screen.
+ */
+static void UpdateMedallions(void) {
+    u32 held = gInput.heldKeys;
+    s32 m;
+    if (!(held & (L_BUTTON | R_BUTTON))) {
+        return;
+    }
+    // Select with L or R belongs to the medallions, not to Ezlo's hints
+    gInput.heldKeys &= ~SELECT_BUTTON;
+    if (!(gInput.newKeys & SELECT_BUTTON)) {
+        return;
+    }
+    gInput.newKeys &= ~SELECT_BUTTON;
+    m = ChosenMedallion();
+    if (m < 0 || !IsPlayerFree()) {
+        return;
+    }
+    if (held & L_BUTTON) {
+        u32 i;
+        for (i = 1; i <= ARRAY_COUNT(sMedallions); i++) {
+            u32 next = WrapMedallion(m + i);
+            if (HasItem(sMedallions[next])) {
+                BLEND_MEDALLION = next;
+                break;
+            }
+        }
+        SoundReq(SFX_TEXTBOX_SELECT);
+        CreateFx(&gPlayerEntity.base, sMedallionChoiceFx[BLEND_MEDALLION], 0);
+        return;
+    }
+    if (!HasSword() || gBlendLink.medallionUsed || gBlendLink.bunny) {
+        SoundReq(SFX_MENU_ERROR);
+        return;
+    }
+    CastMedallion(m);
+}
+
+/* ---- Bunny ------------------------------------------------------------- */
+
+static void UpdateBunny(void) {
+    u32 bunny = IsBunny();
+    if (bunny) {
+        // a bunny can't swing a sword, use items or lift things
+        gPlayerState.flags |= PL_DISABLE_ITEMS;
+    } else if (gBlendLink.bunny) {
+        gPlayerState.flags &= ~PL_DISABLE_ITEMS;
+    }
+    if (bunny != gBlendLink.bunny) {
+        gBlendLink.bunny = bunny;
+        RefreshAllPalettes();
+    }
+}
+
+/* ---- Where the new items are found -------------------------------------- */
+
+typedef struct {
+    u8 area;
+    u8 room;
+    u8 darkWorld;
+    u8 item;
+    u16 x; /**< room coordinates */
+    u16 y;
+    u8 needs; /**< item Link must have before this one shows up, or ITEM_NONE */
+    u8 kind;  /**< ground item kind: 4 lies in the open, 7 is buried (dig with the Mole Mitts) */
+} Treasure;
+
+#define TREASURE_OPEN 4
+#define TREASURE_BURIED 7
+
+/**
+ * Items from A Link to the Past that lie in the world, in the spirit of where
+ * that game hid them. The Dark World places need the Moon Pearl first.
+ */
+static const Treasure sTreasures[] = {
+    // Skull Woods: the Fire Rod waits in the Dark World Minish Woods
+    { AREA_MINISH_WOODS, 0, 1, ITEM_FIRE_ROD, 0x1a8, 0x1f8, ITEM_MOON_PEARL, TREASURE_OPEN },
+    // the Bombos tablet stands in the ruins; its medallion is buried in the Dark World ruins
+    { AREA_RUINS, 0, 1, ITEM_BOMBOS, 200, 230, ITEM_MOON_PEARL, TREASURE_BURIED },
+    // Ether waits on the Dark World mountain, as on Death Mountain
+    { AREA_MT_CRENEL, 0, 1, ITEM_ETHER, 0x100, 0x100, ITEM_MOON_PEARL, TREASURE_OPEN },
+    // Quake is the gift of the Dark World lake
+    { AREA_LAKE_HYLIA, 0, 1, ITEM_QUAKE, 0x100, 0x100, ITEM_MOON_PEARL, TREASURE_OPEN },
+};
+
+static void SpawnTreasures(void) {
+    u32 i;
+    for (i = 0; i < ARRAY_COUNT(sTreasures); i++) {
+        const Treasure* t = &sTreasures[i];
+        Entity* e;
+        if (t->area != gRoomControls.area || t->room != gRoomControls.room || t->darkWorld != BLEND_DARK_WORLD) {
+            continue;
+        }
+        if (HasItem(t->item) || (t->needs != ITEM_NONE && !HasItem(t->needs))) {
+            continue;
+        }
+        e = CreateObject(GROUND_ITEM, t->item, 0);
+        if (e != NULL) {
+            e->timer = t->kind;
+            e->x.HALF.HI = gRoomControls.origin_x + t->x;
+            e->y.HALF.HI = gRoomControls.origin_y + t->y;
+            e->collisionLayer = 1;
+        }
+    }
+}
+
+/**
+ * Items that come with Minish Cap's own milestones:
+ * the Magic Mirror with the Fire Element from Mt. Crenel (A Link to the Past's
+ * Death Mountain), and the Moon Pearl with the Ocarina after the Fortress of Winds
+ * (the third dungeon, like the Tower of Hera).
+ */
+static void UpdateMilestoneAwards(void) {
+    u32 item = ITEM_NONE;
+    if (gBlendLink.awardCooldown) {
+        gBlendLink.awardCooldown--;
+        return;
+    }
+    if (!IsPlayerFree()) {
+        return;
+    }
+    if (HasItem(ITEM_FIRE_ELEMENT) && !HasItem(ITEM_MAGIC_MIRROR)) {
+        item = ITEM_MAGIC_MIRROR;
+    } else if (HasItem(ITEM_OCARINA) && !HasItem(ITEM_MOON_PEARL)) {
+        item = ITEM_MOON_PEARL;
+    }
+    if (item != ITEM_NONE) {
+        InitItemGetSequence(item, 0, 0);
+        gBlendLink.awardCooldown = 120;
+    }
+}
+
+static void UpdateRoom(void) {
+    u32 key = (gRoomControls.area << 8) | gRoomControls.room;
+    if (key != gBlendLink.roomKey) {
+        gBlendLink.roomKey = key;
+        gBlendLink.medallionUsed = 0;
+        gBlendLink.treasureSpawned = 0;
+    }
+    // wait for the room to settle (scrolling between rooms) before placing treasure
+    if (gBlendLink.treasureSpawned < 30) {
+        if (++gBlendLink.treasureSpawned == 30) {
+            SpawnTreasures();
+        }
+    }
+}
+
 static void UpdateDevHooks(void) {
     if (gBlendLink.devSetDarkWorld) {
         BLEND_DARK_WORLD = gBlendLink.devSetDarkWorld - 1;
@@ -166,6 +503,10 @@ static void UpdateDevHooks(void) {
         SetInventoryValue(gBlendLink.devGiveItem, 1);
         ForceEquipItem(gBlendLink.devGiveItem, 1);
         gBlendLink.devGiveItem = 0;
+    }
+    if (gBlendLink.devItemGet) {
+        InitItemGetSequence(gBlendLink.devItemGet, 0, 0);
+        gBlendLink.devItemGet = 0;
     }
     if (gBlendLink.devSpawnEnemy) {
         Entity* e = CreateEnemy(gBlendLink.devSpawnEnemy - 1, 0);
@@ -333,6 +674,10 @@ void LinkPartner(Entity* this) {
         LinkPartnerItem(this);
         return;
     }
+    if (this->type == 2) {
+        LinkSpellHit(this);
+        return;
+    }
     if (this->action == 0) {
         this->action = 1;
         this->spriteSettings.draw = 0;
@@ -377,6 +722,11 @@ void Blend_GameUpdate(void) {
         gBlendLink.magic = BLEND_MAGIC;
     }
     UpdateDevHooks();
+    UpdateRoom();
+    UpdateBunny();
+    UpdateMilestoneAwards();
+    UpdateRodSwap();
+    UpdateMedallions();
     UpdateMirror();
     PublishSelf();
     UpdatePartner();
