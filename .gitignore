@@ -1,0 +1,17 @@
+# Game ROMs, saves and anything extracted from them stay private and local.
+*.gba
+*.sfc
+*.smc
+*.sav
+*.srm
+*.ss
+*.ss[0-9]
+baserom*
+zelda3/zelda3_assets.dat
+zelda3/tables/
+
+# Build outputs
+build/
+tmc/tools/include/
+tmc/tools/lib/
+blend/host/build*/

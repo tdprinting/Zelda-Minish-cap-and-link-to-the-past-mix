@@ -24,6 +24,7 @@
 #include "beanstalkSubtask.h"
 #include "pauseMenu.h"
 #include "fade.h"
+#include "blend.h"
 
 // Game task
 
@@ -234,6 +235,7 @@ static void GameMain_Update(void) {
         return;
     }
     UpdateTimerCallbacks();
+    Blend_GameUpdate();
 
     // leave early if player is now entering a portal
     if (gMain.substate != GAMEMAIN_UPDATE) {

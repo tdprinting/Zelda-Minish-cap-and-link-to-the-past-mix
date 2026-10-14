@@ -108,6 +108,7 @@ SECTIONS {
         . = 0x00036BC0; gMPlayTracks = .;
         . = 0x00038560; gEndOfEwram = .;
 #endif
+        . = 0x0003F000; gBlendLink = .;
         . = 0x00040000;
     } >ewram
 
@@ -865,6 +866,7 @@ SECTIONS {
         asm/lib/libagbsyscall.o(.text);
         src/eeprom.o(.text);
         *libc.a:memcpy.o(.text);
+        src/blend.o(.text);
         /* handwritten assembly in arm mode */
         asm/src/intr.o(.text);
 
@@ -1695,6 +1697,7 @@ SECTIONS {
         data/sound/direct_sound_samples.o(.rodata);
         data/sound/sounds.o(.rodata);
         src/eeprom.o(.rodata);
+        src/blend.o(.rodata);
     } >rom
 
     /* DWARF 2 sections */

@@ -4,6 +4,7 @@
 #include "vram.h"
 #include "screen.h"
 #include "common.h"
+#include "blend.h"
 
 static u32 sub_080501C0(FadeControl* ctl);
 static u32 sub_08050230(FadeControl* ctl);
@@ -31,6 +32,7 @@ void SetBrightness(u32 brightness) {
 void FadeVBlank(void) {
     fptrMakeFadeBuff256 func;
     u32 usedPalettesTmp, palIdx;
+    bool32 darkWorld = Blend_IsDarkWorldActive();
 
     struct_020354C0* ptrUnk = gUnk_020354C0;
     usedPalettesTmp = gUsedPalettes;
@@ -41,6 +43,9 @@ void FadeVBlank(void) {
         if ((usedPalettesTmp & 1) == 1) {
             func = (fptrMakeFadeBuff256)&ram_MakeFadeBuff256;
             func(&((u8*)gPaletteBuffer)[palIdx], &PAL_RAM[palIdx], ptrUnk->unk2, ptrUnk->unk1);
+            if (darkWorld) {
+                Blend_TransformPalette((u16*)&PAL_RAM[palIdx], palIdx / 0x20);
+            }
         }
         palIdx += 0x20;
 
