@@ -199,6 +199,7 @@ typedef enum {
     OBJECT_BF,
     ENEMY_ITEM,
     LINK_ANIMATION,
+    LINK_PARTNER, /**< co-op partner Link (blend) */
 } Object;
 
 Entity* CreateLinkAnimation(Entity* parent, u32 type, u32 type2);
@@ -415,6 +416,6 @@ void ObjectBF();
 void EnemyItem();
 void LinkAnimation();
 
-extern void (*const gObjectFunctions[194])(Entity*);
+extern void (*const gObjectFunctions[195])(Entity*);
 
 #endif // OBJECT_H

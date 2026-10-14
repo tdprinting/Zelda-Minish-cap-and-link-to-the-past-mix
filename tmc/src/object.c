@@ -1,3 +1,4 @@
+#include "blend.h"
 #include "entity.h"
 #include "object.h"
 
@@ -196,6 +197,7 @@ void (*const gObjectFunctions[])(Entity*) = {
     [OBJECT_BF] = ObjectBF,
     [ENEMY_ITEM] = EnemyItem,
     [LINK_ANIMATION] = LinkAnimation,
+    [LINK_PARTNER] = LinkPartner,
 };
 
 void ObjectUpdate(Entity* this) {

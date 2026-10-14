@@ -22,8 +22,15 @@
 #include "room.h"
 #include "save.h"
 #include "sound.h"
+#include "color.h"
+#include "object.h"
 
 #define MIRROR_HOLD_FRAMES 20
+
+u32 FindFreeObjPalette(u32 paletteCount);
+void SetEntityObjPalette(Entity* entity, s32 palette);
+/** Uploads the gfx of a sprite frame into the entity's swap gfx slots (asm). */
+void sub_080042D0(Entity* entity, u32 frameIndex, u32 spriteIndex);
 
 extern u32 gUsedPalettes;
 
@@ -31,9 +38,9 @@ bool32 Blend_IsDarkWorldActive(void) {
     return BLEND_DARK_WORLD && (gArea.areaMetadata & AR_IS_OVERWORLD);
 }
 
-/** OBJ palette 0 (Link) keeps its colors in the Dark World. */
+/** OBJ palette 0 (Link) and the partner's palette keep their colors in the Dark World. */
 static bool32 IsPaletteExempt(u32 palIdx) {
-    return palIdx == 16;
+    return palIdx == 16 || (gBlendLink.partnerPalette != 0 && palIdx == 16u + gBlendLink.partnerPalette);
 }
 
 /**
@@ -134,7 +141,96 @@ static void PublishSelf(void) {
     s->frameIndex = p->frameIndex;
     s->health = gSave.stats.health;
     s->attack = gPlayerState.framestate == PL_STATE_SWORD;
-    s->active = 1;
+    s->flipX = p->spriteSettings.flipX;
+    s->frameSpriteSettings = p->frameSpriteSettings;
+    s->collisionLayer = p->collisionLayer;
+    s->active = p->spriteSettings.draw != 0;
+}
+
+/**
+ * Give the partner its own copy of Link's palette with the tunic turned red,
+ * like the Red Mail from A Link to the Past.
+ */
+static void LoadPartnerPalette(Entity* this) {
+    u32 slot = FindFreeObjPalette(1);
+    u16* src = &gPaletteBuffer[16 * 16];
+    u16* dst;
+    u32 i;
+    if (slot >= 16) {
+        return;
+    }
+    gPaletteList[slot].objPaletteId = 0x3f0;
+    gPaletteList[slot]._0_4 = 1;
+    gPaletteList[slot]._0_0 = 3;
+    gPaletteList[slot]._1 = 0;
+    dst = &gPaletteBuffer[(16 + slot) * 16];
+    for (i = 0; i < 16; i++) {
+        u32 c = src[i];
+        u32 r = c & 0x1F;
+        u32 g = (c >> 5) & 0x1F;
+        u32 b = (c >> 10) & 0x1F;
+        if (g > r + 2 && g > b + 2) {
+            // green tunic shades become red
+            u32 t = r;
+            r = g;
+            g = t;
+        }
+        dst[i] = r | (g << 5) | (b << 10);
+    }
+    USE_PALETTE(16 + slot);
+    SetEntityObjPalette(this, slot);
+    gBlendLink.partnerPalette = slot;
+}
+
+static bool32 PartnerVisibleHere(void) {
+    BlendPlayerSync* p = &gBlendLink.partner;
+    return gBlendLink.hostConnected && p->active && p->area == gRoomControls.area && p->room == gRoomControls.room &&
+           p->darkWorld == BLEND_DARK_WORLD;
+}
+
+/** Object function for the co-op partner: a second Link driven by the other player's game. */
+void LinkPartner(Entity* this) {
+    BlendPlayerSync* p = &gBlendLink.partner;
+    if (this->action == 0) {
+        this->action = 1;
+        this->spriteSettings.draw = 0;
+        LoadPartnerPalette(this);
+    }
+    if (!PartnerVisibleHere()) {
+        this->spriteSettings.draw = 0;
+        return;
+    }
+    this->spriteSettings.draw = 1;
+    this->x.HALF.HI = p->x;
+    this->y.HALF.HI = p->y;
+    this->z.HALF.HI = p->z;
+    this->collisionLayer = p->collisionLayer;
+    this->spriteIndex = p->spriteIndex;
+    this->frameIndex = p->frameIndex;
+    if (this->frameIndex != this->lastFrameIndex) {
+        this->lastFrameIndex = this->frameIndex;
+        sub_080042D0(this, this->frameIndex, this->spriteIndex);
+    }
+    this->frameSpriteSettings = p->frameSpriteSettings;
+    this->animationState = p->animationState;
+    this->spriteSettings.flipX = p->flipX;
+    UpdateSpriteForCollisionLayer(this);
+}
+
+static void UpdatePartner(void) {
+    Entity* e = gBlendLink.partnerEntity;
+    bool32 alive = e != NULL && e->next != NULL && e->kind == OBJECT && e->id == LINK_PARTNER;
+    if (!gBlendLink.hostConnected) {
+        return;
+    }
+    if (!alive) {
+        gBlendLink.partnerEntity = NULL;
+        gBlendLink.partnerPalette = 0;
+        e = CreateObject(LINK_PARTNER, 0, 0);
+        if (e != NULL) {
+            gBlendLink.partnerEntity = e;
+        }
+    }
 }
 
 void Blend_GameUpdate(void) {
@@ -145,4 +241,5 @@ void Blend_GameUpdate(void) {
     UpdateDevHooks();
     UpdateMirror();
     PublishSelf();
+    UpdatePartner();
 }

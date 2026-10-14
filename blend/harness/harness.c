@@ -78,6 +78,17 @@ int main(int argc, char** argv) {
 		}
 		else if (!strcmp(cmd, "poke8")) core->busWrite8(core, strtoul(a, 0, 0), n);
 		else if (!strcmp(cmd, "poke16")) core->busWrite16(core, strtoul(a, 0, 0), n);
+		else if (!strcmp(cmd, "echo")) {
+			// fake a co-op partner: copy our own sync block into the partner block, offset by a pixels in x,
+			// while holding keys given as the third field (or none) for n frames
+			int dx = atoi(a);
+			core->busWrite8(core, 0x0203F004, 1);
+			for (int i = 0; i < n; i++) {
+				for (int k = 0; k < 0x14; k++) core->busWrite8(core, 0x0203F024 + k, core->busRead8(core, 0x0203F010 + k));
+				core->busWrite16(core, 0x0203F024, core->busRead16(core, 0x0203F010) + dx);
+				core->runFrame(core);
+			}
+		}
 		else if (!strcmp(cmd, "peek")) { unsigned long ad = strtoul(a, 0, 0); for (int i = 0; i < n; i++) printf("%02x ", core->busRead8(core, ad + i)); printf("\n"); }
 	}
 	core->deinit(core);

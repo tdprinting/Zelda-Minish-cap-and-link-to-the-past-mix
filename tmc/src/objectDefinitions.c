@@ -945,6 +945,8 @@ const ObjectDefinition gObjectDefinition_95[] = {
     { { 1, 0, 0, 1, 371, 0, 0 }, { 3, 0, 1, 0, 270, 0, 1 } }, { { 1, 0, 0, 1, 371, 0, 0 }, { 4, 0, 1, 0, 270, 0, 1 } },
     { { 1, 0, 0, 1, 370, 0, 0 }, { 1, 0, 1, 0, 269, 1, 1 } }, { { 1, 0, 0, 1, 370, 0, 0 }, { 1, 0, 1, 0, 269, 1, 1 } },
     { { 1, 0, 0, 0, 1, 1, 0 }, { 22, 0, 1, 0, 2, 1, 1 } },
+    // LINK_PARTNER: 4 swap gfx slots so it can show any of Link's frames
+    { { 1, 0, 0, 0, 4, 1, 0 }, { 22, 0, 1, 0, 2, 1, 1 } },
 };
 const ObjectDefinition gObjectDefinition_96[] = {
     { { 1, 0, 0, 1, 1, 1, 0 }, { 0, 0, 1, 0, 321, 1, 1 } }, { { 1, 0, 0, 1, 521, 0, 0 }, { 0, 0, 0, 0, 323, 1, 1 } },
@@ -969,6 +971,8 @@ const ObjectDefinition gObjectDefinition_95[] = {
     { { 1, 0, 0, 1, 371, 0, 0 }, { 3, 0, 1, 0, 270, 0, 1 } }, { { 1, 0, 0, 1, 371, 0, 0 }, { 4, 0, 1, 0, 270, 0, 1 } },
     { { 1, 0, 0, 1, 370, 0, 0 }, { 1, 0, 1, 0, 269, 1, 1 } }, { { 1, 0, 0, 1, 370, 0, 0 }, { 1, 0, 1, 0, 269, 1, 1 } },
     { { 1, 0, 0, 0, 1, 1, 0 }, { 22, 0, 1, 0, 2, 1, 1 } },
+    // LINK_PARTNER: 4 swap gfx slots so it can show any of Link's frames
+    { { 1, 0, 0, 0, 4, 1, 0 }, { 22, 0, 1, 0, 2, 1, 1 } },
 };
 const ObjectDefinition gObjectDefinition_96[] = {
     { { 1, 0, 0, 1, 1, 1, 0 }, { 0, 0, 1, 0, 322, 1, 1 } }, { { 1, 0, 0, 1, 522, 0, 0 }, { 0, 0, 0, 0, 324, 1, 1 } },
@@ -1774,4 +1778,6 @@ const ObjectDefinition gObjectDefinitions[] = {
     { { 1, 0, 0, 0, 255, 2, 0 }, { 0, 0, 0, 0, 0, 0, 1 } },
     MULTI_FORM(gObjectDefinition_C0),
     { { 1, 0, 0, 0, 1, 1, 0 }, { 22, 0, 1, 0, 2, 1, 1 } },
+    // LINK_PARTNER: 4 swap gfx slots so it can show any of Link's frames
+    { { 1, 0, 0, 0, 4, 1, 0 }, { 22, 0, 1, 0, 2, 1, 1 } },
 };
