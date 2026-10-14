@@ -59,6 +59,9 @@ void PlayerItemFireRodProjectile_Init(PlayerItemFireRodProjectileEntity* this) {
     if (this->unk_68 == ITEM_FIRE_ROD) {
         // the Fire Rod's flames burn red; the Mirror Shield's reflected beam stays blue
         super->palette.b.b0 = 0;
+    } else if (this->unk_68 == ITEM_UNUSED_SWORD) {
+        // the Ice Rod (stored in the unused sword's item id) shoots pale ice
+        super->palette.b.b0 = 3;
     }
     PlayerItemFireRodProjectile_Action1(this);
 }
@@ -83,7 +86,7 @@ void PlayerItemFireRodProjectile_Action1(PlayerItemFireRodProjectileEntity* this
                 DeleteThisEntity();
             }
             if (super->contactFlags != 0) {
-                CreateFx(super, FX_SWORD_MAGIC, 0);
+                CreateFx(super, this->unk_68 == ITEM_UNUSED_SWORD ? FX_ICE : FX_SWORD_MAGIC, 0);
                 DeleteThisEntity();
             }
             if (DoTileInteractionHere(super, 0xc)) {

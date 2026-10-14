@@ -81,11 +81,13 @@ extern BlendLink gBlendLink;
 #define ITEM_QUAKE ITEM_ORB_GREEN
 #define ITEM_ETHER ITEM_ORB_BLUE
 #define ITEM_BOMBOS ITEM_ORB_RED
+#define ITEM_ICE_ROD ITEM_UNUSED_SWORD
 
 bool32 Blend_IsDarkWorldActive(void);
 void Blend_GameUpdate(void);
 void Blend_ApplyDarkWorldEnemy(struct Entity_* entity);
 void Blend_TransformPalette(u16* pal, u32 palIdx);
 void LinkPartner(struct Entity_* this);
+u32 Blend_ItemSpriteAnim(u32 item);
 
 #endif // BLEND_H

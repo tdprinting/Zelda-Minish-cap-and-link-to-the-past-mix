@@ -195,11 +195,35 @@ static void UpdateMirror(void) {
 }
 
 
+/**
+ * The picture shown for an item on the ground or held up by Link. The new
+ * items borrow Minish Cap pictures: the Mirror Shield for the Magic Mirror,
+ * and the glowing Elements for the Moon Pearl and the medallions.
+ */
+u32 Blend_ItemSpriteAnim(u32 item) {
+    switch (item) {
+        case ITEM_MAGIC_MIRROR:
+            return ITEM_MIRROR_SHIELD;
+        case ITEM_MOON_PEARL:
+            return ITEM_WATER_ELEMENT;
+        case ITEM_BOMBOS:
+            return ITEM_FIRE_ELEMENT;
+        case ITEM_ETHER:
+            return ITEM_WIND_ELEMENT;
+        case ITEM_QUAKE:
+            return ITEM_EARTH_ELEMENT;
+        case ITEM_ICE_ROD:
+            return ITEM_FIRE_ROD;
+        default:
+            return item;
+    }
+}
+
 /* ---- Fire Rod ---------------------------------------------------------- */
 
 /**
- * The Fire Rod: Link swings it like the Pacci Cane and it shoots a fireball,
- * using the fireball Minish Cap already had for the Mirror Shield.
+ * The Fire Rod and Ice Rod: Link swings them like the Pacci Cane and they shoot
+ * the bolt Minish Cap already had for the Mirror Shield, colored red or ice white.
  */
 void ItemFireRod(ItemBehavior* this, u32 index) {
     if (this->stateID == 0) {
@@ -217,7 +241,7 @@ void ItemFireRod(ItemBehavior* this, u32 index) {
     // one fireball per swing, and one on screen at a time
     if ((this->playerFrame & 0x40) && !this->subtimer &&
         FindEntity(PLAYER_ITEM, PLAYER_ITEM_FIRE_ROD_PROJECTILE, 2, 0, 0) == NULL) {
-        Entity* fire = CreatePlayerItem(PLAYER_ITEM_FIRE_ROD_PROJECTILE, 0, 0, ITEM_FIRE_ROD);
+        Entity* fire = CreatePlayerItem(PLAYER_ITEM_FIRE_ROD_PROJECTILE, 0, 0, this->behaviorId);
         if (fire != NULL) {
             fire->parent = &gPlayerEntity.base;
             fire->animationState = gPlayerEntity.base.animationState;
@@ -228,10 +252,13 @@ void ItemFireRod(ItemBehavior* this, u32 index) {
     UpdateItemAnim(this);
 }
 
-/** L + A or L + B swaps the rod on that button between the Pacci Cane and the Fire Rod. */
+static const u8 sRods[] = { ITEM_PACCI_CANE, ITEM_FIRE_ROD, ITEM_ICE_ROD };
+
+/** L + A or L + B swaps the rod on that button to the next rod Link owns: Pacci Cane, Fire Rod, Ice Rod. */
 static void UpdateRodSwap(void) {
     u32 slot;
     u32 item;
+    u32 i, j;
     if (!(gInput.heldKeys & L_BUTTON) || !IsPlayerFree()) {
         return;
     }
@@ -243,11 +270,26 @@ static void UpdateRodSwap(void) {
         return;
     }
     item = gSave.stats.equipped[slot];
-    if (item == ITEM_PACCI_CANE && HasItem(ITEM_FIRE_ROD)) {
-        item = ITEM_FIRE_ROD;
-    } else if (item == ITEM_FIRE_ROD && HasItem(ITEM_PACCI_CANE)) {
-        item = ITEM_PACCI_CANE;
-    } else {
+    for (i = 0; i < ARRAY_COUNT(sRods); i++) {
+        if (sRods[i] == item) {
+            break;
+        }
+    }
+    if (i == ARRAY_COUNT(sRods)) {
+        return;
+    }
+    item = ITEM_NONE;
+    for (j = 1; j < ARRAY_COUNT(sRods); j++) {
+        u32 next = i + j;
+        if (next >= ARRAY_COUNT(sRods)) {
+            next -= ARRAY_COUNT(sRods);
+        }
+        if (HasItem(sRods[next])) {
+            item = sRods[next];
+            break;
+        }
+    }
+    if (item == ITEM_NONE) {
         return;
     }
     ForceEquipItem(item, slot);
@@ -266,7 +308,7 @@ static const u16 sMedallionSfx[] = { SFX_ITEM_BOMB_EXPLODE, SFX_SUMMON, SFX_BOSS
 static bool32 HasSword(void) {
     u32 i;
     for (i = ITEM_SMITH_SWORD; i <= ITEM_FOURSWORD; i++) {
-        if (HasItem(i)) {
+        if (i != ITEM_ICE_ROD && HasItem(i)) {
             return TRUE;
         }
     }
@@ -429,6 +471,8 @@ static const Treasure sTreasures[] = {
     { AREA_MT_CRENEL, 0, 1, ITEM_ETHER, 0x100, 0x100, ITEM_MOON_PEARL, TREASURE_OPEN },
     // Quake is the gift of the Dark World lake
     { AREA_LAKE_HYLIA, 0, 1, ITEM_QUAKE, 0x100, 0x100, ITEM_MOON_PEARL, TREASURE_OPEN },
+    // the Ice Rod waits by Lake Hylia in the Light World, for swimmers
+    { AREA_LAKE_HYLIA, 0, 0, ITEM_ICE_ROD, 0x100, 0x100, ITEM_FLIPPERS, TREASURE_OPEN },
 };
 
 static void SpawnTreasures(void) {
@@ -475,6 +519,19 @@ static void UpdateMilestoneAwards(void) {
     if (item != ITEM_NONE) {
         InitItemGetSequence(item, 0, 0);
         gBlendLink.awardCooldown = 120;
+    }
+}
+
+/** Ezlo's words the first time Link reaches the Dark World (a new line added to his text). */
+#define TEXT_EZLO_DARK_WORLD TEXT_INDEX(TEXT_EZLO, 0x71)
+#define BLEND_STORY_FLAGS (gSave.fillerA[2])
+#define STORY_SAW_DARK_WORLD 0x1
+
+static void UpdateStory(void) {
+    if (!(BLEND_STORY_FLAGS & STORY_SAW_DARK_WORLD) && Blend_IsDarkWorldActive() && IsPlayerFree() &&
+        gBlendLink.treasureSpawned >= 30) {
+        BLEND_STORY_FLAGS |= STORY_SAW_DARK_WORLD;
+        MessageFromTarget(TEXT_EZLO_DARK_WORLD);
     }
 }
 
@@ -725,6 +782,7 @@ void Blend_GameUpdate(void) {
     UpdateRoom();
     UpdateBunny();
     UpdateMilestoneAwards();
+    UpdateStory();
     UpdateRodSwap();
     UpdateMedallions();
     UpdateMirror();
