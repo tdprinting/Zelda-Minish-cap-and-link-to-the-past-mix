@@ -33,8 +33,8 @@
 #define LINK_HOST_CONNECTED (LINK_BASE + 0x04)
 #define LINK_PLAYER_INDEX (LINK_BASE + 0x05)
 #define LINK_SELF (LINK_BASE + 0x10)
-#define LINK_PARTNER (LINK_BASE + 0x24)
-#define LINK_SYNC_SIZE 0x14
+#define LINK_PARTNER (LINK_BASE + 0x2C)
+#define LINK_SYNC_SIZE 0x1C
 
 enum {
 	GBA_A = 1 << 0, GBA_B = 1 << 1, GBA_SELECT = 1 << 2, GBA_START = 1 << 3,
@@ -175,7 +175,8 @@ static uint16_t parseKeys(const char* s) {
 }
 
 // Headless test script. Each line: "WHO KEYS FRAMES" where WHO is 1, 2 or b (both)
-// and KEYS uses A B L R S(tart) E(select) U D < > or "-" for none; "shot FILE" saves the screens.
+// and KEYS uses A B L R S(tart) E(select) U D < > or "-" for none; "shot FILE" saves the screens;
+// "poke WHO ADDR VALUE" writes a byte (hex) into that player's memory.
 static void runScript(const char* path, struct Player* p, int players) {
 	FILE* f = fopen(path, "r");
 	char line[256];
@@ -184,6 +185,13 @@ static void runScript(const char* path, struct Player* p, int players) {
 	while (fgets(line, sizeof(line), f)) {
 		char who[8] = "", keys[32] = "";
 		int frames = 0;
+		unsigned addr = 0, val = 0;
+		if (sscanf(line, "poke %7s %x %x", who, &addr, &val) == 3) {
+			for (int i = 0; i < players; i++)
+				if (who[0] == 'b' || who[0] - '1' == i)
+					p[i].core->busWrite8(p[i].core, addr, val);
+			continue;
+		}
 		if (sscanf(line, "shot %31s", keys) == 1) {
 			writePPM(keys, p, players);
 			continue;

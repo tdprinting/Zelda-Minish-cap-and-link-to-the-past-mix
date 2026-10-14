@@ -160,6 +160,11 @@ static void UpdateDevHooks(void) {
         gBlendLink.devSetDarkWorld = 0;
         RefreshAllPalettes();
     }
+    if (gBlendLink.devGiveItem) {
+        SetInventoryValue(gBlendLink.devGiveItem, 1);
+        ForceEquipItem(gBlendLink.devGiveItem, 1);
+        gBlendLink.devGiveItem = 0;
+    }
     if (gBlendLink.devSpawnEnemy) {
         Entity* e = CreateEnemy(gBlendLink.devSpawnEnemy - 1, 0);
         gBlendLink.devSpawnEnemy = 0;
@@ -194,6 +199,18 @@ static void PublishSelf(void) {
     s->frameSpriteSettings = p->frameSpriteSettings;
     s->collisionLayer = p->collisionLayer;
     s->active = p->spriteSettings.draw != 0;
+    s->itemSpriteIndex = 0;
+    // Link's draw routine draws his held item itself, so the item's own draw flag stays off
+    if (gPlayerState.item != NULL && gPlayerState.item->kind == PLAYER_ITEM && gPlayerState.item->next != NULL) {
+        Entity* item = gPlayerState.item;
+        s->itemSpriteIndex = item->spriteIndex;
+        s->itemX = item->x.HALF.HI - p->x.HALF.HI;
+        s->itemY = item->y.HALF.HI - p->y.HALF.HI;
+        s->itemFrameIndex = item->frameIndex;
+        s->itemFlipX = item->spriteSettings.flipX;
+        s->itemPalette = item->palette.b.b0;
+        s->itemFrameSpriteSettings = item->frameSpriteSettings;
+    }
 }
 
 /**
@@ -237,9 +254,47 @@ static bool32 PartnerVisibleHere(void) {
            p->darkWorld == BLEND_DARK_WORLD;
 }
 
+static void ShowFrame(Entity* this, u32 spriteIndex, u32 frameIndex) {
+    this->spriteIndex = spriteIndex;
+    this->frameIndex = frameIndex;
+    if (this->frameIndex != this->lastFrameIndex) {
+        this->lastFrameIndex = this->frameIndex;
+        sub_080042D0(this, this->frameIndex, this->spriteIndex);
+    }
+}
+
+/** Type 1: the partner's held item (sword swings and the like). */
+static void LinkPartnerItem(Entity* this) {
+    BlendPlayerSync* p = &gBlendLink.partner;
+    if (this->action == 0) {
+        this->action = 1;
+        this->spriteSettings.draw = 0;
+    }
+    if (!PartnerVisibleHere() || p->itemSpriteIndex == 0) {
+        this->spriteSettings.draw = 0;
+        return;
+    }
+    this->spriteSettings.draw = 1;
+    this->x.HALF.HI = p->x + p->itemX;
+    this->y.HALF.HI = p->y + p->itemY;
+    this->z.HALF.HI = p->z;
+    this->collisionLayer = p->collisionLayer;
+    if (this->palette.b.b0 != p->itemPalette) {
+        SetEntityObjPalette(this, p->itemPalette);
+    }
+    ShowFrame(this, p->itemSpriteIndex, p->itemFrameIndex);
+    this->frameSpriteSettings = p->itemFrameSpriteSettings;
+    this->spriteSettings.flipX = p->itemFlipX;
+    UpdateSpriteForCollisionLayer(this);
+}
+
 /** Object function for the co-op partner: a second Link driven by the other player's game. */
 void LinkPartner(Entity* this) {
     BlendPlayerSync* p = &gBlendLink.partner;
+    if (this->type == 1) {
+        LinkPartnerItem(this);
+        return;
+    }
     if (this->action == 0) {
         this->action = 1;
         this->spriteSettings.draw = 0;
@@ -254,31 +309,27 @@ void LinkPartner(Entity* this) {
     this->y.HALF.HI = p->y;
     this->z.HALF.HI = p->z;
     this->collisionLayer = p->collisionLayer;
-    this->spriteIndex = p->spriteIndex;
-    this->frameIndex = p->frameIndex;
-    if (this->frameIndex != this->lastFrameIndex) {
-        this->lastFrameIndex = this->frameIndex;
-        sub_080042D0(this, this->frameIndex, this->spriteIndex);
-    }
+    ShowFrame(this, p->spriteIndex, p->frameIndex);
     this->frameSpriteSettings = p->frameSpriteSettings;
     this->animationState = p->animationState;
     this->spriteSettings.flipX = p->flipX;
     UpdateSpriteForCollisionLayer(this);
 }
 
+static bool32 IsPartnerObject(Entity* e, u32 type) {
+    return e != NULL && e->next != NULL && e->kind == OBJECT && e->id == LINK_PARTNER && e->type == type;
+}
+
 static void UpdatePartner(void) {
-    Entity* e = gBlendLink.partnerEntity;
-    bool32 alive = e != NULL && e->next != NULL && e->kind == OBJECT && e->id == LINK_PARTNER;
     if (!gBlendLink.hostConnected) {
         return;
     }
-    if (!alive) {
-        gBlendLink.partnerEntity = NULL;
+    if (!IsPartnerObject(gBlendLink.partnerEntity, 0)) {
         gBlendLink.partnerPalette = 0;
-        e = CreateObject(LINK_PARTNER, 0, 0);
-        if (e != NULL) {
-            gBlendLink.partnerEntity = e;
-        }
+        gBlendLink.partnerEntity = CreateObject(LINK_PARTNER, 0, 0);
+    }
+    if (!IsPartnerObject(gBlendLink.partnerItemEntity, 1)) {
+        gBlendLink.partnerItemEntity = CreateObject(LINK_PARTNER, 1, 0);
     }
 }
 

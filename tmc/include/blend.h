@@ -24,7 +24,13 @@ typedef struct {
     /*0x0f*/ u8 flipX;
     /*0x10*/ u8 frameSpriteSettings;
     /*0x11*/ u8 collisionLayer;
-    /*0x12*/ u16 pad;
+    /*0x12*/ u16 itemSpriteIndex; /**< held item (sword etc.), 0 when none is drawn */
+    /*0x14*/ s16 itemX;
+    /*0x16*/ s16 itemY;
+    /*0x18*/ u8 itemFrameIndex;
+    /*0x19*/ u8 itemFlipX;
+    /*0x1a*/ u8 itemPalette;
+    /*0x1b*/ u8 itemFrameSpriteSettings;
 } BlendPlayerSync;
 
 typedef struct {
@@ -40,9 +46,11 @@ typedef struct {
     /*0x0e*/ u8 devSetDarkWorld; /**< host test hook: 1 = light, 2 = dark */
     /*0x0f*/ u8 partnerPalette;  /**< OBJ palette slot used by the partner Link */
     /*0x10*/ BlendPlayerSync self;    /**< written by the game every frame */
-    /*0x24*/ BlendPlayerSync partner; /**< written by the host every frame */
-    /*0x38*/ struct Entity_* partnerEntity;
-    /*0x3c*/ u8 devSpawnEnemy; /**< host test hook: enemy id + 1 to spawn next to Link */
+    /*0x2c*/ BlendPlayerSync partner; /**< written by the host every frame */
+    /*0x48*/ struct Entity_* partnerEntity;
+    /*0x4c*/ struct Entity_* partnerItemEntity;
+    /*0x50*/ u8 devSpawnEnemy; /**< host test hook: enemy id + 1 to spawn next to Link */
+    /*0x51*/ u8 devGiveItem;   /**< host test hook: item id to give and equip on B */
 } BlendLink;
 
 #define BLEND_MAGIC 0x444E4C42 /* "BLND" */

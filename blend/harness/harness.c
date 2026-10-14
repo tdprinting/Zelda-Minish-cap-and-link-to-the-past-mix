@@ -84,8 +84,8 @@ int main(int argc, char** argv) {
 			int dx = atoi(a);
 			core->busWrite8(core, 0x0203F004, 1);
 			for (int i = 0; i < n; i++) {
-				for (int k = 0; k < 0x14; k++) core->busWrite8(core, 0x0203F024 + k, core->busRead8(core, 0x0203F010 + k));
-				core->busWrite16(core, 0x0203F024, core->busRead16(core, 0x0203F010) + dx);
+				for (int k = 0; k < 0x1C; k++) core->busWrite8(core, 0x0203F02C + k, core->busRead8(core, 0x0203F010 + k));
+				core->busWrite16(core, 0x0203F02C, core->busRead16(core, 0x0203F010) + dx);
 				core->runFrame(core);
 			}
 		}
@@ -95,6 +95,13 @@ int main(int argc, char** argv) {
 			for (int i = 0; i < 0x50; i++) {
 				uint32_t e = 0x03001160 + i * 0x88;
 				if (core->busRead32(core, e + 4) && core->busRead8(core, e + 8) == 3) printf(" %02x", core->busRead8(core, e + 9));
+			}
+			printf("\n");
+		}
+		else if (!strcmp(cmd, "ents")) {
+			for (int i = 0; i < 0x50; i++) {
+				uint32_t e = 0x03001160 + i * 0x88;
+				if (core->busRead32(core, e + 4)) printf("[%d %08x k%d id%02x spr%d draw%d] ", i, e, core->busRead8(core, e + 8), core->busRead8(core, e + 9), core->busRead16(core, e + 0x12), core->busRead8(core, e + 0x18) & 3);
 			}
 			printf("\n");
 		}
