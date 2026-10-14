@@ -9,8 +9,10 @@ Everything is made by restyling and reusing the art already in Minish Cap.
 | Feature | From | How it works |
 | --- | --- | --- |
 | Dark World | A Link to the Past | Every overworld area has a Dark World version. Its palettes are restyled at runtime (olive grass, brown earth, violet shadows), so no new art is needed. |
-| Magic Mirror | A Link to the Past | Hold **L + R** on the overworld to cross between the Light and Dark World. The current world is saved with your file. |
-| Split-screen co-op | New | Two copies of the game run side by side in one window. Each player sees the other as a second Link in red mail when they are in the same room and world. |
+| Magic Mirror | A Link to the Past | Hold **L + R** on the overworld to cross between the Light and Dark World. The room reloads in the other world, and the current world is saved with your file. |
+| Dark World enemies | A Link to the Past | In the Dark World, Octoroks become Ropes, ChuChus become Spiny ChuChus and Beetles become Spiked Beetles. |
+| Blended legend | Both | The opening story now tells of the Golden Power, the shadow sealed in a Dark World and the seven sages. |
+| Split-screen co-op | New | Two copies of the game run side by side in one window. Each player sees the other as a second Link in red mail when they are in the same room and world, including sword swings. The partner's sword hits enemies on your screen too. |
 
 ## Playing on Windows
 

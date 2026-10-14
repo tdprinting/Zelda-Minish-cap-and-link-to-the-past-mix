@@ -33,8 +33,8 @@
 #define LINK_HOST_CONNECTED (LINK_BASE + 0x04)
 #define LINK_PLAYER_INDEX (LINK_BASE + 0x05)
 #define LINK_SELF (LINK_BASE + 0x10)
-#define LINK_PARTNER (LINK_BASE + 0x2C)
-#define LINK_SYNC_SIZE 0x1C
+#define LINK_PARTNER (LINK_BASE + 0x34)
+#define LINK_SYNC_SIZE 0x24
 
 enum {
 	GBA_A = 1 << 0, GBA_B = 1 << 1, GBA_SELECT = 1 << 2, GBA_START = 1 << 3,

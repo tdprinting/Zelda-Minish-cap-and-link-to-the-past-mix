@@ -84,8 +84,8 @@ int main(int argc, char** argv) {
 			int dx = atoi(a);
 			core->busWrite8(core, 0x0203F004, 1);
 			for (int i = 0; i < n; i++) {
-				for (int k = 0; k < 0x1C; k++) core->busWrite8(core, 0x0203F02C + k, core->busRead8(core, 0x0203F010 + k));
-				core->busWrite16(core, 0x0203F02C, core->busRead16(core, 0x0203F010) + dx);
+				for (int k = 0; k < 0x24; k++) core->busWrite8(core, 0x0203F034 + k, core->busRead8(core, 0x0203F010 + k));
+				core->busWrite16(core, 0x0203F034, core->busRead16(core, 0x0203F010) + dx);
 				core->runFrame(core);
 			}
 		}

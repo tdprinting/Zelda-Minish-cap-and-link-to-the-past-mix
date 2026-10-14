@@ -23,6 +23,8 @@
 #include "save.h"
 #include "sound.h"
 #include "enemy.h"
+#include "collision.h"
+#include "physics.h"
 #include "color.h"
 #include "object.h"
 
@@ -170,7 +172,7 @@ static void UpdateDevHooks(void) {
         gBlendLink.devSpawnEnemy = 0;
         if (e != NULL) {
             Blend_ApplyDarkWorldEnemy(e);
-            e->x.HALF.HI = gPlayerEntity.base.x.HALF.HI + 32;
+            e->x.HALF.HI = gPlayerEntity.base.x.HALF.HI + 44;
             e->y.HALF.HI = gPlayerEntity.base.y.HALF.HI;
             e->collisionLayer = gPlayerEntity.base.collisionLayer;
         }
@@ -210,6 +212,16 @@ static void PublishSelf(void) {
         s->itemFlipX = item->spriteSettings.flipX;
         s->itemPalette = item->palette.b.b0;
         s->itemFrameSpriteSettings = item->frameSpriteSettings;
+        s->itemHurtType = (item->flags & ENT_COLLIDE) && item->hitbox != NULL ? item->hurtType : 0;
+        s->itemDamage = item->damage;
+        if (item->hitbox != NULL) {
+            s->itemHitboxX = item->hitbox->offset_x;
+            s->itemHitboxY = item->hitbox->offset_y;
+            s->itemHitboxWidth = item->hitbox->width;
+            s->itemHitboxHeight = item->hitbox->height;
+        }
+    } else {
+        s->itemHurtType = 0;
     }
 }
 
@@ -263,17 +275,43 @@ static void ShowFrame(Entity* this, u32 spriteIndex, u32 frameIndex) {
     }
 }
 
+/**
+ * Makes the partner's sword hit things in this game too, using the hit settings
+ * of the sword in the partner's game and the collision rules of our own sword.
+ */
+static void UpdatePartnerItemCollision(Entity* this, BlendPlayerSync* p) {
+    if (this->hitbox == NULL || p->itemHurtType == 0) {
+        this->flags &= ~ENT_COLLIDE;
+        return;
+    }
+    this->flags |= ENT_COLLIDE;
+    this->hurtType = p->itemHurtType;
+    this->damage = p->itemDamage;
+    this->collisionFlags = (gPlayerEntity.base.collisionFlags + 1) | 0x20;
+    this->collisionMask = gPlayerEntity.base.collisionMask;
+    this->hitbox->offset_x = p->itemHitboxX;
+    this->hitbox->offset_y = p->itemHitboxY;
+    this->hitbox->width = p->itemHitboxWidth;
+    this->hitbox->height = p->itemHitboxHeight;
+}
+
 /** Type 1: the partner's held item (sword swings and the like). */
 static void LinkPartnerItem(Entity* this) {
     BlendPlayerSync* p = &gBlendLink.partner;
     if (this->action == 0) {
         this->action = 1;
         this->spriteSettings.draw = 0;
+        this->flags &= ~ENT_COLLIDE;
+        if (AllocMutableHitbox(this) != NULL) {
+            sub_0801766C(this);
+        }
     }
     if (!PartnerVisibleHere() || p->itemSpriteIndex == 0) {
         this->spriteSettings.draw = 0;
+        this->flags &= ~ENT_COLLIDE;
         return;
     }
+    UpdatePartnerItemCollision(this, p);
     this->spriteSettings.draw = 1;
     this->x.HALF.HI = p->x + p->itemX;
     this->y.HALF.HI = p->y + p->itemY;
