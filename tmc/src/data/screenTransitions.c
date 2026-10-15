@@ -20,12 +20,17 @@ const Transition gUnk_0813AAF4 = { WARP_TYPE_AREA, 0, 0, 0x98, 0xa8, 0, AREA_CAV
 const Transition gWallMasterToPalaceOfDarkness = { WARP_TYPE_AREA, 0, 0, ENTRY_PalaceOfDarkness, 0, AREA_NULL_1D, 0, 1, 2, 0, 0 };
 const Transition gWallMasterToSwampPalace = { WARP_TYPE_AREA, 0, 0, ENTRY_SwampPalace, 0, AREA_NULL_1E, 0, 1, 2, 0, 0 };
 const Transition gWallMasterToSkullWoods = { WARP_TYPE_AREA, 0, 0, ENTRY_SkullWoods, 0, AREA_NULL_1F, 0, 1, 2, 0, 0 };
+const Transition gWallMasterToThievesTown = { WARP_TYPE_AREA, 0, 0, ENTRY_ThievesTown, 0, AREA_NULL_39, 0, 1, 2, 0, 0 };
+const Transition gWallMasterToIcePalace = { WARP_TYPE_AREA, 0, 0, ENTRY_IcePalace, 0, AREA_NULL_3A, 0, 1, 2, 0, 0 };
+const Transition gWallMasterToMiseryMire = { WARP_TYPE_AREA, 0, 0, ENTRY_MiseryMire, 0, AREA_NULL_3B, 0, 1, 2, 0, 0 };
+const Transition gWallMasterToTurtleRock = { WARP_TYPE_AREA, 0, 0, ENTRY_TurtleRock, 0, AREA_NULL_3C, 0, 1, 2, 0, 0 };
 
 const Transition* const gWallMasterScreenTransitions[] = {
     &gUnk_0813AA54, &gUnk_0813AA68, &gUnk_0813AA7C, &gUnk_0813AA90, &gUnk_0813AAA4,
     &gUnk_0813AAB8, &gUnk_0813AACC, &gUnk_0813AAE0, &gUnk_0813AB08, &gUnk_0813AAF4,
     &gUnk_0813AAF4, // A Link to the Past dungeons have no Wallmasters
-    &gWallMasterToPalaceOfDarkness, &gWallMasterToSwampPalace, &gWallMasterToSkullWoods,
+    &gWallMasterToPalaceOfDarkness, &gWallMasterToSwampPalace, &gWallMasterToSkullWoods, &gWallMasterToThievesTown,
+    &gWallMasterToIcePalace, &gWallMasterToMiseryMire, &gWallMasterToTurtleRock,
 };
 
 const Transition unusedScreenTransition = { WARP_TYPE_AREA, 0, 0, 0x48, 0x68, 0, AREA_CASTLE_GARDEN, ROOM_CASTLE_GARDEN_MAIN, 1, 0, 2, 0 };

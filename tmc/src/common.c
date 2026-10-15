@@ -1780,11 +1780,16 @@ const DungeonLayout* const* const gDungeonLayouts[] = {
     gDungeonLayouts_None, // Palace of Darkness
     gDungeonLayouts_None, // Swamp Palace
     gDungeonLayouts_None, // Skull Woods
+    gDungeonLayouts_None, // Thieves' Town
+    gDungeonLayouts_None, // Ice Palace
+    gDungeonLayouts_None, // Misery Mire
+    gDungeonLayouts_None, // Turtle Rock
 };
 
 const DungeonFloorMetadata gDungeonFloorMetadatas[] = {
     { 1, 2, 2 }, { 3, 3, 3 }, { 4, 3, 0 }, { 3, 5, 5 }, { 3, 2, 2 }, { 5, 7, 7 }, { 5, 5, 5 }, { 1, 3, 3 },
     { 1, 3, 3 }, { 1, 3, 3 }, { 1, 3, 3 }, { 1, 3, 3 }, { 1, 3, 3 }, { 1, 3, 3 }, { 1, 3, 3 }, { 1, 3, 3 },
+    { 1, 3, 3 }, { 1, 3, 3 }, // blend: Misery Mire, Turtle Rock
 };
 
 void (*const gFuseActions[])(void) = {

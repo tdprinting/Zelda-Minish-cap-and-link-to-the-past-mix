@@ -794,6 +794,7 @@ static void UseSomaria(void) {
 }
 
 static void CastMedallion(u32 m);
+static void OpenMedallionGate(u32 medallion);
 static s32 MedallionIndex(u32 item);
 
 static void UseVariant(u32 item) {
@@ -986,6 +987,7 @@ static void CastMedallion(u32 m) {
         }
     }
     gBlendLink.medallionUsed = 1;
+    OpenMedallionGate(sMedallions[m]);
 }
 
 /**
@@ -1141,6 +1143,8 @@ static void UpdateMilestoneAwards(void) {
 #define TEXT_EZLO_DARK_WORLD TEXT_INDEX(TEXT_EZLO, 0x71)
 #define BLEND_STORY_FLAGS (gSave.fillerA[2])
 #define STORY_SAW_DARK_WORLD 0x1
+#define STORY_MIRE_OPEN 0x2   /**< Ether was cast at the Veil Falls cave */
+#define STORY_TURTLE_OPEN 0x4 /**< Quake was cast on Mt. Crenel's summit */
 
 // The cracked cave in the Eastern Hills leads to the Eastern Palace. It opens once
 // Link has the Earth Element, so A Link to the Past's first dungeon follows Minish Cap's.
@@ -1167,16 +1171,40 @@ static const DungeonCave sDungeonCaves[] = {
 // and Skull Woods in the Minish Woods (with the Fire Rod that lies there, after the
 // Water Element). Their way in comes first in the cave's exit list, so elsewhere the
 // cave leads where it always did.
+// The later ones follow A Link to the Past too: Thieves' Town in the stranger's house in
+// Hyrule Town (A Link to the Past's Village of Outcasts, reached with the Hammer), the
+// Ice Palace in the Lake Hylia cave (with the Flippers, and the Fire Rod to melt its
+// ice), and Misery Mire at the Veil Falls cave and Turtle Rock at Mt. Crenel's summit,
+// which open as in A Link to the Past once Link casts Ether and Quake in front of them
+// (MedallionGate; they stay open after that).
 typedef struct {
     u8 area;  /**< the dungeon's area */
     u8 item;  /**< what Link needs besides the Moon Pearl */
     u8 item2; /**< and this too, or ITEM_NONE */
+    u8 gate;  /**< STORY_* bit a medallion sets to open it, or 0 */
 } DarkDungeon;
 
 static const DarkDungeon sDarkDungeons[] = {
     { AREA_NULL_1D, ITEM_MOON_PEARL, ITEM_NONE }, // Palace of Darkness
     { AREA_NULL_1E, ITEM_FLIPPERS, ITEM_NONE },   // Swamp Palace
     { AREA_NULL_1F, ITEM_FIRE_ROD, ITEM_NONE },   // Skull Woods: the Fire Rod burns its way in
+    { AREA_NULL_39, ITEM_HAMMER, ITEM_NONE },     // Thieves' Town
+    { AREA_NULL_3A, ITEM_FLIPPERS, ITEM_FIRE_ROD }, // Ice Palace
+    { AREA_NULL_3B, ITEM_ETHER, ITEM_NONE, STORY_MIRE_OPEN }, // Misery Mire
+    { AREA_NULL_3C, ITEM_QUAKE, ITEM_CANE_OF_SOMARIA, STORY_TURTLE_OPEN }, // Turtle Rock
+};
+
+// where a medallion opens a dungeon: cast it in this overworld room, in the Dark World
+typedef struct {
+    u8 medallion;
+    u8 area;
+    u8 room;
+    u8 gate; /**< the STORY_* bit it sets */
+} MedallionGate;
+
+static const MedallionGate sMedallionGates[] = {
+    { ITEM_ETHER, AREA_VEIL_FALLS, ROOM_VEIL_FALLS_MAIN, STORY_MIRE_OPEN },
+    { ITEM_QUAKE, AREA_MT_CRENEL, ROOM_MT_CRENEL_TOP, STORY_TURTLE_OPEN },
 };
 
 static const DarkDungeon* FindDarkDungeon(u32 area) {
@@ -1191,7 +1219,20 @@ static const DarkDungeon* FindDarkDungeon(u32 area) {
 
 static bool32 CanEnterDarkDungeon(const DarkDungeon* d) {
     return BLEND_DARK_WORLD && HasItem(ITEM_MOON_PEARL) && HasItem(d->item) &&
-           (d->item2 == ITEM_NONE || HasItem(d->item2));
+           (d->item2 == ITEM_NONE || HasItem(d->item2)) && (d->gate == 0 || (BLEND_STORY_FLAGS & d->gate));
+}
+
+/** A medallion was cast: in front of a dungeon it opens, it opens that dungeon for good. */
+static void OpenMedallionGate(u32 medallion) {
+    u32 i;
+    for (i = 0; i < ARRAY_COUNT(sMedallionGates); i++) {
+        const MedallionGate* g = &sMedallionGates[i];
+        if (g->medallion == medallion && g->area == gRoomControls.area && g->room == gRoomControls.room &&
+            BLEND_DARK_WORLD && !(BLEND_STORY_FLAGS & g->gate)) {
+            BLEND_STORY_FLAGS |= g->gate;
+            SoundReq(SFX_SECRET_BIG);
+        }
+    }
 }
 
 /** Whether a way out of the current room is shut: a Dark World dungeon's, away from the Dark World. */
@@ -1261,6 +1302,10 @@ static const BossRoom sBossRooms[] = {
     { AREA_NULL_1D, 13, 0x7f, 0x178, 0x188 }, // Palace of Darkness: the Helmasaur King
     { AREA_NULL_1E, 11, 0x7f, 0x78, 0x188 },  // Swamp Palace: Arrghus
     { AREA_NULL_1F, 7, 0x7f, 0x188, 0x178 },  // Skull Woods: Mothula
+    { AREA_NULL_39, 7, 0x7f, 0x178, 0x188 },  // Thieves' Town: Blind
+    { AREA_NULL_3A, 20, 0x7f, 0x178, 0x98 },  // Ice Palace: Kholdstare
+    { AREA_NULL_3B, 13, 0x7f, 0x78, 0x188 },  // Misery Mire: Vitreous
+    { AREA_NULL_3C, 16, 0x7f, 0x88, 0x188 },  // Turtle Rock: Trinexx
 };
 
 static void UpdateBossRoom(void) {

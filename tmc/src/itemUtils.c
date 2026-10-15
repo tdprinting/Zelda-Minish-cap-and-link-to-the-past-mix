@@ -117,7 +117,7 @@ u32 GiveItem(Item item, u32 param_2) {
             SoundReq(SFX_103);
             break;
         case 6: // TODO dungeon item?
-            gSave.dungeonItems[gArea.dungeon_idx] |= metaData->unk2;
+            DUNGEON_ITEMS(gArea.dungeon_idx) |= metaData->unk2;
             break;
         case 0xd:
             AddKinstoneToBag(0x72);

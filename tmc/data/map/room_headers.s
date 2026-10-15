@@ -1080,10 +1080,10 @@ gAreaRoomHeaders:: @ 0811E214
 	.4byte gAreaRoomHeaders_CastleGardenMinishHoles @ 0x36
 	.4byte gAreaRoomHeaders_37                      @ 0x37
 	.4byte gAreaRoomHeaders_EzloCutscene            @ 0x38
-	.4byte 0x0                                      @ 0x39
-	.4byte 0x0                                      @ 0x3A
-	.4byte 0x0                                      @ 0x3B
-	.4byte 0x0                                      @ 0x3C
+	.4byte gAreaRoomHeaders_ThievesTown               @ 0x39 (A Link to the Past)
+	.4byte gAreaRoomHeaders_IcePalace               @ 0x3A (A Link to the Past)
+	.4byte gAreaRoomHeaders_MiseryMire               @ 0x3B (A Link to the Past)
+	.4byte gAreaRoomHeaders_TurtleRock               @ 0x3C (A Link to the Past)
 	.4byte 0x0                                      @ 0x3D
 	.4byte 0x0                                      @ 0x3E
 	.4byte 0x0                                      @ 0x3F

@@ -67,10 +67,10 @@ const AreaHeader gAreaMetadata[] = {
     { AR_HAS_NO_ENEMIES, 0, LOCAL_BANK_4, BGM_DUNGEON },
     { AR_HAS_NO_ENEMIES, 0, LOCAL_BANK_4, BGM_DUNGEON },
     { AR_HAS_NO_ENEMIES, 0, LOCAL_BANK_2, BGM_HOUSE },
-    { 0, 0, 0, 0 },
-    { 0, 0, 0, 0 },
-    { 0, 0, 0, 0 },
-    { 0, 0, 0, 0 },
+    { AR_HAS_KEYS | AR_IS_DUNGEON, 37, LOCAL_BANK_16, BGM_ROYAL_CRYPT }, // Thieves' Town
+    { AR_HAS_KEYS | AR_IS_DUNGEON, 38, LOCAL_BANK_17, BGM_TEMPLE_OF_DROPLETS }, // Ice Palace
+    { AR_HAS_KEYS | AR_IS_DUNGEON, 39, LOCAL_BANK_18, BGM_CAVE_OF_FLAMES }, // Misery Mire
+    { AR_HAS_KEYS | AR_IS_DUNGEON, 40, LOCAL_BANK_19, BGM_PALACE_OF_WINDS }, // Turtle Rock
     { 0, 0, 0, 0 },
     { 0, 0, 0, 0 },
     { 0, 0, 0, 0 },
