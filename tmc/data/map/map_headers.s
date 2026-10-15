@@ -3516,7 +3516,7 @@ gAreaRoomMaps:: @ 08107988
 	.4byte gAreaRoomMaps_IcePalace               @ 0x3A (A Link to the Past)
 	.4byte gAreaRoomMaps_MiseryMire               @ 0x3B (A Link to the Past)
 	.4byte gAreaRoomMaps_TurtleRock               @ 0x3C (A Link to the Past)
-	.4byte gAreaRoomMaps_Unused                  @ 0x3D
+	.4byte gAreaRoomMaps_GanonsTower               @ 0x3D (A Link to the Past)
 	.4byte gAreaRoomMaps_Unused                  @ 0x3E
 	.4byte gAreaRoomMaps_Unused                  @ 0x3F
 	.4byte gAreaRoomMaps_40                      @ 0x40

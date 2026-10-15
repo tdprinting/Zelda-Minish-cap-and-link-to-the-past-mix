@@ -391,7 +391,7 @@ gAreaTiles:: @ 0810309C
 	.4byte gAreaTiles_IcePalace               @ 0x3A (A Link to the Past)
 	.4byte gAreaTiles_MiseryMire               @ 0x3B (A Link to the Past)
 	.4byte gAreaTiles_TurtleRock               @ 0x3C (A Link to the Past)
-	.4byte gAreaTiles_Unused                  @ 0x3D
+	.4byte gAreaTiles_GanonsTower               @ 0x3D (A Link to the Past)
 	.4byte gAreaTiles_Unused                  @ 0x3E
 	.4byte gAreaTiles_Unused                  @ 0x3F
 	.4byte gAreaTiles_HyruleTownUnderground   @ 0x40

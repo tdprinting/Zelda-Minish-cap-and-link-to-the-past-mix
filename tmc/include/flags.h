@@ -60,6 +60,7 @@ enum LocalBanks {
     LOCAL_BANK_17, /**< blend: Ice Palace */
     LOCAL_BANK_18, /**< blend: Misery Mire */
     LOCAL_BANK_19, /**< blend: Turtle Rock */
+    LOCAL_BANK_20, /**< blend: Ganon's Tower */
 };
 
 enum LocalFlagOffsets {
@@ -85,6 +86,7 @@ enum LocalFlagOffsets {
     FLAG_BANK_17 = 0xD00,
     FLAG_BANK_18 = 0xD80,
     FLAG_BANK_19 = 0xE00,
+    FLAG_BANK_20 = 0xE80,
 };
 
 typedef enum {

@@ -73,7 +73,7 @@ typedef struct {
     /*0x009*/ u8 available_figurines;        /**< figurines available to get */
     /*0x00A*/ u8 fillerA[22];                /**< unused filler */
     /*0x020*/ u16 map_hints;                 /**< bitmask, used by subtask MapHint */
-    /*0x022*/ u8 blendDungeonKeys[4];        /**< blend: keys of dungeons 16 and up (Misery Mire, Turtle Rock) */
+    /*0x022*/ u8 blendDungeonKeys[4];        /**< blend: keys of dungeons 16 and up (Misery Mire, Turtle Rock, Ganon's Tower) */
     /*0x026*/ u8 blendDungeonItems[4];       /**< blend: their dungeon items, as dungeonItems */
     /*0x02A*/ u8 blendDungeonWarps[4];       /**< blend: their warps, as dungeonWarps */
     /*0x02E*/ u8 filler2E[18];               /**< unused filler */

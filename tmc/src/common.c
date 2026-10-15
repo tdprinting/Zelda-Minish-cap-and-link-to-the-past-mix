@@ -1784,12 +1784,13 @@ const DungeonLayout* const* const gDungeonLayouts[] = {
     gDungeonLayouts_None, // Ice Palace
     gDungeonLayouts_None, // Misery Mire
     gDungeonLayouts_None, // Turtle Rock
+    gDungeonLayouts_None, // Ganon's Tower
 };
 
 const DungeonFloorMetadata gDungeonFloorMetadatas[] = {
     { 1, 2, 2 }, { 3, 3, 3 }, { 4, 3, 0 }, { 3, 5, 5 }, { 3, 2, 2 }, { 5, 7, 7 }, { 5, 5, 5 }, { 1, 3, 3 },
     { 1, 3, 3 }, { 1, 3, 3 }, { 1, 3, 3 }, { 1, 3, 3 }, { 1, 3, 3 }, { 1, 3, 3 }, { 1, 3, 3 }, { 1, 3, 3 },
-    { 1, 3, 3 }, { 1, 3, 3 }, // blend: Misery Mire, Turtle Rock
+    { 1, 3, 3 }, { 1, 3, 3 }, { 1, 3, 3 }, // blend: Misery Mire, Turtle Rock, Ganon's Tower
 };
 
 void (*const gFuseActions[])(void) = {

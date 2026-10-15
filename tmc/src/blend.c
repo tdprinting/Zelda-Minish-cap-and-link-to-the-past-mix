@@ -1145,6 +1145,7 @@ static void UpdateMilestoneAwards(void) {
 #define STORY_SAW_DARK_WORLD 0x1
 #define STORY_MIRE_OPEN 0x2   /**< Ether was cast at the Veil Falls cave */
 #define STORY_TURTLE_OPEN 0x4 /**< Quake was cast on Mt. Crenel's summit */
+#define GATE_CRYSTALS 0x80    /**< DarkDungeon gate: the seven crystals (no story bit) */
 
 // The cracked cave in the Eastern Hills leads to the Eastern Palace. It opens once
 // Link has the Earth Element, so A Link to the Past's first dungeon follows Minish Cap's.
@@ -1177,6 +1178,9 @@ static const DungeonCave sDungeonCaves[] = {
 // ice), and Misery Mire at the Veil Falls cave and Turtle Rock at Mt. Crenel's summit,
 // which open as in A Link to the Past once Link casts Ether and Quake in front of them
 // (MedallionGate; they stay open after that).
+// Ganon's Tower stands where the Tower of Hera does, as in A Link to the Past: in the Dark
+// World, Hera's cracked cave on Mt. Crenel stays shut until Link has the seven crystals,
+// that is until he has beaten the seven Dark World dungeons' bosses (HasSevenCrystals).
 typedef struct {
     u8 area;  /**< the dungeon's area */
     u8 item;  /**< what Link needs besides the Moon Pearl */
@@ -1192,6 +1196,7 @@ static const DarkDungeon sDarkDungeons[] = {
     { AREA_NULL_3A, ITEM_FLIPPERS, ITEM_FIRE_ROD }, // Ice Palace
     { AREA_NULL_3B, ITEM_ETHER, ITEM_NONE, STORY_MIRE_OPEN }, // Misery Mire
     { AREA_NULL_3C, ITEM_QUAKE, ITEM_CANE_OF_SOMARIA, STORY_TURTLE_OPEN }, // Turtle Rock
+    { AREA_NULL_3D, ITEM_MOON_PEARL, ITEM_NONE, GATE_CRYSTALS },          // Ganon's Tower
 };
 
 // where a medallion opens a dungeon: cast it in this overworld room, in the Dark World
@@ -1217,9 +1222,25 @@ static const DarkDungeon* FindDarkDungeon(u32 area) {
     return NULL;
 }
 
+/**
+ * Whether Link has the seven crystals: each Dark World dungeon's boss beaten, its Heart
+ * Container taken (local flag 0x7f in the dungeon's bank: banks 13 to 19, the Palace of
+ * Darkness to Turtle Rock; see sBossRooms).
+ */
+static bool32 HasSevenCrystals(void) {
+    u32 bank;
+    for (bank = FLAG_BANK_13; bank <= FLAG_BANK_19; bank += FLAG_BANK_14 - FLAG_BANK_13) {
+        if (!CheckLocalFlagByBank(bank, 0x7f)) {
+            return FALSE;
+        }
+    }
+    return TRUE;
+}
+
 static bool32 CanEnterDarkDungeon(const DarkDungeon* d) {
     return BLEND_DARK_WORLD && HasItem(ITEM_MOON_PEARL) && HasItem(d->item) &&
-           (d->item2 == ITEM_NONE || HasItem(d->item2)) && (d->gate == 0 || (BLEND_STORY_FLAGS & d->gate));
+           (d->item2 == ITEM_NONE || HasItem(d->item2)) &&
+           (d->gate == 0 || (d->gate == GATE_CRYSTALS ? HasSevenCrystals() : (BLEND_STORY_FLAGS & d->gate)));
 }
 
 /** A medallion was cast: in front of a dungeon it opens, it opens that dungeon for good. */
@@ -1247,11 +1268,21 @@ bool32 Blend_IsTransitionClosed(const Transition* t) {
 
 /**
  * Whether a cracked wall stays shut: the Eastern Hills cave, which leads to the
- * Palace of Darkness in the Dark World, stays shut there until Link has the Moon Pearl.
+ * Palace of Darkness in the Dark World, stays shut there until Link has the Moon Pearl,
+ * and the Tower of Hera's cave on Mt. Crenel, Ganon's Tower in the Dark World, until he
+ * has the seven crystals.
  */
 bool32 Blend_IsCaveSealed(u32 flag) {
-    return gRoomControls.area == AREA_HYRULE_FIELD && flag == 0x70 && BLEND_DARK_WORLD &&
-           !CanEnterDarkDungeon(FindDarkDungeon(AREA_NULL_1D));
+    if (!BLEND_DARK_WORLD) {
+        return FALSE;
+    }
+    if (gRoomControls.area == AREA_HYRULE_FIELD && flag == 0x70) {
+        return !CanEnterDarkDungeon(FindDarkDungeon(AREA_NULL_1D));
+    }
+    if (gRoomControls.area == AREA_MT_CRENEL && flag == 0x44) {
+        return !CanEnterDarkDungeon(FindDarkDungeon(AREA_NULL_3D));
+    }
+    return FALSE;
 }
 
 static void UpdateStory(void) {
@@ -1306,6 +1337,7 @@ static const BossRoom sBossRooms[] = {
     { AREA_NULL_3A, 20, 0x7f, 0x178, 0x98 },  // Ice Palace: Kholdstare
     { AREA_NULL_3B, 13, 0x7f, 0x78, 0x188 },  // Misery Mire: Vitreous
     { AREA_NULL_3C, 16, 0x7f, 0x88, 0x188 },  // Turtle Rock: Trinexx
+    { AREA_NULL_3D, 20, 0x7f, 0x78, 0x178 },  // Ganon's Tower: Agahnim (for now a gold Darknut stands in)
 };
 
 static void UpdateBossRoom(void) {

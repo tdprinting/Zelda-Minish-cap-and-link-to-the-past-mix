@@ -1065,7 +1065,7 @@ gAreaTileSets:: @ 0810246C
 	.4byte gAreaTileSets_IcePalace               @ 0x3A (A Link to the Past)
 	.4byte gAreaTileSets_MiseryMire               @ 0x3B (A Link to the Past)
 	.4byte gAreaTileSets_TurtleRock               @ 0x3C (A Link to the Past)
-	.4byte gAreaTileSets_Unused                  @ 0x3D
+	.4byte gAreaTileSets_GanonsTower               @ 0x3D (A Link to the Past)
 	.4byte gAreaTileSets_Unused                  @ 0x3E
 	.4byte gAreaTileSets_Unused                  @ 0x3F
 	.4byte gAreaTileSets_40                      @ 0x40

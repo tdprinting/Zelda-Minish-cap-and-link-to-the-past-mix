@@ -291,6 +291,10 @@ const Transition gExitList_MtCrenel_CaveOfFlamesEntrance[] = {
     TransitionListEnd,
 };
 const Transition gExitList_MtCrenel_GustJarShortcut[] = {
+    // in the Dark World, once Link has the seven crystals, the cracked cave is Ganon's Tower,
+    // which stands where the Tower of Hera does, as in A Link to the Past
+    { WARP_TYPE_AREA, 0x348, 0x58, ENTRY_GanonsTower, TRANSITION_SHAPE_AREA_12x12, AREA_NULL_3D, 0,
+      1, TRANSITION_TYPE_NORMAL, 0x0, 0x0, 0x0, 0x0 },
     { WARP_TYPE_AREA, 0xa8, 0x48, 0x78, 0x78, TRANSITION_SHAPE_AREA_12x12, AREA_CRENEL_CAVES, ROOM_CRENEL_CAVES_FAIRY_FOUNTAIN,
       1, TRANSITION_TYPE_NORMAL, 0x0, 0x0, 0x0, 0x0 },
     { WARP_TYPE_AREA, 0x2f8, 0x28, 0x38, 0x98, TRANSITION_SHAPE_AREA_12x12, AREA_CRENEL_CAVES, ROOM_CRENEL_CAVES_SPINY_CHU_PUZZLE,
@@ -3892,7 +3896,7 @@ const Transition* const* const gExitLists[] = {
     /*AREA_NULL_3A*/ gExitLists_IcePalace,
     /*AREA_NULL_3B*/ gExitLists_MiseryMire,
     /*AREA_NULL_3C*/ gExitLists_TurtleRock,
-    /*AREA_NULL_3D*/ gExitLists_NoExit,
+    /*AREA_NULL_3D*/ gExitLists_GanonsTower,
     /*AREA_NULL_3E*/ gExitLists_NoExit,
     /*AREA_NULL_3F*/ gExitLists_NoExit,
     /*AREA_40*/ gExitLists_40,

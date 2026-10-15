@@ -1084,7 +1084,7 @@ gAreaRoomHeaders:: @ 0811E214
 	.4byte gAreaRoomHeaders_IcePalace               @ 0x3A (A Link to the Past)
 	.4byte gAreaRoomHeaders_MiseryMire               @ 0x3B (A Link to the Past)
 	.4byte gAreaRoomHeaders_TurtleRock               @ 0x3C (A Link to the Past)
-	.4byte 0x0                                      @ 0x3D
+	.4byte gAreaRoomHeaders_GanonsTower               @ 0x3D (A Link to the Past)
 	.4byte 0x0                                      @ 0x3E
 	.4byte 0x0                                      @ 0x3F
 	.4byte gAreaRoomHeaders_40                      @ 0x40

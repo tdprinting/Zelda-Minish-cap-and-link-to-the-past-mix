@@ -1275,7 +1275,7 @@ gAreaTable:: @ 080D50FC
 	.4byte Area_IcePalace               @ 0x3A (A Link to the Past)
 	.4byte Area_MiseryMire               @ 0x3B (A Link to the Past)
 	.4byte Area_TurtleRock               @ 0x3C (A Link to the Past)
-	.4byte 0x0                                       @ 0x3D
+	.4byte Area_GanonsTower               @ 0x3D (A Link to the Past)
 	.4byte 0x0                                       @ 0x3E
 	.4byte 0x0                                       @ 0x3F
 	.4byte Area_40                      @ 0x40
