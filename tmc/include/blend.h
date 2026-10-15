@@ -138,6 +138,7 @@ void Blend_ShadowRestore(void);
 bool32 Blend_RoomHasShadows(void);
 /** The Temple of Bonds, the co-op temple (blendShrine.c): its plates, gates, seals and guard. */
 void Blend_ShrineUpdate(void);
+void Blend_CoopDungeonsUpdate(void);
 /** Whether a way in to the Temple of Bonds is shut: it is unless two players are playing. */
 bool32 Blend_ShrineClosed(const struct Transition* t);
 /** A room's metatiles: each of the Temple of Bonds' rooms has its own, the other areas share theirs. */
