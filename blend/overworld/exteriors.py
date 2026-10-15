@@ -43,7 +43,8 @@ LIGHT, DARK, BOTH = 1, 2, 3
 
 class Site:
     def __init__(self, name, area, room, world, door, src, src_door, dungeon=0, cave_flag=0,
-                 drop=(), keep=(), ground=8, rows=2, door_cells=None, sealed_from=None, shade=True, ground_share=0.85):
+                 drop=(), keep=(), ground=8, rows=2, door_cells=None, sealed_from=None, shade=True, ground_share=0.85,
+                 avoid_rows=()):
         self.name = name
         self.area, self.room, self.world = area, room, world
         self.door = door                  # the transition's (x, y) in the room, pixels
@@ -59,6 +60,7 @@ class Site:
         self.sealed_from = sealed_from    # ALttP cell whose art closes the doorway while sealed
         self.shade = shade                # cel-shade the art (outlines, rim light)
         self.ground_share = ground_share  # how much of a cell must be ground colors to count as ground
+        self.avoid_rows = avoid_rows      # palette rows the room loads at run time (a static background)
 
 
 # Where each A Link to the Past dungeon meets the Minish Cap overworld. The doors are
@@ -67,8 +69,8 @@ SITES = [
     # the Light World's three: behind the cracked caves Minish Cap's milestones open
     Site('EasternPalace', 0x03, 3, LIGHT, (0xa8, 0x98), (0x1e, 46, 1, 61, 7), (53, 3),
          dungeon=0x0e, cave_flag=0x70),
-    Site('DesertPalace', 0x03, 7, LIGHT, (0x88, 0x222), (0x30, 14, 7, 23, 13), (18, 11),
-         dungeon=0x1b, cave_flag=0x90),
+    Site('DesertPalace', 0x03, 7, LIGHT, (0x88, 0x222), (0x30, 17, 9, 21, 15), (18, 11),
+         dungeon=0x1b, cave_flag=0x90, drop=((17, 13, 18, 15), (20, 13, 21, 15))),
     Site('TowerOfHera', 0x06, 3, LIGHT, (0x348, 0x58), (0x03, 44, 1, 51, 9), (47, 7),
          dungeon=0x1c, cave_flag=0x44),
     # the Dark World's: where its dungeons stand in A Link to the Past's Dark World
@@ -76,14 +78,14 @@ SITES = [
          dungeon=0x1d),
     Site('SwampPalace', 0x04, 0, DARK, (0x1a8, 0x1a2), (0x7b, 20, 11, 27, 19), (23, 14),
          dungeon=0x1e),
-    Site('SkullWoods', 0x00, 0, DARK, (0x70, 0x48), (0x40, 6, 10, 14, 17), (9, 12),
-         dungeon=0x1f),
+    Site('SkullWoods', 0x00, 0, DARK, (0x70, 0x48), (0x40, 8, 10, 12, 17), (9, 12),
+         dungeon=0x1f, drop=((8, 13, 9, 17), (11, 14, 12, 17))),
     Site('IcePalace', 0x0b, 0, DARK, (0x148, 0x374), (0x75, 39, 24, 48, 32), (43, 28),
          dungeon=0x3a),
     Site('MiseryMire', 0x0a, 0, DARK, (0x38, 0x1e2), (0x70, 15, 11, 22, 18), (18, 13),
          dungeon=0x3b),
-    Site('TurtleRock', 0x06, 0, DARK, (0x328, 0x34), (0x47, 12, 18, 21, 24), (16, 19),
-         dungeon=0x3c),
+    Site('TurtleRock', 0x06, 0, DARK, (0x328, 0x34), (0x47, 15, 19, 19, 23), (16, 19),
+         dungeon=0x3c, avoid_rows=(4, 5)),  # the mountain top's sky loads rows 4 and 5
     Site('GanonsTower', 0x06, 3, DARK, (0x348, 0x58), (0x43, 42, 0, 53, 8), (47, 3),
          dungeon=0x3d),
 ]
@@ -392,7 +394,7 @@ def build_site(site, palettes, char_pool, meta_pool=None, log=print):
             tiles.append(blk[py:py + 8, px:px + 8])
     used_chars, used_rows = mc.used(mc.neighbours)
     used_chars |= mc.reserved_chars()
-    free_rows = [r for r in range(2, 15) if r not in used_rows]
+    free_rows = [r for r in range(2, 15) if r not in used_rows and r not in site.avoid_rows]
     nrows = min(site.rows, len(free_rows))
     if nrows == 0:
         raise SystemExit('%s: no free palette row' % site.name)

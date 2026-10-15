@@ -139,6 +139,7 @@ bool32 Blend_RoomHasShadows(void);
 void Blend_ExteriorBeforeMap(void);
 void Blend_ExteriorAfterMap(void);
 bool32 Blend_ExteriorActive(void);
+void Blend_ExteriorRefreshColors(void);
 bool32 Blend_ExteriorKeepsColors(u32 palIdx);
 bool32 Blend_CanEnterDungeon(u32 area);
 

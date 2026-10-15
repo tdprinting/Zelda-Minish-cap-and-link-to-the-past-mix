@@ -168,6 +168,31 @@ void Blend_ExteriorAfterMap(void) {
     s->world = CurrentWorld();
 }
 
+/**
+ * Puts the exterior's colors back if something loaded a palette over them since (a
+ * room's setup loading its weather colors, the storm on the mountain top).
+ */
+void Blend_ExteriorRefreshColors(void) {
+    const BlendExterior* e;
+    u32 row, n;
+    if (!Blend_ExteriorActive()) {
+        return;
+    }
+    e = gBlendExterior.active;
+    n = 0;
+    for (row = 0; row < 16; row++) {
+        if (e->rowMask & (1 << row)) {
+            const u16* want = e->palette + n * 16;
+            u16* have = gPaletteBuffer + row * 16;
+            if (have[1] != want[1] || have[2] != want[2] || have[15] != want[15]) {
+                MemCopy(want, have, 32);
+                USE_PALETTE(row);
+            }
+            n++;
+        }
+    }
+}
+
 /** An exterior is laid over the room Link is in. */
 bool32 Blend_ExteriorActive(void) {
     const BlendExterior* e = gBlendExterior.active;
