@@ -1146,6 +1146,7 @@ static void UpdateMilestoneAwards(void) {
 #define STORY_MIRE_OPEN 0x2   /**< Ether was cast at the Veil Falls cave */
 #define STORY_TURTLE_OPEN 0x4 /**< Quake was cast on Mt. Crenel's summit */
 #define GATE_CRYSTALS 0x80    /**< DarkDungeon gate: the seven crystals (no story bit) */
+#define GATE_AGAHNIM 0x40     /**< DarkDungeon gate: Agahnim beaten atop Ganon's Tower (no story bit) */
 
 // The cracked cave in the Eastern Hills leads to the Eastern Palace. It opens once
 // Link has the Earth Element, so A Link to the Past's first dungeon follows Minish Cap's.
@@ -1181,6 +1182,10 @@ static const DungeonCave sDungeonCaves[] = {
 // Ganon's Tower stands where the Tower of Hera does, as in A Link to the Past: in the Dark
 // World, Hera's cracked cave on Mt. Crenel stays shut until Link has the seven crystals,
 // that is until he has beaten the seven Dark World dungeons' bosses (HasSevenCrystals).
+// The Pyramid of Power, Ganon's hall, lies where Hyrule Castle stands, as in A Link to the
+// Past: in the Dark World the Castle Garden's castle door leads down into it once Agahnim
+// has fallen atop Ganon's Tower (in A Link to the Past Ganon then smashes a hole in the
+// Pyramid's top for Link to fall through).
 typedef struct {
     u8 area;  /**< the dungeon's area */
     u8 item;  /**< what Link needs besides the Moon Pearl */
@@ -1197,6 +1202,7 @@ static const DarkDungeon sDarkDungeons[] = {
     { AREA_NULL_3B, ITEM_ETHER, ITEM_NONE, STORY_MIRE_OPEN }, // Misery Mire
     { AREA_NULL_3C, ITEM_QUAKE, ITEM_CANE_OF_SOMARIA, STORY_TURTLE_OPEN }, // Turtle Rock
     { AREA_NULL_3D, ITEM_MOON_PEARL, ITEM_NONE, GATE_CRYSTALS },          // Ganon's Tower
+    { AREA_NULL_3E, ITEM_MOON_PEARL, ITEM_NONE, GATE_AGAHNIM },           // the Pyramid of Power
 };
 
 // where a medallion opens a dungeon: cast it in this overworld room, in the Dark World
@@ -1237,10 +1243,20 @@ static bool32 HasSevenCrystals(void) {
     return TRUE;
 }
 
+static bool32 IsGateOpen(u32 gate) {
+    if (gate == GATE_CRYSTALS) {
+        return HasSevenCrystals();
+    }
+    if (gate == GATE_AGAHNIM) {
+        // Agahnim's hall atop Ganon's Tower: its Heart Container taken (see sBossRooms)
+        return CheckLocalFlagByBank(FLAG_BANK_20, 0x7f);
+    }
+    return gate == 0 || (BLEND_STORY_FLAGS & gate);
+}
+
 static bool32 CanEnterDarkDungeon(const DarkDungeon* d) {
     return BLEND_DARK_WORLD && HasItem(ITEM_MOON_PEARL) && HasItem(d->item) &&
-           (d->item2 == ITEM_NONE || HasItem(d->item2)) &&
-           (d->gate == 0 || (d->gate == GATE_CRYSTALS ? HasSevenCrystals() : (BLEND_STORY_FLAGS & d->gate)));
+           (d->item2 == ITEM_NONE || HasItem(d->item2)) && IsGateOpen(d->gate);
 }
 
 /** A medallion was cast: in front of a dungeon it opens, it opens that dungeon for good. */
@@ -1315,7 +1331,8 @@ static bool32 RoomHasEnemies(void) {
 }
 
 // A Link to the Past's boss rooms: when every enemy in the room is gone, a Heart
-// Container appears, and once Link takes it the boss stays beaten.
+// Container appears, and once Link takes it the boss stays beaten. Ganon's hall instead
+// ends the game: the victory tune, a fade to white, and Minish Cap's credits.
 typedef struct {
     u8 area;
     u8 room;
@@ -1337,8 +1354,32 @@ static const BossRoom sBossRooms[] = {
     { AREA_NULL_3A, 20, 0x7f, 0x178, 0x98 },  // Ice Palace: Kholdstare
     { AREA_NULL_3B, 13, 0x7f, 0x78, 0x188 },  // Misery Mire: Vitreous
     { AREA_NULL_3C, 16, 0x7f, 0x88, 0x188 },  // Turtle Rock: Trinexx
-    { AREA_NULL_3D, 20, 0x7f, 0x78, 0x178 },  // Ganon's Tower: Agahnim (for now a gold Darknut stands in)
+    { AREA_NULL_3D, 20, 0x7f, 0x78, 0x178 },  // Ganon's Tower: Agahnim
+    { AREA_NULL_3E, 0, 0x7f, 0x178, 0x88 },   // the Pyramid of Power: Ganon (the ending)
 };
+
+#define ENDING_FADE_AT 150 /**< frames from Ganon's end to the fade to white */
+
+/** Ganon is beaten: the game's end, then the credits (Minish Cap's staff roll). */
+static void UpdateEnding(void) {
+    if (gBlendLink.bossState == BOSS_FIGHTING) {
+        SetLocalFlag(0x7f);
+        gBlendLink.bossState = BOSS_PRIZE_OUT;
+        gBlendLink.endingTimer = 0;
+        SoundReq(BGM_BEAT_VAATI);
+        return;
+    }
+    if (gBlendLink.endingTimer < ENDING_FADE_AT) {
+        if (++gBlendLink.endingTimer == ENDING_FADE_AT) {
+            SetPlayerControl(CONTROL_DISABLED);
+            SetFade(FADE_IN_OUT | FADE_BLACK_WHITE | FADE_INSTANT, 2);
+        }
+        return;
+    }
+    if (!gFadeControl.active) {
+        SetTask(TASK_STAFFROLL);
+    }
+}
 
 static void UpdateBossRoom(void) {
     u32 i;
@@ -1347,6 +1388,12 @@ static void UpdateBossRoom(void) {
         Entity* e;
         if (b->area != gRoomControls.area || b->room != gRoomControls.room) {
             continue;
+        }
+        if (b->area == AREA_NULL_3E) {
+            if (gBlendLink.bossState == BOSS_PRIZE_OUT || (!CheckLocalFlag(b->flag) && !RoomHasEnemies())) {
+                UpdateEnding();
+            }
+            return;
         }
         if (gBlendLink.bossState == BOSS_DONE || CheckLocalFlag(b->flag)) {
             return;
