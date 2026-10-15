@@ -122,6 +122,11 @@ const ItemMetaData gItemMetaData[] = {
     [ITEM_SKILL_FAST_SPIN] = { 0x63u, 0u, 0u, 0x2u, 0x73u, TEXT_ITEM_GET, 0x73u, 0x5u },
     [ITEM_SKILL_FAST_SPLIT] = { 0x63u, 0u, 0u, 0x2u, 0x74u, TEXT_ITEM_GET, 0x74u, 0x5u },
     [ITEM_SKILL_LONG_SPIN] = { 0x63u, 0u, 0u, 0x2u, 0x75u, TEXT_ITEM_GET, 0x75u, 0x5u },
+    [ITEM_HOOKSHOT] = { 0u, 0u, 0u, 0u, 0x97u, TEXT_ITEM_GET, 0x97u, 0x5u },
+    [ITEM_HAMMER] = { 0u, 0u, 0u, 0u, 0x98u, TEXT_ITEM_GET, 0x98u, 0x5u },
+    [ITEM_CANE_OF_BYRNA] = { 0u, 0u, 0u, 0u, 0x99u, TEXT_ITEM_GET, 0x99u, 0x5u },
+    [ITEM_MAGIC_POWDER] = { 0u, 0u, 0u, 0u, 0x9au, TEXT_ITEM_GET, 0x9au, 0x5u },
+    [ITEM_CANE_OF_SOMARIA] = { 0u, 0u, 0u, 0u, 0x9bu, TEXT_ITEM_GET, 0x9bu, 0x5u },
 };
 
 // TODO Shop price and item get message
@@ -261,5 +266,10 @@ const struct_080FD964 gUnk_080FD964[] = {
     [ITEM_SKILL_FAST_SPIN] = { 0, 0, 0x0, TEXT_INDEX(TEXT_ITEM_GET, 0x73) },
     [ITEM_SKILL_FAST_SPLIT] = { 0, 0, 0x0, TEXT_INDEX(TEXT_ITEM_GET, 0x74) },
     [ITEM_SKILL_LONG_SPIN] = { 0, 0, 0x0, TEXT_INDEX(TEXT_ITEM_GET, 0x75) },
+    [ITEM_HOOKSHOT] = { 0, 0, 0x0, TEXT_INDEX(TEXT_ITEM_GET, 0x97) },
+    [ITEM_HAMMER] = { 0, 0, 0x0, TEXT_INDEX(TEXT_ITEM_GET, 0x98) },
+    [ITEM_CANE_OF_BYRNA] = { 0, 0, 0x0, TEXT_INDEX(TEXT_ITEM_GET, 0x99) },
+    [ITEM_MAGIC_POWDER] = { 0, 0, 0x0, TEXT_INDEX(TEXT_ITEM_GET, 0x9a) },
+    [ITEM_CANE_OF_SOMARIA] = { 0, 0, 0x0, TEXT_INDEX(TEXT_ITEM_GET, 0x9b) },
 
 };

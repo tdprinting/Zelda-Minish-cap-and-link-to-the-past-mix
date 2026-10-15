@@ -526,7 +526,12 @@
         "You bought 10 {Color:Red}arrows{Color:White}!",
         "You bought 30 {Color:Red}arrows{Color:White}!",
         "You got the {Color:Red}Tingle Trophy{Color:White}!",
-        "You got the {Color:Red}Carlov Medal{Color:White}!"
+        "You got the {Color:Red}Carlov Medal{Color:White}!",
+        "{04:10:0E}You got the {Color:Red}Hookshot{Color:White}!\nFire it at a wall to pull\nyourself across gaps.\nIt shares the {Color:Red}Gust Jar{Color:White}'s slot:\n{Color:Red}L and its button{Color:White} switches.",
+        "{04:10:0E}You got the {Color:Red}Magic Hammer{Color:White}!\nPound foes and smash\nrocks in your way.\nIt shares the {Color:Red}Mole Mitts{Color:White}'s slot:\n{Color:Red}L and its button{Color:White} switches.",
+        "{04:10:0E}You got the {Color:Red}Cane of Byrna{Color:White}!\nA ring of magic guards\nyou and stings foes.\nIt shares the {Color:Red}shield{Color:White}'s slot:\n{Color:Red}L and its button{Color:White} switches.",
+        "{04:10:0E}You got the {Color:Red}Magic Powder{Color:White}!\nSprinkle it on a weak foe\nand see what happens!\nIt shares the {Color:Red}lantern{Color:White}'s slot:\n{Color:Red}L and its button{Color:White} switches.",
+        "{04:10:0E}You got the {Color:Red}Cane of Somaria{Color:White}!\nIt conjures a block you\ncan push onto switches.\nIt shares the {Color:Red}bombs{Color:White}'s slot:\n{Color:Red}L and its button{Color:White} switches."
     ],
     [
         "",

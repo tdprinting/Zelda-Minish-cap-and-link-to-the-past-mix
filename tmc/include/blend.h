@@ -64,6 +64,13 @@ typedef struct {
     /*0x66*/ u8 treasureSpawned;
     /*0x67*/ u8 bunny;         /**< Link is a bunny (Dark World without the Moon Pearl) */
     /*0x68*/ u8 awardCooldown;
+    /*0x69*/ u8 hookState;    /**< HOOK_* */
+    /*0x6a*/ u16 byrnaTimer;  /**< frames the Cane of Byrna's ring stays up */
+    /*0x6c*/ struct Entity_* hook;
+    /*0x70*/ u8 somariaUsed;  /**< a Somaria block was made in this room */
+    /*0x71*/ u8 devHudIcon;   /**< test hook: show this item's icon on the B button */
+    /*0x72*/ u16 heldKeys;    /**< the real buttons this frame, before the blend hides any from the game */
+    /*0x74*/ u16 newKeys;     /**< buttons newly pressed this frame, by the same measure */
 } BlendLink;
 
 #define BLEND_MAGIC 0x444E4C42 /* "BLND" */
@@ -83,11 +90,16 @@ extern BlendLink gBlendLink;
 #define ITEM_BOMBOS ITEM_ORB_RED
 #define ITEM_ICE_ROD ITEM_UNUSED_SWORD
 
+/** Which new items are switched in for their Minish Cap partner (one bit per item, from ITEM_HOOKSHOT). */
+#define BLEND_VARIANTS_ON (gSave.fillerA[3])
+
 bool32 Blend_IsDarkWorldActive(void);
 void Blend_GameUpdate(void);
 void Blend_ApplyDarkWorldEnemy(struct Entity_* entity);
 void Blend_TransformPalette(u16* pal, u32 palIdx);
 void LinkPartner(struct Entity_* this);
 u32 Blend_ItemSpriteAnim(u32 item);
+/** The item whose button icon the HUD shows for this equipped item. */
+u32 Blend_HudIcon(u32 item);
 
 #endif // BLEND_H

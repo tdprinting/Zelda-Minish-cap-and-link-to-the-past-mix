@@ -390,7 +390,7 @@ bool32 CheckShouldPlayItemGetCutscene(ItemOnGroundEntity* this) {
     return ((gItemMetaData[super->type].unk3 & 0x2) || !GetInventoryValue(super->type));
 }
 
-static const Unk_0811E84C gUnk_0811E84C[118] = {
+static const Unk_0811E84C gUnk_0811E84C[ITEM_CANE_OF_SOMARIA + 1] = {
     [ITEM_SHELLS] = { { 0x0, 0x0 }, SFX_RUPEE_BOUNCE, 0x1, { 0x0, 0x0, 0x0 } },
     [ITEM_DUNGEON_MAP] = { { 0x0, 0x0 }, SFX_RUPEE_BOUNCE, 0x1, { 0x0, 0x0, 0x0 } },
     [ITEM_COMPASS] = { { 0x0, 0x0 }, SFX_RUPEE_BOUNCE, 0x1, { 0x0, 0x0, 0x0 } },

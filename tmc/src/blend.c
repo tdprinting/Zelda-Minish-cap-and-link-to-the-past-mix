@@ -33,6 +33,7 @@
 #include "effects.h"
 #include "playeritem.h"
 #include "asm.h"
+#include "ui.h"
 
 #define MIRROR_HOLD_FRAMES 20
 
@@ -200,6 +201,9 @@ static void UpdateMirror(void) {
  * items borrow Minish Cap pictures: the Mirror Shield for the Magic Mirror,
  * and the glowing Elements for the Moon Pearl and the medallions.
  */
+/** Pictures for the shared-slot items, in item id order from ITEM_HOOKSHOT. */
+static const u8 sSlotShareIcons[] = { ITEM_LIGHT_ARROW, ITEM_SMITH_SWORD, ITEM_PACCI_CANE, ITEM_BOTTLE_FAIRY, ITEM_FIRE_ROD };
+
 u32 Blend_ItemSpriteAnim(u32 item) {
     switch (item) {
         case ITEM_MAGIC_MIRROR:
@@ -215,6 +219,9 @@ u32 Blend_ItemSpriteAnim(u32 item) {
         case ITEM_ICE_ROD:
             return ITEM_FIRE_ROD;
         default:
+            if (item >= ITEM_HOOKSHOT && item <= ITEM_CANE_OF_SOMARIA) {
+                return sSlotShareIcons[item - ITEM_HOOKSHOT];
+            }
             return item;
     }
 }
@@ -254,22 +261,38 @@ void ItemFireRod(ItemBehavior* this, u32 index) {
 
 static const u8 sRods[] = { ITEM_PACCI_CANE, ITEM_FIRE_ROD, ITEM_ICE_ROD };
 
-/** L + A or L + B swaps the rod on that button to the next rod Link owns: Pacci Cane, Fire Rod, Ice Rod. */
+static bool32 SwitchSharedSlot(u32 slot);
+
+/**
+ * L + A or L + B switches the item on that button: a shared slot goes to its
+ * other item, and a rod goes to the next rod Link owns (Pacci Cane, Fire Rod, Ice Rod).
+ */
 static void UpdateRodSwap(void) {
     u32 slot;
     u32 item;
     u32 i, j;
-    if (!(gInput.heldKeys & L_BUTTON) || !IsPlayerFree()) {
+    u32 newKeys = gBlendLink.newKeys;
+    if (!(gBlendLink.heldKeys & L_BUTTON)) {
         return;
     }
-    if (gInput.newKeys & A_BUTTON) {
+    // with L held, A and B belong to switching; the game never sees them
+    gInput.heldKeys &= ~(A_BUTTON | B_BUTTON);
+    gInput.newKeys &= ~(A_BUTTON | B_BUTTON);
+    if (!IsPlayerFree()) {
+        return;
+    }
+    if (newKeys & A_BUTTON) {
         slot = SLOT_A;
-    } else if (gInput.newKeys & B_BUTTON) {
+    } else if (newKeys & B_BUTTON) {
         slot = SLOT_B;
     } else {
         return;
     }
     item = gSave.stats.equipped[slot];
+    if (SwitchSharedSlot(slot)) {
+        SoundReq(SFX_TEXTBOX_SELECT);
+        return;
+    }
     for (i = 0; i < ARRAY_COUNT(sRods); i++) {
         if (sRods[i] == item) {
             break;
@@ -294,8 +317,372 @@ static void UpdateRodSwap(void) {
     }
     ForceEquipItem(item, slot);
     SoundReq(SFX_TEXTBOX_SELECT);
-    // the swap uses this press, so the rod doesn't also swing
-    gInput.newKeys &= ~(A_BUTTON | B_BUTTON);
+}
+
+/* ---- Items that share a slot with a Minish Cap item ---------------------- */
+
+/**
+ * The rest of A Link to the Past's items each share a menu slot with the Minish
+ * Cap item closest in spirit. L + that item's button switches between the two.
+ */
+typedef struct {
+    u8 item;
+    u8 partner;
+    u8 partnerAlt; /**< the partner's other form (Mirror Shield, lit lantern...) */
+} SlotShare;
+
+static const SlotShare sSlotShares[] = {
+    { ITEM_HOOKSHOT, ITEM_GUST_JAR, ITEM_GUST_JAR },
+    { ITEM_HAMMER, ITEM_MOLE_MITTS, ITEM_MOLE_MITTS },
+    { ITEM_CANE_OF_BYRNA, ITEM_SHIELD, ITEM_MIRROR_SHIELD },
+    { ITEM_MAGIC_POWDER, ITEM_LANTERN_OFF, ITEM_LANTERN_ON },
+    { ITEM_CANE_OF_SOMARIA, ITEM_BOMBS, ITEM_REMOTE_BOMBS },
+};
+
+static const SlotShare* FindSlotShare(u32 partner) {
+    u32 i;
+    for (i = 0; i < ARRAY_COUNT(sSlotShares); i++) {
+        if (sSlotShares[i].partner == partner || sSlotShares[i].partnerAlt == partner) {
+            return &sSlotShares[i];
+        }
+    }
+    return NULL;
+}
+
+static u32 VariantBit(u32 item) {
+    return 1 << (item - ITEM_HOOKSHOT);
+}
+
+u32 Blend_ItemVariant(u32 item) {
+    const SlotShare* s = FindSlotShare(item);
+    if (s != NULL && HasItem(s->item) && (BLEND_VARIANTS_ON & VariantBit(s->item))) {
+        return s->item;
+    }
+    return ITEM_NONE;
+}
+
+u32 Blend_HudIcon(u32 item) {
+    u32 variant;
+    if (gBlendLink.devHudIcon) {
+        return gBlendLink.devHudIcon;
+    }
+    variant = Blend_ItemVariant(item);
+    if (variant != ITEM_NONE) {
+        return sSlotShareIcons[variant - ITEM_HOOKSHOT];
+    }
+    return item;
+}
+
+/** L + A or L + B on a shared slot switches between the two items. */
+static bool32 SwitchSharedSlot(u32 slot) {
+    u32 item = gSave.stats.equipped[slot];
+    const SlotShare* s = FindSlotShare(item);
+    if (s == NULL || !HasItem(s->item)) {
+        return FALSE;
+    }
+    BLEND_VARIANTS_ON ^= VariantBit(s->item);
+    gHUD.unk_13 = 0x7f;
+    gHUD.unk_14 = 0x7f;
+    return TRUE;
+}
+
+static const s8 sFacingX[] = { 0, 1, 0, -1 };
+static const s8 sFacingY[] = { -1, 0, 1, 0 };
+
+/** A point dist pixels in front of Link. */
+static void PointInFront(s32 dist, s32* x, s32* y) {
+    u32 facing = (gPlayerEntity.base.animationState >> 1) & 3;
+    *x = gPlayerEntity.base.x.HALF.HI + sFacingX[facing] * dist;
+    *y = gPlayerEntity.base.y.HALF.HI + sFacingY[facing] * dist;
+}
+
+/** Puts an invisible strike at a point (see LinkSpellHit). */
+static Entity* StrikeAt(s32 x, s32 y, u32 damage) {
+    Entity* hit = CreateObject(LINK_PARTNER, 2, 0);
+    if (hit != NULL) {
+        hit->x.HALF.HI = x;
+        hit->y.HALF.HI = y;
+        hit->collisionLayer = gPlayerEntity.base.collisionLayer;
+        hit->type2 = damage;
+    }
+    return hit;
+}
+
+static Entity* FxAt(u32 fx, s32 x, s32 y) {
+    Entity* e = CreateFx(&gPlayerEntity.base, fx, 0);
+    if (e != NULL) {
+        e->x.HALF.HI = x;
+        e->y.HALF.HI = y;
+    }
+    return e;
+}
+
+static Entity* NearestEnemy(s32 x, s32 y, s32 range) {
+    u32 i;
+    Entity* e;
+    Entity* best = NULL;
+    for (i = 0; i < ARRAY_COUNT(gEntityLists); i++) {
+        LinkedList* list = &gEntityLists[i];
+        for (e = list->first; (u32)e != (u32)list; e = e->next) {
+            s32 dx, dy;
+            if (e->kind != ENEMY || !(e->flags & ENT_COLLIDE) || e->health == 0) {
+                continue;
+            }
+            dx = e->x.HALF.HI - x;
+            dy = e->y.HALF.HI - y;
+            if (dx < 0)
+                dx = -dx;
+            if (dy < 0)
+                dy = -dy;
+            if (dx <= range && dy <= range) {
+                best = e;
+                range = dx > dy ? dx : dy;
+            }
+        }
+    }
+    return best;
+}
+
+enum { HOOK_NONE, HOOK_OUT, HOOK_PULL, HOOK_BACK };
+#define HOOK_SPEED 4
+#define HOOK_RANGE 128
+
+static void UseHookshot(void) {
+    Entity* hook;
+    if (gBlendLink.hookState != HOOK_NONE) {
+        return;
+    }
+    hook = CreateObject(LINK_PARTNER, 3, 0);
+    if (hook != NULL) {
+        CopyPosition(&gPlayerEntity.base, hook);
+        hook->animationState = gPlayerEntity.base.animationState & 6;
+        gBlendLink.hook = hook;
+        gBlendLink.hookState = HOOK_OUT;
+        SoundReq(SFX_ITEM_SWORD_BEAM);
+    }
+}
+
+static void EndHook(Entity* this) {
+    gBlendLink.hookState = HOOK_NONE;
+    gBlendLink.hook = NULL;
+    gPlayerEntity.base.z.HALF.HI = 0;
+    DeleteThisEntity();
+}
+
+static const Hitbox sHookHitbox = { 0, 0, { 0, 0, 0, 0 }, 6, 6 };
+
+/**
+ * Type 3: the Hookshot's head. It flies out; if it bites into a wall with open
+ * ground in front, it pulls Link across whatever lies between (pits, water).
+ * It stuns and hurts an enemy it hits, and comes back otherwise.
+ */
+static void LinkHook(Entity* this) {
+    Entity* p = &gPlayerEntity.base;
+    u32 facing = this->animationState >> 1;
+    s32 dx = sFacingX[facing];
+    s32 dy = sFacingY[facing];
+    if (this->action == 0) {
+        this->action = 1;
+        this->spriteSettings.draw = 0;
+        this->hitbox = (Hitbox*)&sHookHitbox;
+        this->flags |= ENT_COLLIDE;
+        this->hurtType = 0x09;
+        this->damage = 4;
+        this->collisionFlags = (p->collisionFlags + 1) | 0x20;
+        this->collisionMask = p->collisionMask;
+        this->timer = 0;
+        sub_0801766C(this);
+    }
+    switch (gBlendLink.hookState) {
+        case HOOK_OUT:
+            this->x.HALF.HI += dx * HOOK_SPEED;
+            this->y.HALF.HI += dy * HOOK_SPEED;
+            this->timer += HOOK_SPEED;
+            if ((this->timer & 15) == 0) {
+                CreateFx(this, FX_SPARKLE2, 0); // the chain
+            }
+            if (this->contactFlags & CONTACT_NOW) {
+                gBlendLink.hookState = HOOK_BACK;
+            } else if (GetCollisionDataAtWorldCoords(this->x.HALF.HI, this->y.HALF.HI, p->collisionLayer) != 0) {
+                s32 stopX = this->x.HALF.HI - dx * 12;
+                s32 stopY = this->y.HALF.HI - dy * 12;
+                if (this->timer > 24 && GetCollisionDataAtWorldCoords(stopX, stopY, p->collisionLayer) == 0) {
+                    gBlendLink.hookState = HOOK_PULL;
+                    this->flags &= ~ENT_COLLIDE;
+                    CreateFx(this, FX_REFLECT, 0);
+                    SoundReq(SFX_HAMMER2);
+                } else {
+                    gBlendLink.hookState = HOOK_BACK;
+                    CreateFx(this, FX_REFLECT, 0);
+                }
+            } else if (this->timer >= HOOK_RANGE) {
+                gBlendLink.hookState = HOOK_BACK;
+            }
+            break;
+        case HOOK_PULL: {
+            s32 left = (this->x.HALF.HI - p->x.HALF.HI) * dx + (this->y.HALF.HI - p->y.HALF.HI) * dy;
+            if (left <= 12) {
+                EndHook(this);
+            }
+            p->x.HALF.HI += dx * HOOK_SPEED;
+            p->y.HALF.HI += dy * HOOK_SPEED;
+            p->z.HALF.HI = -4; // held off the ground, over pits and water
+            break;
+        }
+        default: {
+            s32 left = (this->x.HALF.HI - p->x.HALF.HI) * dx + (this->y.HALF.HI - p->y.HALF.HI) * dy;
+            this->flags &= ~ENT_COLLIDE;
+            if (left <= 8 || gBlendLink.hookState != HOOK_BACK) {
+                EndHook(this);
+            }
+            this->x.HALF.HI -= dx * (HOOK_SPEED + 2);
+            this->y.HALF.HI -= dy * (HOOK_SPEED + 2);
+            break;
+        }
+    }
+}
+
+static void UseHammer(void) {
+    s32 x, y;
+    PointInFront(14, &x, &y);
+    StrikeAt(x, y, 32);
+    FxAt(FX_ROCK, x, y);
+    DoTileInteraction(&gPlayerEntity.base, 3, x, y); // smashes rocks and pots like a blast
+    InitScreenShake(10, 1);
+    SoundReq(SFX_HAMMER1);
+}
+
+static void UseByrna(void) {
+    if (gBlendLink.byrnaTimer) {
+        gBlendLink.byrnaTimer = 0;
+        return;
+    }
+    gBlendLink.byrnaTimer = 600;
+    SoundReq(SFX_SUMMON);
+}
+
+/** The Cane of Byrna's ring: Link can't be hurt, and the ring stings enemies it touches. */
+static void UpdateByrna(void) {
+    static const s8 sRingX[] = { 0, 14, 20, 14, 0, -14, -20, -14 };
+    static const s8 sRingY[] = { -20, -14, 0, 14, 20, 14, 0, -14 };
+    Entity* p = &gPlayerEntity.base;
+    u32 step;
+    if (gBlendLink.byrnaTimer == 0) {
+        return;
+    }
+    if (--gBlendLink.byrnaTimer == 0 || gBlendLink.bunny) {
+        gBlendLink.byrnaTimer = 0;
+        return;
+    }
+    if (p->iframes < 2) {
+        p->iframes = 2;
+    }
+    if ((gBlendLink.byrnaTimer & 3) == 0) {
+        step = (gBlendLink.byrnaTimer >> 2) & 7;
+        StrikeAt(p->x.HALF.HI + sRingX[step], p->y.HALF.HI + sRingY[step], 8);
+        FxAt(FX_SPARKLE2, p->x.HALF.HI + sRingX[step], p->y.HALF.HI + sRingY[step]);
+    }
+}
+
+/** Magic Powder turns a weak enemy into a fairy, and stings stronger ones. */
+static void UsePowder(void) {
+    s32 x, y;
+    Entity* e;
+    PointInFront(16, &x, &y);
+    FxAt(FX_SPARKLE, x, y);
+    FxAt(FX_SPARKLE2, x - 6, y + 4);
+    FxAt(FX_SPARKLE2, x + 6, y - 4);
+    SoundReq(SFX_SPARKLES);
+    e = NearestEnemy(x, y, 20);
+    if (e == NULL) {
+        return;
+    }
+    if (e->health <= 8) {
+        Entity* fairy = CreateObject(FAIRY, 0x60, 0);
+        if (fairy != NULL) {
+            fairy->timer = 0;
+            CopyPosition(e, fairy);
+        }
+        CreateFx(e, FX_DEATH, 0);
+        DeleteEntity(e);
+    } else {
+        StrikeAt(e->x.HALF.HI, e->y.HALF.HI, 8);
+    }
+}
+
+/** The Cane of Somaria conjures one pushable block per room, on open ground. */
+static void UseSomaria(void) {
+    s32 x, y;
+    Entity* block;
+    PointInFront(16, &x, &y);
+    x = ((x - gRoomControls.origin_x) & ~0xf) + 8 + gRoomControls.origin_x;
+    y = ((y - gRoomControls.origin_y) & ~0xf) + 8 + gRoomControls.origin_y;
+    if (gBlendLink.somariaUsed || GetCollisionDataAtWorldCoords(x, y, gPlayerEntity.base.collisionLayer) != 0) {
+        SoundReq(SFX_MENU_ERROR);
+        return;
+    }
+    block = CreateObject(PUSHABLE_STATUE, 0, 0);
+    if (block != NULL) {
+        block->x.HALF.HI = x;
+        block->y.HALF.HI = y;
+        block->collisionLayer = gPlayerEntity.base.collisionLayer;
+        gBlendLink.somariaUsed = 1;
+        FxAt(FX_SPARKLE, x, y);
+        SoundReq(SFX_SUMMON);
+    }
+}
+
+static void UseVariant(u32 item) {
+    switch (item) {
+        case ITEM_HOOKSHOT:
+            UseHookshot();
+            break;
+        case ITEM_HAMMER:
+            UseHammer();
+            break;
+        case ITEM_CANE_OF_BYRNA:
+            UseByrna();
+            break;
+        case ITEM_MAGIC_POWDER:
+            UsePowder();
+            break;
+        case ITEM_CANE_OF_SOMARIA:
+            UseSomaria();
+            break;
+    }
+}
+
+/**
+ * Runs a shared-slot item in place of its partner. Link swings it with the Pacci
+ * Cane's motion, and the item acts at the height of the swing.
+ */
+void Blend_ExecuteVariant(ItemBehavior* this, u32 index) {
+    u32 item = this->field_0x2[0];
+    if (this->stateID == 0) {
+        this->priority |= 0xf;
+        sub_08077D38(this, index);
+        sub_0806F948(&gPlayerEntity.base);
+        sub_08077BB8(this);
+        this->subtimer = 0;
+        return;
+    }
+    if (item == ITEM_HOOKSHOT && gBlendLink.hookState != HOOK_NONE) {
+        Entity* hook = gBlendLink.hook;
+        if (hook != NULL && hook->next != NULL && hook->kind == OBJECT && hook->id == LINK_PARTNER && hook->type == 3) {
+            return; // Link holds still until the hook is back
+        }
+        gBlendLink.hookState = HOOK_NONE; // the hook was cleared away (a room change)
+        gBlendLink.hook = NULL;
+    }
+    if (this->playerFrame & 0x80) {
+        DeleteItemBehavior(this, index);
+        return;
+    }
+    if ((this->playerFrame & 0x40) && !this->subtimer) {
+        this->subtimer = 1;
+        UseVariant(item);
+    }
+    UpdateItemAnim(this);
 }
 
 /* ---- Medallions -------------------------------------------------------- */
@@ -346,7 +733,7 @@ static void LinkSpellHit(Entity* this) {
         this->hitbox = (Hitbox*)&sSpellHitbox;
         this->flags |= ENT_COLLIDE;
         this->hurtType = 0x09; // a full spin attack
-        this->damage = 24;
+        this->damage = this->type2 ? this->type2 : 24;
         this->collisionFlags = (gPlayerEntity.base.collisionFlags + 1) | 0x20;
         this->collisionMask = gPlayerEntity.base.collisionMask;
         sub_0801766C(this);
@@ -391,17 +778,17 @@ static void CastMedallion(u32 m) {
  * Casting needs a sword and works once per room; it strikes every enemy on screen.
  */
 static void UpdateMedallions(void) {
-    u32 held = gInput.heldKeys;
+    u32 held = gBlendLink.heldKeys;
     s32 m;
     if (!(held & (L_BUTTON | R_BUTTON))) {
         return;
     }
     // Select with L or R belongs to the medallions, not to Ezlo's hints
     gInput.heldKeys &= ~SELECT_BUTTON;
-    if (!(gInput.newKeys & SELECT_BUTTON)) {
+    gInput.newKeys &= ~SELECT_BUTTON;
+    if (!(gBlendLink.newKeys & SELECT_BUTTON)) {
         return;
     }
-    gInput.newKeys &= ~SELECT_BUTTON;
     m = ChosenMedallion();
     if (m < 0 || !IsPlayerFree()) {
         return;
@@ -464,15 +851,25 @@ typedef struct {
  */
 static const Treasure sTreasures[] = {
     // Skull Woods: the Fire Rod waits in the Dark World Minish Woods
-    { AREA_MINISH_WOODS, 0, 1, ITEM_FIRE_ROD, 0x1a8, 0x1f8, ITEM_MOON_PEARL, TREASURE_OPEN },
+    { AREA_MINISH_WOODS, 0, 1, ITEM_FIRE_ROD, 0x228, 0x160, ITEM_MOON_PEARL, TREASURE_OPEN },
     // the Bombos tablet stands in the ruins; its medallion is buried in the Dark World ruins
     { AREA_RUINS, 0, 1, ITEM_BOMBOS, 200, 230, ITEM_MOON_PEARL, TREASURE_BURIED },
     // Ether waits on the Dark World mountain, as on Death Mountain
-    { AREA_MT_CRENEL, 0, 1, ITEM_ETHER, 0x100, 0x100, ITEM_MOON_PEARL, TREASURE_OPEN },
-    // Quake is the gift of the Dark World lake
-    { AREA_LAKE_HYLIA, 0, 1, ITEM_QUAKE, 0x100, 0x100, ITEM_MOON_PEARL, TREASURE_OPEN },
-    // the Ice Rod waits by Lake Hylia in the Light World, for swimmers
-    { AREA_LAKE_HYLIA, 0, 0, ITEM_ICE_ROD, 0x100, 0x100, ITEM_FLIPPERS, TREASURE_OPEN },
+    { AREA_MT_CRENEL, 0, 1, ITEM_ETHER, 0xc8, 0x60, ITEM_MOON_PEARL, TREASURE_OPEN },
+    // Quake is the gift of the Dark World lake, on the same island
+    { AREA_LAKE_HYLIA, 0, 1, ITEM_QUAKE, 0x148, 0x108, ITEM_MOON_PEARL, TREASURE_OPEN },
+    // the Ice Rod waits on Lake Hylia's stump island in the Light World, for swimmers
+    { AREA_LAKE_HYLIA, 0, 0, ITEM_ICE_ROD, 0x148, 0x108, ITEM_FLIPPERS, TREASURE_OPEN },
+    // the Hookshot lies in the Dark World swamp, where the Swamp Palace stood
+    { AREA_CASTOR_WILDS, 0, 1, ITEM_HOOKSHOT, 0x1a8, 0x200, ITEM_MOON_PEARL, TREASURE_OPEN },
+    // the Hammer waits in the dark Eastern Hills, near the Palace of Darkness
+    { AREA_HYRULE_FIELD, 3, 1, ITEM_HAMMER, 0x12c, 0xb4, ITEM_MOON_PEARL, TREASURE_OPEN },
+    // the Cane of Byrna is buried high on the Dark World mountain
+    { AREA_MT_CRENEL, 3, 1, ITEM_CANE_OF_BYRNA, 0x240, 0xf0, ITEM_MOON_PEARL, TREASURE_BURIED },
+    // Magic Powder lies deep in the Light World woods, for whoever brings a light
+    { AREA_MINISH_WOODS, 0, 0, ITEM_MAGIC_POWDER, 0x150, 0x300, ITEM_LANTERN_OFF, TREASURE_OPEN },
+    // the Cane of Somaria waits past the dark falls, like Misery Mire
+    { AREA_VEIL_FALLS, 0, 1, ITEM_CANE_OF_SOMARIA, 0x180, 0xf0, ITEM_MOON_PEARL, TREASURE_OPEN },
 };
 
 static void SpawnTreasures(void) {
@@ -540,10 +937,12 @@ static void UpdateRoom(void) {
     if (key != gBlendLink.roomKey) {
         gBlendLink.roomKey = key;
         gBlendLink.medallionUsed = 0;
+        gBlendLink.somariaUsed = 0;
         gBlendLink.treasureSpawned = 0;
     }
-    // wait for the room to settle (scrolling between rooms) before placing treasure
-    if (gBlendLink.treasureSpawned < 30) {
+    // wait for the room to settle (scrolling between rooms, or a warp's fade) before
+    // placing treasure, or the room load clears it
+    if (gBlendLink.treasureSpawned < 30 && gPlayerState.controlMode == CONTROL_ENABLED) {
         if (++gBlendLink.treasureSpawned == 30) {
             SpawnTreasures();
         }
@@ -735,6 +1134,10 @@ void LinkPartner(Entity* this) {
         LinkSpellHit(this);
         return;
     }
+    if (this->type == 3) {
+        LinkHook(this);
+        return;
+    }
     if (this->action == 0) {
         this->action = 1;
         this->spriteSettings.draw = 0;
@@ -778,6 +1181,9 @@ void Blend_GameUpdate(void) {
         MemClear(&gBlendLink, sizeof(gBlendLink));
         gBlendLink.magic = BLEND_MAGIC;
     }
+    // the game's own record of pressed keys loses the keys the blend hides, so keep a true one
+    gBlendLink.newKeys = gInput.heldKeys & ~gBlendLink.heldKeys;
+    gBlendLink.heldKeys = gInput.heldKeys;
     UpdateDevHooks();
     UpdateRoom();
     UpdateBunny();
@@ -785,6 +1191,7 @@ void Blend_GameUpdate(void) {
     UpdateStory();
     UpdateRodSwap();
     UpdateMedallions();
+    UpdateByrna();
     UpdateMirror();
     PublishSelf();
     UpdatePartner();

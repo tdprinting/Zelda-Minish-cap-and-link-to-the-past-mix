@@ -38,5 +38,9 @@ void (*const gItemFunctions[])(ItemBehavior*, u32) = {
 };
 
 void ExecuteItemFunction(ItemBehavior* behavior, u32 index) {
+    if (behavior->field_0x2[0] != ITEM_NONE) {
+        Blend_ExecuteVariant(behavior, index);
+        return;
+    }
     gItemFunctions[behavior->behaviorId](behavior, index);
 }

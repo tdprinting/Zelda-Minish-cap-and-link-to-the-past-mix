@@ -2,6 +2,7 @@
 #include "physics.h"
 #include "room.h"
 #include "object.h"
+#include "blend.h"
 #include "asm.h"
 #include "effects.h"
 #include "player.h"
@@ -67,7 +68,12 @@ Entity* CreateLinkAnimation(Entity* parent, u32 type, u32 type2) {
 
 void ObjectInit(Entity* this) {
     const ObjectDefinition* definition = &gObjectDefinitions[this->id];
-    if (LoadObjectSprite(this, this->type, definition) == 2) {
+    s32 type = this->type;
+    if (this->id == GROUND_ITEM || this->id == LINK_HOLDING_ITEM) {
+        // A Link to the Past items, lying on the ground or held up, borrow another item's picture
+        type = Blend_ItemSpriteAnim(type);
+    }
+    if (LoadObjectSprite(this, type, definition) == 2) {
         UpdateSpriteForCollisionLayer(this);
     }
 }

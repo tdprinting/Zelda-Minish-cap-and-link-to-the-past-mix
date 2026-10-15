@@ -10,6 +10,7 @@
 #include "screen.h"
 #include "sound.h"
 #include "affine.h"
+#include "blend.h"
 #include "vram.h"
 #include "structures.h"
 
@@ -707,7 +708,15 @@ void ItemUIElement(UIElement* element) {
         return;
     }
 
-    if (element->unk_8 != itemId) {
+    if (Blend_HudIcon(itemId) != itemId) {
+        // an A Link to the Past item borrows this icon; it has no count to show
+        itemId = Blend_HudIcon(itemId);
+        if (element->unk_8 != itemId) {
+            element->unk_8 = itemId;
+            sub_0801CAB8(element, gSpriteAnimations_322[itemId]);
+        }
+        itemId = ITEM_NONE;
+    } else if (element->unk_8 != itemId) {
         element->unk_8 = itemId;
         sub_0801CAB8(element, gSpriteAnimations_322[itemId]);
     }
@@ -723,7 +732,7 @@ void ItemUIElement(UIElement* element) {
         psVar8 = &gHUD.unk_14;
     }
 
-    switch ((s32)element->unk_8) {
+    switch ((s32)itemId) {
         case 7:
         case 8:
             playerItemCount = gSave.stats.bombCount;
