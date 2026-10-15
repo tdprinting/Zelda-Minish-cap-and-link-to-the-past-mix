@@ -1277,7 +1277,7 @@ gAreaTable:: @ 080D50FC
 	.4byte Area_TurtleRock               @ 0x3C (A Link to the Past)
 	.4byte Area_GanonsTower               @ 0x3D (A Link to the Past)
 	.4byte Area_Pyramid               @ 0x3E (A Link to the Past)
-	.4byte 0x0                                       @ 0x3F
+	.4byte Area_TempleOfBonds               @ 0x3F (the blend's co-op temple)
 	.4byte Area_40                      @ 0x40
 	.4byte Area_HyruleTownUnderground   @ 0x41
 	.4byte Area_GardenFountains         @ 0x42
@@ -18640,6 +18640,11 @@ gUnk_080F58A8:: @ 080F58A8
 	object_raw subtype=0x2, x=0x64, y=0x40, paramA=0x65
 	entity_list_end
 .endif
+
+@ blend co-op: the Revive Fairy (ITEM_REVIVE_FAIRY), on the crates right of the counter
+gBlendShopReviveFairy::
+	object_raw subtype=0x2, x=0xc8, y=0x84, paramA=0x7b @ ITEM_REVIVE_FAIRY
+	entity_list_end
 
 Entities_HouseInteriors3_StockwellShop_1:: @ 080F58C8
 	object_raw subtype=0x4f, x=0x78, y=0xc8, paramA=0x2, paramB=0x2

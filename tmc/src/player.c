@@ -4,6 +4,7 @@
  *
  * @brief Player entity
  */
+#include "blendCoop.h"
 #include "area.h"
 #include "asm.h"
 #include "collision.h"
@@ -1562,6 +1563,12 @@ static void sub_08071D04(PlayerEntity* this) {
         gSave.stats.bottles[idx - 1] = 0x20;
         CreateObject(FAIRY, 0x60, 2);
         deltaHealth = 32;
+    } else {
+        // co-op: lie down and wait for the partner's Revive Fairy
+        deltaHealth = Blend_CoopWhileDown();
+        if (deltaHealth < 0) {
+            return;
+        }
     }
 
     if (deltaHealth != 0) {

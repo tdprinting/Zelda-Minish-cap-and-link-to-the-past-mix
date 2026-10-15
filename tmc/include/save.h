@@ -73,7 +73,7 @@ typedef struct {
     /*0x009*/ u8 available_figurines;        /**< figurines available to get */
     /*0x00A*/ u8 fillerA[22];                /**< unused filler */
     /*0x020*/ u16 map_hints;                 /**< bitmask, used by subtask MapHint */
-    /*0x022*/ u8 blendDungeonKeys[4];        /**< blend: keys of dungeons 16 and up (Misery Mire, Turtle Rock, Ganon's Tower) */
+    /*0x022*/ u8 blendDungeonKeys[4];        /**< blend: keys of dungeons 16 and up (Misery Mire, Turtle Rock, Ganon's Tower, the Temple of Bonds) */
     /*0x026*/ u8 blendDungeonItems[4];       /**< blend: their dungeon items, as dungeonItems */
     /*0x02A*/ u8 blendDungeonWarps[4];       /**< blend: their warps, as dungeonWarps */
     /*0x02E*/ u8 blendDungeonKeys2[4];       /**< blend: keys of dungeons 20 and up (the Pyramid of Power) */
@@ -107,7 +107,7 @@ typedef struct {
     /*0x4A0*/ u32 timer5;                    /**< "timer5" unused */
     /*0x4A4*/ u32 timer6;                    /**< "timer6" unused */
     /*0x4A8*/ u32 demo_timer;                /**< timer for US demo version playtime limit */
-    /*0x4AC*/ u8 filler4ac[8];               /**< unused filler */
+    /*0x4AC*/ u8 blendCoopLocks[8];         /**< blend: the co-op dungeon doors two players have opened (blendCoopDungeons.c) */
 } SaveFile;
 
 /**

@@ -61,7 +61,7 @@ enum LocalBanks {
     LOCAL_BANK_18, /**< blend: Misery Mire */
     LOCAL_BANK_19, /**< blend: Turtle Rock */
     LOCAL_BANK_20, /**< blend: Ganon's Tower */
-    LOCAL_BANK_21, /**< blend: reserved (the co-op dungeon) */
+    LOCAL_BANK_21, /**< blend: the Temple of Bonds (co-op only) */
     LOCAL_BANK_22, /**< blend: the Pyramid of Power */
 };
 

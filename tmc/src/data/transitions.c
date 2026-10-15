@@ -347,7 +347,10 @@ const Transition gExitList_HyruleField_SouthHyruleField[] = {
       ROOM_TREE_INTERIORS_SOUTH_HYRULE_FIELD_HEART_PIECE, 1, TRANSITION_TYPE_NORMAL, 0x0, 0x0, 0x0, 0x0 },
     { WARP_TYPE_AREA, 0x118, 0xa8, 0x78, 0x78, TRANSITION_SHAPE_AREA_12x12, AREA_CAVES, ROOM_CAVES_SOUTH_HYRULE_FIELD_FAIRY_FOUNTAIN,
       1, TRANSITION_TYPE_NORMAL, 0x0, 0x0, 0x0, 0x0 },
-    { WARP_TYPE_AREA, 0x58, 0x118, 0x78, 0x78, TRANSITION_SHAPE_AREA_12x12, AREA_CAVES, ROOM_CAVES_SOUTH_HYRULE_FIELD_RUPEE,
+    // the little rupee cave west of Link's house is the way into the Temple of Bonds, which
+    // only two players together may enter: a guard stands in front of it otherwise
+    // (blendShrine.c; Blend_IsTransitionClosed)
+    { WARP_TYPE_AREA, 0x58, 0x118, ENTRY_TempleOfBonds, TRANSITION_SHAPE_AREA_12x12, AREA_NULL_3F, 0,
       1, TRANSITION_TYPE_NORMAL, 0x0, 0x0, 0x0, 0x0 },
     { WARP_TYPE_AREA, 0x178, 0xd8, 0x78, 0xb8, TRANSITION_SHAPE_AREA_12x12, AREA_MINISH_CAVES, ROOM_MINISH_CAVES_OUTSIDE_LINKS_HOUSE,
       1, TRANSITION_TYPE_NORMAL, 0x0, 0x0, 0x0, 0x0 },
@@ -3906,7 +3909,7 @@ const Transition* const* const gExitLists[] = {
     /*AREA_NULL_3C*/ gExitLists_TurtleRock,
     /*AREA_NULL_3D*/ gExitLists_GanonsTower,
     /*AREA_NULL_3E*/ gExitLists_Pyramid,
-    /*AREA_NULL_3F*/ gExitLists_NoExit,
+    /*AREA_NULL_3F*/ gExitLists_TempleOfBonds,
     /*AREA_40*/ gExitLists_40,
     /*AREA_HYRULE_TOWN_UNDERGROUND*/ gExitLists_HyruleTownUnderground,
     /*AREA_GARDEN_FOUNTAINS*/ gExitLists_GardenFountains,

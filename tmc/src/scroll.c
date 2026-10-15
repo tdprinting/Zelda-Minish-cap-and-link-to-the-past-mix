@@ -1,3 +1,5 @@
+#include "blendCoop.h"
+#include "item.h"
 #include "scroll.h"
 #include "alttpBossCam.h"
 
@@ -941,7 +943,7 @@ void sub_08080CB4(Entity* this) {
     u32 tmp2;
     u32 tmp3;
     u32 mask;
-    u32 anim = Blend_ItemSpriteAnim(this->type);
+    u32 anim = Blend_CoopItemAnim(this);
 
     if (anim != this->animIndex) {
         InitAnimationForceUpdate(this, anim);
@@ -975,6 +977,12 @@ void sub_08080CB4(Entity* this) {
                 case 0x5c:
                 case 0x62:
                     if ((gRoomTransition.frameCount & 0xf) == 0) {
+                        CreateSparkleFx(this);
+                    }
+                    break;
+                case 0:
+                    // the Revive Fairy's jar glimmers
+                    if (this->type == ITEM_REVIVE_FAIRY && (gRoomTransition.frameCount & 0x1f) == 0) {
                         CreateSparkleFx(this);
                     }
                     break;

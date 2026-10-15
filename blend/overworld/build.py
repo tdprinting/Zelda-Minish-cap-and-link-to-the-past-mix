@@ -31,6 +31,8 @@ import owdata  # noqa: E402
 import owstyle  # noqa: E402
 import restyle  # noqa: E402
 import shadows  # noqa: E402
+import alttpow  # noqa: E402
+import exteriors  # noqa: E402
 
 OUT = os.path.join(owdata.TMC, 'custom', 'gen', 'ow')
 REFERENCE = os.path.join(OUT, 'alttp_light_world.rgb')
@@ -105,10 +107,25 @@ def main():
     sets = []           # (row, slots, gfx file)
     rooms = []          # (area, room, set, w, h, cells file)
     written = set()
+    fronts = []         # dungeon fronts and landmarks (exteriors.py)
+    have_alttp = alttpow.available()
+    if not have_alttp:
+        log('No A Link to the Past overworld dump yet (make-dungeons.sh makes it): no dungeon fronts.')
     for index, name, want_shadows in AREAS:
         plan = restyle.AreaPlan(index, style, log=log)
         plan.run()
         log('%s (area 0x%02x): %d tileset(s)' % (name, index, len(plan.tilesets)))
+        if have_alttp:
+            palettes = {}
+            for ts in plan.tilesets:
+                for row, cols in ts.rows.items():
+                    palettes[ts.pids[row]] = cols
+            pool, meta_pool, prior = [], [], {}
+            here = exteriors.merge([exteriors.build_site(site, palettes, pool, meta_pool, log=log, prior=prior)
+                                    for site in exteriors.SITES if site.area == index])
+            if here:
+                exteriors.patch_plan(plan, here)
+            fronts += here
         if want_shadows:
             make_shadows(plan, sets, rooms, log)
         for ts in plan.tilesets:
@@ -120,6 +137,7 @@ def main():
                 with open(os.path.join(pal_dir, 'gPalette_%d.gbapal' % pid), 'wb') as f:
                     f.write(struct.pack('<16H', *cols))
     write_inc(sets, rooms)
+    exteriors.write(fronts, OUT, log=log)
     log('Wrote %d palettes, %d shadow sets, %d rooms with shadows to %s'
         % (len(written), len(sets), len(rooms), OUT))
 
@@ -155,14 +173,16 @@ def make_shadows(plan, sets, rooms, log):
         sets.append((row, [s - 1024 for s in slots], name, plan.label, tsi))
         log('  tileset %d: %d shadow characters, colors in row %d slots %s: %s'
             % (tsi, len(chars), row, idx, colors))
-        for room, (rtsi, w, h, C) in sorted(area.rooms.items()):
+        for key, (rtsi, w, h, C) in sorted(area.rooms.items(), key=lambda kv: str(kv[0])):
             if rtsi != tsi:
                 continue
-            cm = area.cell_map(room)
+            # a room with a dungeon front is shaded once per world (exteriors.patch_plan)
+            room, world = key if isinstance(key, tuple) else (key, 0)
+            cm = area.cell_map(key)
             cells = (cm[..., 0] | (cm[..., 1] << 6) | (cm[..., 2] << 7)).astype(np.uint8)
-            fname = 'shadow_%02x_%02x.bin' % (plan.index, room)
+            fname = 'shadow_%02x_%02x%s.bin' % (plan.index, room, '_w%d' % world if world else '')
             open(os.path.join(OUT, fname), 'wb').write(cells.tobytes())
-            rooms.append((plan.index, room, set_no, w * 2, h * 2, fname))
+            rooms.append((plan.index, room, set_no, w * 2, h * 2, fname, world))
 
 
 def write_inc(sets, rooms):
@@ -173,18 +193,18 @@ def write_inc(sets, rooms):
         L.append('\t.byte %d, %d, 0, 0' % (row, len(slots)))
         L.append('\t.4byte gBlendShadowSlots_%d, gBlendShadowGfx_%d' % (n, n))
     L += ['\t.align 2', 'gBlendShadowRooms::']
-    for area, room, set_no, w, h, fname in rooms:
-        L.append('\t.byte 0x%02x, 0x%02x, %d, 0' % (area, room, set_no))
+    for area, room, set_no, w, h, fname, world in rooms:
+        L.append('\t.byte 0x%02x, 0x%02x, %d, %d' % (area, room, set_no, world))
         L.append('\t.2byte %d, %d' % (w, h))
-        L.append('\t.4byte gBlendShadowCells_%02x_%02x' % (area, room))
+        L.append('\t.4byte gBlendShadowCells_%s' % fname[7:-4])
     L.append('\t.byte 0xff, 0xff, 0, 0')
     L.append('\t.2byte 0, 0')
     L.append('\t.4byte 0')
     for n, (row, slots, name, label, tsi) in enumerate(sets):
         L += ['\t.align 2', 'gBlendShadowSlots_%d::' % n, '\t.2byte ' + ', '.join(str(s) for s in slots)]
         L += ['\t.align 2', 'gBlendShadowGfx_%d::' % n, '\t.incbin "custom/gen/ow/%s"' % name]
-    for area, room, set_no, w, h, fname in rooms:
-        L += ['gBlendShadowCells_%02x_%02x::' % (area, room), '\t.incbin "custom/gen/ow/%s"' % fname]
+    for area, room, set_no, w, h, fname, world in rooms:
+        L += ['gBlendShadowCells_%s::' % fname[7:-4], '\t.incbin "custom/gen/ow/%s"' % fname]
     L.append('\t.align 2')
     open(os.path.join(OUT, 'shadows.inc'), 'w').write('\n'.join(L) + '\n')
 

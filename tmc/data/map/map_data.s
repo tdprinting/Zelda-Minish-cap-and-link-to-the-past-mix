@@ -3706,3 +3706,6 @@ gAreaRoomMap_8f_0_top::
 
 @ Soft shadows for the overworld (made by blend/overworld/build.py)
 	.include "custom/gen/ow/shadows.inc"
+
+@ A Link to the Past dungeon fronts on the overworld (made by blend/overworld/build.py)
+	.include "custom/gen/ow/exteriors.inc"

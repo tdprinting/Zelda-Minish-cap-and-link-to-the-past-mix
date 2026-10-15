@@ -149,3 +149,8 @@ gSprite_082F27F4:: @ 082F27F4
 
 @ blend: Link with the A Link to the Past items (made by blend/anim/build.py)
 	.include "custom/gen/blend_link.inc"
+
+@ blend co-op: the Revive Fairy (made by blend/coop/revive_fairy.py)
+	.include "custom/gen/coop/revive_fairy.inc"
+@ blend co-op puzzles: the Twin Stone and the Toss Bell (made by blend/coop/twin_relics.py)
+	.include "custom/gen/coop/twin_relics.inc"

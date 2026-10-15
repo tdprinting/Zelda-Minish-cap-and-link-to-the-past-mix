@@ -37,7 +37,7 @@ typedef struct {
     /*0x1f*/ s8 itemHitboxY;
     /*0x20*/ u8 itemHitboxWidth;
     /*0x21*/ u8 itemHitboxHeight;
-    /*0x22*/ u16 pad;
+    /*0x22*/ u16 shrine; /**< Temple of Bonds: low 12 bits the puzzles solved, top 4 the seal just struck (+1) */
 } BlendPlayerSync;
 
 typedef struct {
@@ -79,6 +79,8 @@ typedef struct {
     /*0x94*/ u8 bossState;        /**< BOSS_*: the A Link to the Past boss fight in this room */
     /*0x95*/ u8 bossMaxHealth;    /**< Link's max health when the Heart Container appeared */
     /*0x96*/ u8 endingTimer;      /**< frames since Ganon fell (the ending, then the credits) */
+    /*0x97*/ u8 menuPage;         /**< the pause menu's Items page: 0 Minish Cap's items, 1 A Link to the Past's */
+    /*0x98*/ u16 capeTimer;       /**< frames the Magic Cape keeps Link hidden */
 } BlendLink;
 
 #define BLEND_MAGIC 0x444E4C42 /* "BLND" */
@@ -114,6 +116,9 @@ extern BlendLink gBlendLink;
 #define ANIM_BLEND_ETHER 0x9f20
 #define ANIM_BLEND_QUAKE 0x9f24
 #define ANIM_BLEND_MIRROR 0x9f28
+#define ANIM_BLEND_BUG_NET 0x9f2c
+#define ANIM_BLEND_SHOVEL 0x9f30
+#define ANIM_BLEND_CAPE 0x9f34
 
 /** Which new items are switched in for their Minish Cap partner (one bit per item, from ITEM_HOOKSHOT). */
 #define BLEND_VARIANTS_ON (gSave.fillerA[3])
@@ -136,5 +141,37 @@ void Blend_ShadowUpdate(void);
 void Blend_ShadowRestore(void);
 /** The current room has a shadow layer, so the game's own background 3 overlays stay off. */
 bool32 Blend_RoomHasShadows(void);
+/** blendOverworld.c: A Link to the Past's dungeon fronts on the overworld */
+void Blend_ExteriorBeforeMap(void);
+void Blend_ExteriorAfterMap(void);
+bool32 Blend_ExteriorActive(void);
+void Blend_ExteriorRefreshColors(void);
+void Blend_ExteriorUpdate(void);
+bool32 Blend_ExteriorKeepsColors(u32 palIdx);
+bool32 Blend_CanEnterDungeon(u32 area);
+/** The Temple of Bonds, the co-op temple (blendShrine.c): its plates, gates, seals and guard. */
+void Blend_ShrineUpdate(void);
+void Blend_CoopDungeonsUpdate(void);
+/** The Golden Sword (blendGoldenSword.c). */
+void Blend_GoldenSwordUpdate(void);
+bool32 Blend_HasGoldenSword(void);
+s32 Blend_GoldenSwordDamage(struct Entity_* item, s32 damage);
+void Blend_GoldenSwordHit(struct Entity_* item, struct Entity_* foe);
+u32 Blend_SwordLevel(u32 level);
+void Blend_GoldenSwordGild(struct Entity_* e);
+/** Whether a way in to the Temple of Bonds is shut: it is unless two players are playing. */
+bool32 Blend_ShrineClosed(const struct Transition* t);
+/** A room's metatiles: each of the Temple of Bonds' rooms has its own, the other areas share theirs. */
+void* Blend_RoomTiles(u32 area, u32 room);
+/** A blend dungeon's big chest while Link has no big key (blend.c). */
+bool32 Blend_IsLockedBigChest(struct Entity_* e);
+
+/* The pause menu's A Link to the Past page (Select on the Items page switches to it). */
+u32 Blend_MenuPageItem(u32 slot);
+u32 Blend_MenuItemText(u32 item);
+bool32 Blend_MenuPageOf(u32 item);
+bool32 Blend_MenuEquip(u32 item, u32 slot);
+void Blend_MenuEquipMinishCap(u32 item);
+void Blend_SetSlotShare(u32 item, bool32 on);
 
 #endif // BLEND_H

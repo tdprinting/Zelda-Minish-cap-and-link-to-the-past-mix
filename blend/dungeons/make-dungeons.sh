@@ -23,6 +23,11 @@ done
 gcc -c -O1 -w -I. $(sdl2-config --cflags) "$ROOT/blend/dungeons/dumprooms.c" -o obj/dumprooms.o
 gcc obj/*.o -o dumprooms $(sdl2-config --libs) -lm
 ./dumprooms rooms
+# and its overworld, for the dungeon fronts on Minish Cap's overworld (blend/overworld/exteriors.py)
+mkdir -p owobj ow
+gcc -c -O1 -w -I. $(sdl2-config --cflags) "$ROOT/blend/overworld/dumpow.c" -o owobj/dumpow.o
+gcc $(ls obj/*.o | grep -v dumprooms.o) owobj/dumpow.o -o dumpow $(sdl2-config --libs) -lm
+./dumpow ow
 # each dungeon's background graphics and colors, for the blended tileset
 mkdir -p gfx
 python3 "$ROOT/blend/dungeons/build.py" --rooms | while read -r rooms; do ./dumprooms gfx gfx $rooms; done
@@ -34,5 +39,7 @@ ALTTP_ROOMS="$WORK/rooms" ALTTP_GFX="$WORK/gfx" ALTTP_YAML="$WORK/assets/dungeon
 python3 "$ROOT/blend/enemies/alttp_enemies.py" "$ROM"
 # Link's animations for the A Link to the Past items, drawn with that game's item art
 python3 "$ROOT/blend/anim/build.py" "$ROM"
+# icons for the A Link to the Past items (menus, buttons, items on the ground), from that game's item menu art
+python3 "$ROOT/blend/menu/icons.py" "$ROM"
 # both generators' frame layouts, patched into gFrameObjLists (needs `make build_assets`)
 python3 "$ROOT/blend/anim/objlists.py"

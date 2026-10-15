@@ -28,7 +28,9 @@
 #include "backgroundAnimations.h"
 #include "itemDefinitions.h"
 #include "ui.h"
+#include "blend.h"
 #include "fade.h"
+#include "blend.h"
 
 static void sub_08077E54(ItemBehavior* this);
 
@@ -1249,8 +1251,12 @@ InteractableObject* sub_080784E4(void) {
         switch (iObject->type) {
             case INTERACTION_NONE:
                 continue;
-            case INTERACTION_TALK:
             case INTERACTION_OPEN_CHEST:
+                // blend: a big chest in an A Link to the Past dungeon wants the big key
+                if (Blend_IsLockedBigChest(entity))
+                    continue;
+                // fall through
+            case INTERACTION_TALK:
             case INTERACTION_UNUSED:
             case INTERACTION_LIFT_SHOP_ITEM:
             case INTERACTION_CHECK:
@@ -3884,7 +3890,9 @@ void LoadRoomGfx(void) {
     MemClear(gMapTop.collisionData, sizeof(gMapTop.collisionData));
     MemClear(&gMapDataBottomSpecial, 0x8000);
     MemClear(&gMapDataTopSpecial, 0x8000);
+    Blend_ExteriorBeforeMap();
     LoadMapData((gArea.pCurrentRoomInfo)->map);
+    Blend_ExteriorAfterMap();
     if (gMapBottom.mapData[0] != 0xffff) {
         sub_0807C8B0(gMapBottom.mapData, roomControls->width / 16, roomControls->height / 16);
         sub_0807C8B0(gMapTop.mapData, roomControls->width / 16, roomControls->height / 16);
