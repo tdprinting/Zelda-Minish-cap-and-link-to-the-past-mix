@@ -184,7 +184,8 @@ static uint16_t parseKeys(const char* s) {
 // Headless test script. Each line: "WHO KEYS FRAMES" where WHO is 1, 2 or b (both)
 // and KEYS uses A B L R S(tart) E(select) U D < > or "-" for none; "shot FILE" saves the screens;
 // "poke WHO ADDR VALUE" writes a byte (hex) into that player's memory, "poke16" a halfword;
-// "load WHO FILE" loads a save state (made by blend/harness) into that player's game.
+// "load WHO FILE" loads a save state (made by blend/harness) into that player's game;
+// "peek WHO ADDR COUNT" prints COUNT bytes (hex) of that player's memory.
 static void runScript(const char* path, struct Player* p, int players) {
 	FILE* f = fopen(path, "r");
 	char line[256];
@@ -204,6 +205,16 @@ static void runScript(const char* path, struct Player* p, int players) {
 			for (int i = 0; i < players; i++)
 				if (who[0] == 'b' || who[0] - '1' == i)
 					p[i].core->busWrite16(p[i].core, addr, val);
+			continue;
+		}
+		if (sscanf(line, "peek %7s %x %u", who, &addr, &val) == 3) {
+			for (int i = 0; i < players; i++)
+				if (who[0] == 'b' || who[0] - '1' == i) {
+					printf("peek %d %08x:", i + 1, addr);
+					for (unsigned n = 0; n < val; n++)
+						printf(" %02x", p[i].core->busRead8(p[i].core, addr + n));
+					printf("\n");
+				}
 			continue;
 		}
 		char file[200];

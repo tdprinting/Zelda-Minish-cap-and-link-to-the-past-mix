@@ -1703,6 +1703,7 @@ typedef struct {
 } BlendPegs;
 
 extern u8 gBlendPegsState[];
+extern u8 gBlendCoopDungeons[];
 #define gBlendPegs (*(BlendPegs*)gBlendPegsState)
 
 static const BlendPegRoom* FindPegRoom(void) {
@@ -1799,6 +1800,7 @@ void Blend_GameUpdate(void) {
     if (gBlendLink.magic != BLEND_MAGIC) {
         MemClear(&gBlendLink, sizeof(gBlendLink));
         MemClear(gBlendPegsState, 0x100); // the pegs' and the Temple of Bonds' state
+        MemClear(gBlendCoopDungeons, 0x100);
         gBlendLink.magic = BLEND_MAGIC;
     }
     // the game's own record of pressed keys loses the keys the blend hides, so keep a true one
@@ -1816,6 +1818,7 @@ void Blend_GameUpdate(void) {
     UpdateFrozen();
     UpdateMirror();
     Blend_ShrineUpdate();
+    Blend_CoopDungeonsUpdate();
     PublishSelf();
     UpdatePartner();
 }

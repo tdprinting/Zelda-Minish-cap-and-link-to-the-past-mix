@@ -24,6 +24,7 @@ import yaml
 import alttprooms as A
 import autotile
 import calm
+import coop
 import pegcheck
 import shrine
 import alttpgfx
@@ -960,6 +961,7 @@ def generate():
     tiler = autotile.Tiler('043', [('088', 'FortressOfWinds'), ('043', 'CastorDarknut')])
     maps_inc, rooms_inc, ents_inc, exits_h, entries_h = [], [], [], [], []
     pegs = []
+    coop_locks = []
     # BLEND_ONLY=Name[,Name]: draw only those dungeons (a quick look; the .inc files then
     # hold only them, so don't build the game from it)
     only = [n for n in os.environ.get('BLEND_ONLY', '').split(',') if n]
@@ -1002,6 +1004,13 @@ def generate():
             dest, at, land = (dest + (None, None))[:3] if isinstance(dest, tuple) else (dest, None, None)
             add_drop(plans[r], plans[dest], at, land)
         index = {r: i for i, r in enumerate(ids)}
+        # the doors two players open together (co-op only: blendCoopDungeons.c)
+        coop.link_cell, coop.arrival = link_cell, arrival
+        if 'arrive' not in dg:
+            for (kind, r, dr, door, plates) in coop.choose(dg, plans, edges, DUNGEONS.index(dg)):
+                coop_locks.append((dg['area'], index[r], kind, dr, door, [(index[pr], c) for (pr, c) in plates]))
+                print('%s: co-op %s at room %03x door %s, plates %s' % (
+                    name, coop.KIND_NAMES[kind], r, door, ', '.join('%03x%s' % (pr, c) for (pr, c) in plates)))
         place = layout(plans, edges)
         flag = dg['flag_base']
         door_flags = {}
@@ -1256,6 +1265,8 @@ def generate():
     write('pegs.h', tileset.peg_header(pegs))
     if shrine_h:
         write('shrine.h', shrine_h)
+    if not only:
+        write('coop.h', coop.header(coop_locks))
 
 
 if __name__ == '__main__':
