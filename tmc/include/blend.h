@@ -109,5 +109,9 @@ u32 Blend_ItemSpriteAnim(u32 item);
 /** The item whose button icon the HUD shows for this equipped item. */
 u32 Blend_HudIcon(u32 item);
 void Blend_FreezeEnemy(struct Entity_* enemy);
+/** Soft overworld shadows on background 3 (blendShadows.c); runs after the room's managers. */
+void Blend_ShadowUpdate(void);
+/** The current room has a shadow layer, so the game's own background 3 overlays stay off. */
+bool32 Blend_RoomHasShadows(void);
 
 #endif // BLEND_H

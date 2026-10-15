@@ -9,6 +9,7 @@
 #include "screen.h"
 #include "game.h"
 #include "room.h"
+#include "blend.h"
 
 void CloudOverlayManager_OnEnterRoom(CloudOverlayManager*);
 void CloudOverlayManager_OnExitRoom(CloudOverlayManager*);
@@ -17,6 +18,13 @@ void CloudOverlayManager_Main(CloudOverlayManager* this) {
     static const u16 gUnk_0810865C[] = {
         0xf01, 0xe02, 0xe03, 0xe04, 0, 0,
     };
+    // the blend's soft shadows use background 3 in these rooms instead of the drifting clouds
+    if (Blend_RoomHasShadows()) {
+        if (this != NULL) {
+            DeleteThisEntity();
+        }
+        return;
+    }
     if (this == NULL) {
         if (gArea.onEnter != CloudOverlayManager_OnEnterRoom) {
             CloudOverlayManager_OnEnterRoom(NULL);
@@ -51,6 +59,9 @@ void CloudOverlayManager_Main(CloudOverlayManager* this) {
 }
 
 void CloudOverlayManager_OnEnterRoom(CloudOverlayManager* this) {
+    if (Blend_RoomHasShadows()) {
+        return;
+    }
     gScreen.bg3.control = BGCNT_SCREENBASE(30) | BGCNT_PRIORITY(1) | BGCNT_CHARBASE(1);
     gScreen.lcd.displayControl |= DISPCNT_BG3_ON;
     gScreen.controls.layerFXControl =

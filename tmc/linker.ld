@@ -108,6 +108,7 @@ SECTIONS {
         . = 0x00036BC0; gMPlayTracks = .;
         . = 0x00038560; gEndOfEwram = .;
 #endif
+        . = 0x0003D000; gBlendShadow = .;
         . = 0x0003F000; gBlendLink = .;
         . = 0x00040000;
     } >ewram
@@ -867,6 +868,7 @@ SECTIONS {
         src/eeprom.o(.text);
         *libc.a:memcpy.o(.text);
         src/blend.o(.text);
+        src/blendShadows.o(.text);
         /* handwritten assembly in arm mode */
         asm/src/intr.o(.text);
 
@@ -1698,6 +1700,7 @@ SECTIONS {
         data/sound/sounds.o(.rodata);
         src/eeprom.o(.rodata);
         src/blend.o(.rodata);
+        src/blendShadows.o(.rodata);
     } >rom
 
     /* DWARF 2 sections */

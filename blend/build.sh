@@ -1,7 +1,7 @@
 #!/bin/sh
 # Builds the blended game from your own Minish Cap (USA) and A Link to the Past (USA) ROMs.
 #   ./blend/build.sh path/to/minish-cap-usa.gba path/to/alttp-usa.sfc
-# The ALttP ROM supplies the dungeon layouts; it can be left out once tmc/custom/gen exists.
+# The ALttP ROM supplies the dungeon layouts and the overworld's Light World colors; it can be left out once tmc/custom/gen exists.
 # Output: blend/out/zelda-blend.gba (private: it contains data from your ROM).
 # Needs the tmc toolchain (agbcc, arm-none-eabi binutils, cmake, libpng); see tmc/INSTALL.md.
 set -e
@@ -23,6 +23,8 @@ elif [ ! -f custom/gen/maps.inc ]; then
     echo "Pass your A Link to the Past (USA) ROM as the second argument to build its dungeons." >&2
     exit 1
 fi
+# overworld: blended cel-shaded palettes and soft shadows (into custom/gen/ow)
+python3 "$ROOT/blend/overworld/build.py" --quiet ${2:+--alttp "$2"}
 make -j"$(nproc)" CUSTOM=1
 mkdir -p "$ROOT/blend/out"
 cp tmc.gba "$ROOT/blend/out/zelda-blend.gba"

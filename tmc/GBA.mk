@@ -79,7 +79,9 @@ clean:
 # build ASM files
 # ===============
 
-ASINCLUDE := -I $(BUILD_DIR)/assets -I $(BUILD_DIR)/enum_include
+# CUSTOM builds look in custom/gen/ow/assets first: the blend's restyled overworld
+# palettes (made by blend/overworld/build.py) replace the originals there.
+ASINCLUDE := $(if $(CUSTOM),-I custom/gen/ow/assets) -I $(BUILD_DIR)/assets -I $(BUILD_DIR)/enum_include
 ASFLAGS := -mcpu=arm7tdmi --defsym $(GAME_VERSION)=1 --defsym REVISION=$(REVISION) --defsym $(GAME_LANGUAGE)=1 $(ASINCLUDE)
 
 # TODO try solve this without the glob
