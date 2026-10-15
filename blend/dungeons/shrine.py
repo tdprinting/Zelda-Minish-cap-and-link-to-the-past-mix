@@ -52,8 +52,8 @@ TILE_STAIRS = 622
 ITEM = {
     'map': (0x50, 0), 'compass': (0x51, 0), 'rupees20': (0x56, 0), 'rupees50': (0x57, 0),
     'rupees100': (0x58, 0), 'heart_piece': (0x63, 0), 'bombs': (0x5d, 0), 'arrows': (0x5e, 0),
-    # the reward: A Link to the Past's sword beam, as Minish Cap's Sword Beam scroll
-    'sword_beam': (0x4c, 0),
+    # the reward: the Golden Sword (ITEM_GOLDEN_SWORD, blendGoldenSword.c), which also teaches the Sword Beam
+    'golden_sword': (0x82, 0),
 }
 
 # enemies (tmc/include/enemy.h; 0x67 and up are A Link to the Past's, alttpEnemies.c)
@@ -162,7 +162,7 @@ ROOMS = [
         steps=[((12, 27), 'thieves'), ((29, 24), 'swamp')],
         seals=[((3, 8), 1), ((28, 8), 1)],
         opens=[(7, 14, 9, 17)],
-        big=((15, 4), 'sword_beam'),
+        big=((15, 4), 'golden_sword'),
         # a fence around the big chest, and the way on to the Swamp Palace
         gates=[([(x, 6) for x in range(12, 20)] + [(12, y) for y in (3, 4, 5)] + [(19, y) for y in (3, 4, 5)],
                 BIT_THIEVES, NONE),
