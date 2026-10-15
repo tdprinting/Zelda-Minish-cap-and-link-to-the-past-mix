@@ -227,6 +227,8 @@ static const FrontStory sFrontStories[] = {
     { 0x3b, 0x7b }, // Misery Mire
     { 0x3c, 0x7c }, // Turtle Rock
     { 0x3d, 0x7d }, // Ganon's Tower
+    { 0x39, 0x7e }, // Thieves' Town
+    { 0x3e, 0x7f }, // the Pyramid of Power
 };
 
 #define FRONT_STORY_DELAY 75
