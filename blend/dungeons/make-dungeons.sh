@@ -2,7 +2,7 @@
 # Rebuilds A Link to the Past's dungeons for the blend from your own ALttP (USA) ROM.
 #   ./blend/dungeons/make-dungeons.sh path/to/alttp-usa.sfc
 # Works in blend/out/z3 and writes tmc/custom/gen/. Both stay out of git: they hold data
-# from your ROM. Needs python3 (pyyaml, pillow), gcc and SDL2 development files.
+# from your ROM. Needs python3 (pyyaml, pillow, numpy), gcc and SDL2 development files.
 set -e
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 ROM=${1:?usage: make-dungeons.sh path/to/alttp-usa.sfc}
