@@ -5,14 +5,22 @@
 // other game's shared state block (gBlendLink at 0x0203F000), where the game
 // draws them as a second Link in red mail.
 //
-// Usage: zelda-blend [game.gba] [--single] [--vertical]
+// Usage: zelda-blend [game.gba] [--single] [--vertical] [--join]
 //        zelda-blend game.gba --test SCRIPT OUT.ppm   (headless test, see runScript)
+//        zelda-blend game.gba --play SCRIPT --screenshot OUT.bmp
+//            (plays SCRIPT, then saves the window as drawn and quits)
+//        --size WxH opens the window at that size (windowed, also on Android)
+// --join starts with one player; player 2 joins when a second gamepad connects
+// (the default on Android, see android.c).
 //
 // Controls (keyboard; gamepads 1 and 2 also work):
 //   Player 1: WASD move, J = B, K = A, U = L, I = R, Enter = Start, Right Shift = Select
 //   Player 2: arrows move, Numpad 1 = B, Numpad 2 = A, Numpad 4 = L, Numpad 5 = R,
 //             Numpad Enter = Start, Numpad + = Select
-//   F1 toggles side-by-side and stacked layout, F11 toggles fullscreen, Esc quits.
+//   F1 (or both stick clicks on a pad) toggles side-by-side and stacked layout,
+//   F11 toggles fullscreen, Esc quits.
+// Built-in handheld controls (like the AYN Odin's) are always player 1; other pads
+// take the remaining players in the order they connect.
 #include <mgba/core/core.h>
 #include <mgba/core/blip_buf.h>
 #include <mgba/core/log.h>
@@ -22,6 +30,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include "platform.h"
 
 #define GBA_W 240
 #define GBA_H 160
@@ -57,10 +67,19 @@ static void quietLog(struct mLogger* logger, int category, enum mLogLevel level,
 }
 static struct mLogger logger = { .log = quietLog };
 
+#ifndef __ANDROID__
+void platformInit(void) {}
+struct VFile* platformOpenGame(const char* rom) { return VFileOpen(rom, O_RDONLY); }
+const char* platformDataPath(const char* name) { return name; }
+#endif
+
 static int startPlayer(struct Player* p, const char* rom, const char* save) {
-	p->core = mCoreFind(rom);
+	struct VFile* vf = platformOpenGame(rom);
+	p->core = vf ? mCoreFindVF(vf) : NULL;
 	if (!p->core || !p->core->init(p->core)) {
-		fprintf(stderr, "Could not start the game core for %s\n", rom);
+		fprintf(stderr, "Could not start the game core for %s\n", rom ? rom : "the bundled game");
+		if (vf)
+			vf->close(vf);
 		return 0;
 	}
 	mCoreInitConfig(p->core, NULL);
@@ -69,11 +88,12 @@ static int startPlayer(struct Player* p, const char* rom, const char* save) {
 	p->core->setAudioBufferSize(p->core, 2048);
 	blip_set_rates(p->core->getAudioChannel(p->core, 0), p->core->frequency(p->core), AUDIO_RATE);
 	blip_set_rates(p->core->getAudioChannel(p->core, 1), p->core->frequency(p->core), AUDIO_RATE);
-	if (!mCoreLoadFile(p->core, rom)) {
-		fprintf(stderr, "Could not load %s\n", rom);
+	if (!p->core->loadROM(p->core, vf)) {
+		fprintf(stderr, "Could not load %s\n", rom ? rom : "the bundled game");
+		vf->close(vf);
 		return 0;
 	}
-	mCoreLoadSaveFile(p->core, save, false);
+	mCoreLoadSaveFile(p->core, platformDataPath(save), false);
 	p->core->reset(p->core);
 	return 1;
 }
@@ -214,24 +234,108 @@ static void runScript(const char* path, struct Player* p, int players) {
 	fclose(f);
 }
 
+// A handheld's own built-in controls: the ones Android reports as not external
+// (PICORI_BUILTIN_PADS, one name per line, set by PicoriActivity.java), or known
+// handheld names for Android versions and PCs that don't say.
+static int isBuiltInPad(SDL_GameController* pad) {
+	const char* name = pad ? SDL_JoystickName(SDL_GameControllerGetJoystick(pad)) : NULL;
+	if (!name)
+		return 0;
+	const char* list = SDL_getenv("PICORI_BUILTIN_PADS");
+	size_t len = strlen(name);
+	for (const char* l = list; l && *l; l = strchr(l, '\n') ? strchr(l, '\n') + 1 : NULL)
+		if (!strncmp(l, name, len) && (l[len] == '\n' || !l[len]))
+			return 1;
+	return SDL_strcasestr(name, "odin") || SDL_strcasestr(name, "steam deck");
+}
+
+// Gamepads in the order they connected. Built-in controls go first, so a
+// handheld's own buttons stay player 1 when a second controller is added.
+static SDL_GameController* pads[8];
+static int padCount;
+
+static void assignPads(struct Player* p) {
+	SDL_GameController* order[8];
+	int n = 0;
+	for (int builtIn = 1; builtIn >= 0; builtIn--)
+		for (int i = 0; i < padCount; i++)
+			if (isBuiltInPad(pads[i]) == builtIn)
+				order[n++] = pads[i];
+	for (int i = 0; i < 2; i++)
+		p[i].pad = i < n ? order[i] : NULL;
+}
+
+static void padAdded(struct Player* p, int deviceIndex) {
+	SDL_GameController* pad = SDL_GameControllerOpen(deviceIndex);
+	if (!pad)
+		return;
+	for (int i = 0; i < padCount; i++)
+		if (pads[i] == pad) // SDL reports pads already open at startup twice
+			return;
+	if (padCount < (int) (sizeof(pads) / sizeof(pads[0])))
+		pads[padCount++] = pad;
+	assignPads(p);
+}
+
+static void padRemoved(struct Player* p, SDL_JoystickID id) {
+	for (int i = 0; i < padCount; i++)
+		if (SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(pads[i])) == id) {
+			SDL_GameControllerClose(pads[i]);
+			memmove(&pads[i], &pads[i + 1], (padCount - i - 1) * sizeof(pads[0]));
+			padCount--;
+			break;
+		}
+	assignPads(p);
+}
+
+static void saveScreenshot(SDL_Renderer* ren, const char* path) {
+	int w, h, logicalW, logicalH;
+	SDL_GetRendererOutputSize(ren, &w, &h);
+	SDL_RenderGetLogicalSize(ren, &logicalW, &logicalH);
+	SDL_RenderSetLogicalSize(ren, 0, 0); // read the whole screen, black bars included
+	SDL_Surface* s = SDL_CreateRGBSurfaceWithFormat(0, w, h, 32, SDL_PIXELFORMAT_ARGB8888);
+	if (s && !SDL_RenderReadPixels(ren, NULL, SDL_PIXELFORMAT_ARGB8888, s->pixels, s->pitch))
+		SDL_SaveBMP(s, path);
+	SDL_FreeSurface(s);
+	SDL_RenderSetLogicalSize(ren, logicalW, logicalH);
+}
+
 int main(int argc, char** argv) {
-	const char* rom = "zelda-blend.gba";
-	int players = 2, vertical = 0;
+	const char* rom = NULL;
+	int players = 2, vertical = 0, join = 0;
 	const char* testScript = NULL;
 	const char* testOut = NULL;
+	const char* playScript = NULL;
+	const char* screenshot = NULL;
+	int sizeW = 0, sizeH = 0;
+#ifdef __ANDROID__
+	join = 1;
+#endif
 	for (int i = 1; i < argc; i++) {
 		if (!strcmp(argv[i], "--single")) players = 1;
 		else if (!strcmp(argv[i], "--vertical")) vertical = 1;
+		else if (!strcmp(argv[i], "--join")) join = 1;
 		else if (!strcmp(argv[i], "--test") && i + 2 < argc) { testScript = argv[++i]; testOut = argv[++i]; }
+		else if (!strcmp(argv[i], "--play") && i + 1 < argc) playScript = argv[++i];
+		else if (!strcmp(argv[i], "--screenshot") && i + 1 < argc) screenshot = argv[++i];
+		else if (!strcmp(argv[i], "--size") && i + 1 < argc) sscanf(argv[++i], "%dx%d", &sizeW, &sizeH);
 		else rom = argv[i];
 	}
+#ifndef __ANDROID__
+	if (!rom)
+		rom = "zelda-blend.gba";
+#endif
+	// With --join, player 2 starts when a second pad connects (scripted runs start both)
+	if (join && players == 2 && !playScript && !testScript)
+		players = 1;
 	mLogSetDefaultLogger(&logger);
+	platformInit();
 
 	struct Player p[2] = { 0 };
 	if (!startPlayer(&p[0], rom, "player1.sav") || (players == 2 && !startPlayer(&p[1], rom, "player2.sav"))) {
 		char msg[512];
 		snprintf(msg, sizeof(msg), "Could not load the game from \"%s\".\n\nBuild zelda-blend.gba from your own ROM "
-		         "(see README) and put it next to this program.", rom);
+		         "(see README) and put it next to this program.", rom ? rom : "zelda-blend.gba");
 		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Zelda: The Picori Seal", msg, NULL);
 		return 1;
 	}
@@ -241,29 +345,43 @@ int main(int argc, char** argv) {
 		writePPM(testOut, p, players);
 		return 0;
 	}
+	if (playScript)
+		runScript(playScript, p, players);
 
-	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMECONTROLLER) != 0) {
+	if (SDL_Init(SDL_INIT_VIDEO | (screenshot ? 0 : SDL_INIT_AUDIO | SDL_INIT_GAMECONTROLLER)) != 0) {
 		fprintf(stderr, "SDL_Init failed: %s\n", SDL_GetError());
 		return 1;
 	}
 	int outW = vertical ? GBA_W : GBA_W * players, outH = vertical ? GBA_H * players : GBA_H;
+#ifdef __ANDROID__
+	Uint32 windowFlags = SDL_WINDOW_FULLSCREEN;
+#else
+	Uint32 windowFlags = SDL_WINDOW_RESIZABLE;
+#endif
+	if (sizeW > 0 && sizeH > 0)
+		windowFlags = SDL_WINDOW_RESIZABLE;
+	else
+		sizeW = outW * SCALE, sizeH = outH * SCALE;
 	SDL_Window* win = SDL_CreateWindow("Zelda: The Picori Seal", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-	                                   outW * SCALE, outH * SCALE, SDL_WINDOW_RESIZABLE);
+	                                   sizeW, sizeH, windowFlags);
 	SDL_Renderer* ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+	if (!ren) // e.g. the dummy video driver used for screenshots
+		ren = SDL_CreateRenderer(win, -1, 0);
 	SDL_RenderSetLogicalSize(ren, outW, outH);
-	SDL_Texture* tex[2];
+	SDL_Texture* tex[2] = { 0 };
 	for (int i = 0; i < players; i++)
 		tex[i] = SDL_CreateTexture(ren, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_STREAMING, GBA_W, GBA_H);
 
 	SDL_AudioSpec want = { .freq = AUDIO_RATE, .format = AUDIO_S16SYS, .channels = 2, .samples = 1024 }, have;
-	SDL_AudioDeviceID audio = SDL_OpenAudioDevice(NULL, 0, &want, &have, 0);
+	SDL_AudioDeviceID audio = screenshot ? 0 : SDL_OpenAudioDevice(NULL, 0, &want, &have, 0);
 	if (audio)
 		SDL_PauseAudioDevice(audio, 0);
 
-	int running = 1, fullscreen = 0;
+	int running = 1, fullscreen = 0, frame = 0;
 	Uint64 freq = SDL_GetPerformanceFrequency(), next = SDL_GetPerformanceCounter();
 	const double frameTime = 280896.0 / 16777216.0; // one GBA frame
 	while (running) {
+		int relayout = 0;
 		SDL_Event e;
 		while (SDL_PollEvent(&e)) {
 			if (e.type == SDL_QUIT) running = 0;
@@ -271,16 +389,35 @@ int main(int argc, char** argv) {
 			else if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_F11) {
 				fullscreen = !fullscreen;
 				SDL_SetWindowFullscreen(win, fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
-			} else if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_F1 && players == 2) {
+			} else if ((e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_F1) ||
+			           (e.type == SDL_CONTROLLERBUTTONDOWN &&
+			            (e.cbutton.button == SDL_CONTROLLER_BUTTON_LEFTSTICK || e.cbutton.button == SDL_CONTROLLER_BUTTON_RIGHTSTICK) &&
+			            SDL_GameControllerGetButton(SDL_GameControllerFromInstanceID(e.cbutton.which), SDL_CONTROLLER_BUTTON_LEFTSTICK) &&
+			            SDL_GameControllerGetButton(SDL_GameControllerFromInstanceID(e.cbutton.which), SDL_CONTROLLER_BUTTON_RIGHTSTICK))) {
 				vertical = !vertical;
-				outW = vertical ? GBA_W : GBA_W * 2;
-				outH = vertical ? GBA_H * 2 : GBA_H;
-				SDL_RenderSetLogicalSize(ren, outW, outH);
-				SDL_SetWindowSize(win, outW * SCALE, outH * SCALE);
+				relayout = 1;
 			} else if (e.type == SDL_CONTROLLERDEVICEADDED) {
-				for (int i = 0; i < players; i++)
-					if (!p[i].pad) { p[i].pad = SDL_GameControllerOpen(e.cdevice.which); break; }
+				padAdded(p, e.cdevice.which);
+			} else if (e.type == SDL_CONTROLLERDEVICEREMOVED) {
+				padRemoved(p, e.cdevice.which);
+			} else if (e.type == SDL_APP_DIDENTERFOREGROUND) {
+				next = SDL_GetPerformanceCounter(); // don't race to catch up after being paused
+				if (audio)
+					SDL_ClearQueuedAudio(audio);
 			}
+		}
+		// A second pad joined: start player 2 next to player 1
+		if (join && players == 1 && p[1].pad && startPlayer(&p[1], rom, "player2.sav")) {
+			tex[1] = SDL_CreateTexture(ren, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_STREAMING, GBA_W, GBA_H);
+			players = 2;
+			relayout = 1;
+		}
+		if (relayout) {
+			outW = vertical ? GBA_W : GBA_W * players;
+			outH = vertical ? GBA_H * players : GBA_H;
+			SDL_RenderSetLogicalSize(ren, outW, outH);
+			if (!(SDL_GetWindowFlags(win) & SDL_WINDOW_FULLSCREEN))
+				SDL_SetWindowSize(win, outW * SCALE, outH * SCALE);
 		}
 		const Uint8* ks = SDL_GetKeyboardState(NULL);
 		for (int i = 0; i < players; i++)
@@ -306,11 +443,16 @@ int main(int argc, char** argv) {
 				SDL_QueueAudio(audio, mix[0], n * 4);
 		}
 
+		SDL_SetRenderDrawColor(ren, 0, 0, 0, 255);
 		SDL_RenderClear(ren);
 		for (int i = 0; i < players; i++) {
 			SDL_UpdateTexture(tex[i], NULL, p[i].video, GBA_W * sizeof(color_t));
 			SDL_Rect dst = { vertical ? 0 : i * GBA_W, vertical ? i * GBA_H : 0, GBA_W, GBA_H };
 			SDL_RenderCopy(ren, tex[i], NULL, &dst);
+		}
+		if (screenshot && ++frame >= 2) {
+			saveScreenshot(ren, screenshot);
+			break;
 		}
 		SDL_RenderPresent(ren);
 

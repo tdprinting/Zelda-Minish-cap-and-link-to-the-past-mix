@@ -46,12 +46,36 @@ Everything is made by restyling and reusing the art already in Minish Cap.
 | Enter | Numpad Enter | Start |
 | Right Shift | Numpad + | Select |
 
-Gamepads work too: the first controller is player 1, the second is player 2.
-**F1** switches between side-by-side and stacked screens, **F11** toggles fullscreen,
+Gamepads work too: the first controller is player 1, the second is player 2 (a
+handheld PC's built-in controls are always player 1).
+**F1** (or clicking both sticks) switches between side-by-side and stacked screens, **F11** toggles fullscreen,
 **Esc** quits. Each player has their own save (`player1.sav`, `player2.sav`).
 Run `zelda-blend.exe --single` to play alone.
 
 The ROM also runs in any GBA emulator for single-player.
+
+## Playing on Android (AYN Odin 2 Portal)
+
+The APK (`picori-seal-vX.Y-android.apk`) has the game inside it. It's made for the
+AYN Odin 2 Portal and runs on any 64-bit Android 8+ device with a gamepad.
+
+1. Copy the APK to the device and open it to install (allow installing from your
+   file manager when Android asks). It isn't from the Play Store, so Play Protect may
+   warn about an unknown app; choose to install anyway.
+2. Start **Picori Seal**. It runs fullscreen in landscape.
+
+- The Odin's built-in controls are player 1: D-pad or left stick to move, the
+  right face button is A and the bottom one is B, L1/L2 = L, R1/R2 = R, Start and Select.
+- Connect a second controller (Bluetooth or USB) for co-op. Player 2 joins as soon
+  as it connects and the screen splits side by side. Click both sticks to switch to
+  stacked screens.
+- Android's Back button doesn't quit, so it can't end a game by accident; use Home or
+  the recent-apps list to leave.
+- Saves (`player1.sav`, `player2.sav`) live in
+  `Android/data/com.picoriseal.game/files/` on the device's storage, where you can
+  back them up over USB. A newer `zelda-blend.gba` put in that folder is played
+  instead of the one in the APK (installing a newer APK takes over again).
+- Updates install over the old version and keep the saves. Uninstalling deletes them.
 
 ## Building
 
@@ -66,6 +90,10 @@ make -C blend/host                               # needs libsdl2-dev, libmgba-de
 
 # The co-op player, Windows (cross-compiled; see the script for its dependencies)
 ./blend/host/build-windows.sh                    # -> blend/out/zelda-blend.exe
+
+# The Android APK with the game inside (needs the Android SDK and NDK, SDL2 and mGBA
+# sources; see the script). Sign every release with the same key so updates install.
+./blend/android/build-apk.sh blend/out/zelda-blend.gba   # -> blend/out/picori-seal.apk
 ```
 
 ## Code map
@@ -80,7 +108,8 @@ make -C blend/host                               # needs libsdl2-dev, libmgba-de
 | `blend/anim/` | Link's animations for the A Link to the Past items: `build.py` draws A Link to the Past's item art, recolored to Link's Minish Cap palette, into Minish Cap Link poses (Hammer lifted and slammed, rods and Somaria swung, Hookshot held out, Byrna raised, Powder shaken, medallions and Mirror held up) as sprite 159; `objlists.py` splices generated frame object lists into `gFrameObjLists`; `mcsprite.py` reads and draws Minish Cap sprites. Run by `make-dungeons.sh`; output goes to `tmc/custom/gen/` |
 | `blend/enemies/`, `tmc/src/enemy/alttpEnemies.c` | A Link to the Past's enemies: `alttp_enemies.py` cuts their sprites from your ALttP ROM, recolors them and adds new frames (as sprite 155); the C file gives each its behavior. Run by `make-dungeons.sh` |
 | `blend/overworld/`, `tmc/src/blendShadows.c` | The blended overworld: `build.py` restyles every overworld palette toward A Link to the Past's Light World colors and draws soft shadow maps; `blendShadows.c` shows the shadows on background 3. Run by `build.sh`; output goes to `tmc/custom/gen/ow` |
-| `blend/host/coop.c` | Split-screen co-op player (SDL2 + libmgba) |
+| `blend/host/coop.c` | Split-screen co-op player (SDL2 + libmgba); `--play SCRIPT --screenshot FILE` renders a scripted run for tests |
+| `blend/host/android.c`, `blend/android/` | Android version of the player: where the game and saves live, the activity that starts it (`PicoriActivity.java` tells the player which pads are built in), and `build-apk.sh` |
 | `blend/harness/harness.c` | Headless test runner used to check builds |
 
 The shared state block `gBlendLink` sits at a fixed address, `0x0203F000`, so the
