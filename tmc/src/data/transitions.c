@@ -33,6 +33,9 @@ const Transition gExitList_MinishWoods_Main[] = {
       1, TRANSITION_TYPE_NORMAL, 0x0, 0x0, 0x0, 0x0 },
     { WARP_TYPE_AREA, 0x03a8, 0x0010, 0x0078, 0x0088, TRANSITION_SHAPE_AREA_28x12, AREA_BEANSTALKS, ROOM_BEANSTALKS_EASTERN_HILLS,
       1, TRANSITION_TYPE_NORMAL, 0x0, 0x0, 0x0, 0x0 },
+    // in the Dark World, for a player with the Fire Rod, the Business Scrub's tree is Skull Woods
+    { WARP_TYPE_AREA, 0x0210, 0x01c8, ENTRY_SkullWoods, TRANSITION_SHAPE_AREA_28x12, AREA_NULL_1F, 0,
+      1, TRANSITION_TYPE_NORMAL, 0x0, 0x0, 0x0, 0x0 },
     { WARP_TYPE_AREA, 0x0210, 0x01c8, 0x0078, 0x0078, TRANSITION_SHAPE_AREA_28x12, AREA_TREE_INTERIORS,
       ROOM_TREE_INTERIORS_MINISH_WOODS_BUSINESS_SCRUB, 1, TRANSITION_TYPE_NORMAL, 0x0, 0x0, 0x0, 0x0 },
     { WARP_TYPE_AREA, 0x0070, 0x0048, 0x0078, 0x0078, TRANSITION_SHAPE_AREA_28x12, AREA_TREE_INTERIORS,
@@ -3845,7 +3848,7 @@ const Transition* const* const gExitLists[] = {
     /*AREA_NULL_1C*/ gExitLists_TowerOfHera,
     /*AREA_NULL_1D*/ gExitLists_PalaceOfDarkness,
     /*AREA_NULL_1E*/ gExitLists_SwampPalace,
-    /*AREA_NULL_1F*/ gExitLists_NoExit,
+    /*AREA_NULL_1F*/ gExitLists_SkullWoods,
     /*AREA_MINISH_HOUSE_INTERIORS*/ gExitLists_MinishHouseInteriors,
     /*AREA_HOUSE_INTERIORS_1*/ gExitLists_HouseInteriors1,
     /*AREA_HOUSE_INTERIORS_2*/ gExitLists_HouseInteriors2,

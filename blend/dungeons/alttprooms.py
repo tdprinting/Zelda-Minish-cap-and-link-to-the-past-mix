@@ -60,6 +60,10 @@ def attr_class(a):
 # rooms whose walls are one 8px tile thick (the Palace of Darkness's dark maze): a cell
 # with any wall in it is wall, or the maze would fall away at Minish Cap's 16px scale
 THIN_WALL_ROOMS = {0x19}
+# rooms ringed by spikes one 8px tile thick (Skull Woods's Mothula lair): a cell with a
+# spike in it is wall too, so Link can't stand on them where Minish Cap has none
+SPIKE_RING_ROOMS = {0x29}
+SPIKE_ATTRS = (0x44,)
 
 PRIORITY = [ENTRANCE, LOCKED, SHUTTER, DOOR, BIG_CHEST, CHEST, STAIRS, TORCH, BLOCK, POT, PIT, WATER]
 
@@ -88,7 +92,7 @@ class Room:
                         pick = p
                         break
                 if pick is None:
-                    if self.id in THIN_WALL_ROOMS:
+                    if self.id in THIN_WALL_ROOMS | SPIKE_RING_ROOMS:
                         pick = FLOOR if quad.count(FLOOR) == 4 else SOLID
                     else:
                         pick = FLOOR if quad.count(FLOOR) >= 2 else SOLID

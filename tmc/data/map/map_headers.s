@@ -3486,7 +3486,7 @@ gAreaRoomMaps:: @ 08107988
 	.4byte gAreaRoomMaps_TowerOfHera              @ 0x1C (A Link to the Past)
 	.4byte gAreaRoomMaps_PalaceOfDarkness        @ 0x1D (A Link to the Past)
 	.4byte gAreaRoomMaps_SwampPalace              @ 0x1E (A Link to the Past)
-	.4byte gAreaRoomMaps_Unused                  @ 0x1F
+	.4byte gAreaRoomMaps_SkullWoods               @ 0x1F (A Link to the Past)
 	.4byte gAreaRoomMaps_MinishHouseInteriors    @ 0x20
 	.4byte gAreaRoomMaps_HouseInteriors1         @ 0x21
 	.4byte gAreaRoomMaps_HouseInteriors2         @ 0x22

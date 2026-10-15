@@ -60,6 +60,9 @@ ITEMS = {
     0x09: (0x66, 0),
     # and the Swamp Palace's Hookshot lies in the dark Castor Wilds: a bigger bomb bag
     0x0a: (0x65, 0),
+    # Skull Woods's Fire Rod already lies in the dark Minish Woods (and opens the way
+    # in): its big chest holds a bigger wallet
+    0x07: (0x64, 0),
 }
 
 # A Link to the Past enemies -> blend enemies: id, or (id, form). Ids 0x67 and up are
@@ -69,6 +72,7 @@ ALTTP_HINOX, LANMOLA, ALTTP_LEEVER, ALTTP_BEAMOS = 0x6f, 0x71, 0x73, 0x74
 ALTTP_POKEY, ALTTP_GIBDO, GIANT_MOLDORM, ALTTP_BARI, ALTTP_HARDHAT, ALTTP_BUMPER = 0x76, 0x77, 0x78, 0x7a, 0x7b, 0x7c
 # Minish Cap enemies used where A Link to the Past has a close relative
 MC_CHUCHU, MC_HELMASAUR, MC_SPIKED_BEETLE, MC_DARK_NUT, MC_WALL_MASTER, MC_TEKTITE = 0x01, 0x20, 0x1e, 0x05, 0x1a, 0x26
+MC_WIZZROBE_FIRE = 0x28
 ENEMIES = {
     'A7-Stalfos': ALTTP_STALFOS,
     '105-StalfosDrop': (ALTTP_STALFOS, 1),    # waits in the ceiling and drops on Link
@@ -102,6 +106,10 @@ ENEMIES = {
     '81-WaterBug': MC_TEKTITE,                  # zelda3's name for the Hover
     '8C-Arrghus': (ALTTP_BARI, 1),              # a red Bari stands in for Arrghus,
     '8D-ArrghusFuzz': ALTTP_BARI,               # and blue ones for its puffs
+    # Skull Woods
+    '8B-Gibdo': ALTTP_GIBDO,
+    '109-WallMaster': MC_WALL_MASTER,           # grabs Link and drops him at the entrance
+    '88-Mothula': MC_WIZZROBE_FIRE,             # a fire Wizzrobe stands in for Mothula
 }
 
 DOOR_SMALL_KEY = 0x1c
@@ -174,6 +182,23 @@ DUNGEONS = [
         flag_base=0x10,
         trim=True,
     ),
+    dict(
+        name='SkullWoods',
+        # in through the north wing, where the dungeon's three small keys can all be found
+        # before a key door (the big chest room's own door, 0x58's, is the second way out)
+        rooms=[0x57, 0x58, 0x56, 0x67, 0x68, 0x59, 0x49, 0x39, 0x29],
+        entrance=0x57,
+        # the Business Scrub's hollow tree in the Minish Woods, in the Dark World
+        area='AREA_NULL_1F',
+        exit=('AREA_MINISH_WOODS', 'ROOM_MINISH_WOODS_MAIN', 0x210, 0x1d8),
+        # the west lobby's door leads through the woods to the skull's back door, as in
+        # A Link to the Past
+        links={0x56: 0x59, 0x59: 0x56},
+        # the Gibdo room's hole drops into Mothula's lair
+        drops={0x39: 0x29},
+        flag_base=0x10,
+        trim=True,
+    ),
 ]
 
 
@@ -212,6 +237,8 @@ class Plan:
         self.stairs = []     # (cell x, cell y, stair index)
         self.chests = []     # (cell x, cell y, alttp item)
         self.enemies = []    # (mc enemy, form, pixel x, pixel y, A Link to the Past cell)
+        self.drops = []      # (cell x, cell y, room, landing cell): holes, and the way back up
+        self.steps_up = []   # cells of steps the blend draws (the way back up from a drop)
         self._doors()
         self._stairs()
 
@@ -571,6 +598,41 @@ BORDER = {DIR_N: 'TRANSITION_SHAPE_BORDER_NORTH', DIR_S: 'TRANSITION_SHAPE_BORDE
           DIR_W: 'TRANSITION_SHAPE_BORDER_WEST', DIR_E: 'TRANSITION_SHAPE_BORDER_EAST'}
 
 
+def add_drop(p, q):
+    """A hole in room p that A Link to the Past drops through into room q (Skull Woods's
+    way down to Mothula). Minish Cap pits only hurt Link and set him back, so each cell
+    of the hole becomes a step that takes him down, keeping the hole's art; he lands where
+    the hole lies above, and a step up in q's far corner takes him back beside the hole."""
+    hole = [(i % 32, i // 32) for i, c in enumerate(p.cells) if c == A.PIT]
+    assert hole, 'room %03x has no hole to drop through' % p.id
+    floor_q = [(i % 32, i // 32) for i, c in enumerate(q.cells) if c == A.FLOOR]
+    hx = sum(x for x, _ in hole) // len(hole)
+    hy = sum(y for _, y in hole) // len(hole)
+    land = min(floor_q, key=lambda c: abs(c[0] - hx) + abs(c[1] - hy))
+    # a room with no door has only the floor he lands on: wall off the rest
+    if not q.doors:
+        q._reach([land])
+    # the step back up: open floor (floor all round) in the lower left of the floor he
+    # lands on
+    seen, stack = set(), [land]
+    while stack:
+        c = stack.pop()
+        if c in seen or q.at(*c) != A.FLOOR:
+            continue
+        seen.add(c)
+        stack += [(c[0] + 1, c[1]), (c[0] - 1, c[1]), (c[0], c[1] + 1), (c[0], c[1] - 1)]
+    near = [c for c in seen if c != land and
+            all(q.at(c[0] + dx, c[1] + dy) == A.FLOOR for dx in (-1, 0, 1) for dy in (-1, 0, 1))]
+    up = max(near, key=lambda c: (c[1] - c[0], c[1]))
+    # back beside the hole, on the side nearest the room's floor below it
+    floor_p = [(i % 32, i // 32) for i, c in enumerate(p.cells) if c == A.FLOOR]
+    back = min(floor_p, key=lambda c: (min(abs(c[0] - x) + abs(c[1] - y) for x, y in hole), -c[1]))
+    for x, y in hole:
+        p.drops.append((x, y, q.id, land))
+    q.drops.append((up[0], up[1], p.id, back))
+    q.steps_up.append(up)
+
+
 def link_cell(plan):
     """The step in a room's door to the outside that takes Link to a linked room: the
     door's last cell but one."""
@@ -604,6 +666,8 @@ def generate():
         edges = open_edges(plans)
         for r in ids:
             plans[r].finish(edges[r])
+        for r, dest in dg.get('drops', {}).items():
+            add_drop(plans[r], plans[dest])
         index = {r: i for i, r in enumerate(ids)}
         place = layout(plans, edges)
         flag = dg['flag_base']
@@ -625,6 +689,9 @@ def generate():
                 bottom[cy * 32 + cx] = TILE_CHEST
                 top[cy * 32 + cx] = 0
             for (cx, cy, _) in p.stairs:
+                bottom[cy * 32 + cx] = TILE_STAIRS
+                top[cy * 32 + cx] = 0
+            for (cx, cy, _, _) in p.drops:
                 bottom[cy * 32 + cx] = TILE_STAIRS
                 top[cy * 32 + cx] = 0
             if r in dg.get('links', {}):
@@ -703,6 +770,10 @@ def generate():
                     if q.at(lx + ox, ly + oy) == A.FLOOR:
                         lx, ly = lx + ox, ly + oy
                         break
+                exits.append('\t{ WARP_TYPE_AREA, 0x%x, 0x%x, 0x%x, 0x%x, TRANSITION_SHAPE_AREA_12x12, %s, %d, 1, '
+                             'TRANSITION_TYPE_NORMAL, 0x4, 0x0, 0x0, 0x0 },' % (
+                                 cx * 16 + 8, cy * 16 + 8, lx * 16 + 8, ly * 16 + 8, dg['area'], index[dest]))
+            for (cx, cy, dest, (lx, ly)) in p.drops:
                 exits.append('\t{ WARP_TYPE_AREA, 0x%x, 0x%x, 0x%x, 0x%x, TRANSITION_SHAPE_AREA_12x12, %s, %d, 1, '
                              'TRANSITION_TYPE_NORMAL, 0x4, 0x0, 0x0, 0x0 },' % (
                                  cx * 16 + 8, cy * 16 + 8, lx * 16 + 8, ly * 16 + 8, dg['area'], index[dest]))

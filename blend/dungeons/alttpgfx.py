@@ -33,7 +33,9 @@ BACKDROP_MODES = ('None', 'Parallaxing', 'Translucent', 'Transparent', 'Addition
 
 # rooms set to "Normal" whose second layer is still a backdrop: the Desert Palace's
 # courtyard fills it with a checkered floor that would cover the room
-BACKDROP_ROOMS = {0x53}
+# Skull Woods's Mothula lair fills its first layer with the moving floor, under the
+# walls and spikes of its second
+BACKDROP_ROOMS = {0x53, 0x29}
 
 # rooms whose first layer only holds a cover over part of the room, which the game
 # lifts as Link comes near: the Palace of Darkness's room 0x1B ("On top") hides its

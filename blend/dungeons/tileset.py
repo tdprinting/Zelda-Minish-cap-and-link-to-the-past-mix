@@ -215,6 +215,20 @@ class Blend:
                 edge = {'l': (slice(y0, y0 + 16), slice(x0, x0 + 2)), 'r': (slice(y0, y0 + 16), slice(x0 + 14, x0 + 16)),
                         't': (slice(y0, y0 + 2), slice(x0, x0 + 16)), 'b': (slice(y0 + 14, y0 + 16), slice(x0, x0 + 16))}[side]
                 img[edge] = celshade.OUTLINE
+        # a step back up out of a room Link dropped into (A Link to the Past has none; Link
+        # leaves Mothula's lair by the crystal): four stone treads in the floor's own color
+        for cx, cy in plan.steps_up:
+            x0, y0 = cx * 16, cy * 16
+            base = img[y0:y0 + 16, x0:x0 + 16].reshape(-1, 3).mean(axis=0)
+            for k in range(4):
+                ty = y0 + k * 4
+                img[ty, x0:x0 + 16] = celshade.snap(base + (255 - base) * (0.35 - 0.08 * k))
+                img[ty + 1:ty + 3, x0:x0 + 16] = celshade.snap(base * (1.0 - 0.15 * k))
+                img[ty + 3, x0:x0 + 16] = celshade.snap(base * (0.55 - 0.08 * k))
+            img[y0:y0 + 16, x0] = celshade.OUTLINE
+            img[y0:y0 + 16, x0 + 15] = celshade.OUTLINE
+            empty[y0:y0 + 16, x0:x0 + 16] = False
+            stoned[y0:y0 + 16, x0:x0 + 16] = True
         # shadows only fall where Link can go: A Link to the Past leaves unseen floor and
         # invisible walls around its rooms
         walk = np.array([[plan.cells[(y // 16) * 32 + x // 16] in PASSABLE for x in range(512)] for y in range(512)])
@@ -291,6 +305,9 @@ class Blend:
         # thin walls, whose wall tiles repeat like a floor pattern)
         if plan.id not in A.THIN_WALL_ROOMS:
             floor |= ~np.array([plan.cells[(y // 2) * 32 + x // 2] in PASSABLE for y in range(64) for x in range(64)]).reshape(64, 64)
+        if plan.id in A.SPIKE_RING_ROOMS:
+            # a ring of spikes repeats like a floor pattern too; its spikes stay spikes
+            floor &= ~np.isin(np.frombuffer(bytes(plan.room.attr), dtype=np.uint8), A.SPIKE_ATTRS).reshape(64, 64)
         on_hi = pattern(gfx.bg1) & ~empty_hi & floor
         on_lo = pattern(gfx.bg2) & empty_hi & floor
         walk = np.array([plan.cells[(y // 2) * 32 + x // 2] in PASSABLE for y in range(64) for x in range(64)]).reshape(64, 64)

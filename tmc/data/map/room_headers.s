@@ -1054,7 +1054,7 @@ gAreaRoomHeaders:: @ 0811E214
 	.4byte gAreaRoomHeaders_TowerOfHera              @ 0x1C (A Link to the Past)
 	.4byte gAreaRoomHeaders_PalaceOfDarkness        @ 0x1D (A Link to the Past)
 	.4byte gAreaRoomHeaders_SwampPalace              @ 0x1E (A Link to the Past)
-	.4byte 0x0                                      @ 0x1F
+	.4byte gAreaRoomHeaders_SkullWoods               @ 0x1F (A Link to the Past)
 	.4byte gAreaRoomHeaders_MinishHouseInteriors    @ 0x20
 	.4byte gAreaRoomHeaders_HouseInteriors1         @ 0x21
 	.4byte gAreaRoomHeaders_HouseInteriors2         @ 0x22

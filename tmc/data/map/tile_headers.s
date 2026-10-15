@@ -361,7 +361,7 @@ gAreaTiles:: @ 0810309C
 	.4byte gAreaTiles_TowerOfHera              @ 0x1C (A Link to the Past)
 	.4byte gAreaTiles_PalaceOfDarkness        @ 0x1D (A Link to the Past)
 	.4byte gAreaTiles_SwampPalace              @ 0x1E (A Link to the Past)
-	.4byte gAreaTiles_HyruleField             @ 0x1F
+	.4byte gAreaTiles_SkullWoods               @ 0x1F (A Link to the Past)
 	.4byte gAreaTiles_MinishHouseInteriors    @ 0x20
 	.4byte gAreaTiles_HouseInteriors1         @ 0x21
 	.4byte gAreaTiles_HouseInteriors2         @ 0x22
