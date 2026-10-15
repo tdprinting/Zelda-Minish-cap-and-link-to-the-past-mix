@@ -146,3 +146,6 @@ gSprite_082F27F4:: @ 082F27F4
 	.incbin "sprites/gSprite_082F27F4.4bpp"
 
 
+
+@ blend: Link with the A Link to the Past items (made by blend/anim/build.py)
+	.include "custom/gen/blend_link.inc"

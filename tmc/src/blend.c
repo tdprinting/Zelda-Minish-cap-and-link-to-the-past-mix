@@ -35,8 +35,9 @@
 #include "playeritem.h"
 #include "asm.h"
 #include "ui.h"
+#include "itemDefinitions.h"
 
-#define MIRROR_HOLD_FRAMES 20
+#define MIRROR_HOLD_FRAMES 8
 
 u32 FindFreeObjPalette(u32 paletteCount);
 void SetEntityObjPalette(Entity* entity, s32 palette);
@@ -75,8 +76,17 @@ static void BunnyTint(u16* pal) {
 
 /** Link's and the partner's OBJ palettes keep their colors in the Dark World. */
 static bool32 IsPaletteExempt(u32 palIdx) {
-    return palIdx == 16u + gPlayerEntity.base.palette.b.b0 ||
-           (gBlendLink.partnerPalette != 0 && palIdx == 16u + gBlendLink.partnerPalette);
+    u32 id;
+    if (palIdx == 16u + gPlayerEntity.base.palette.b.b0 ||
+        (gBlendLink.partnerPalette != 0 && palIdx == 16u + gBlendLink.partnerPalette)) {
+        return TRUE;
+    }
+    // A Link to the Past's enemies already wear their own Dark World colors
+    if (palIdx >= 16) {
+        id = gPaletteList[palIdx - 16].objPaletteId;
+        return id >= 0x3d0 && id < 0x3f0;
+    }
+    return FALSE;
 }
 
 /**
@@ -158,11 +168,13 @@ static void WarpInPlace(void) {
          p->y.HALF.HI - gRoomControls.origin_y, p->collisionLayer);
 }
 
-/** Dark World versions of overworld enemies, using enemies Minish Cap already has. */
+/** Dark World versions of overworld enemies: A Link to the Past's Rope and Moblin, and darker Minish Cap ones. */
 static u32 DarkWorldEnemy(u32 id) {
     switch (id) {
         case OCTOROK:
-            return ROPE;
+            return ALTTP_ROPE;
+        case SPEAR_MOBLIN:
+            return ALTTP_MOBLIN;
         case CHUCHU:
             return SPINY_CHUCHU;
         case BEETLE:
@@ -184,12 +196,26 @@ void Blend_ApplyDarkWorldEnemy(Entity* entity) {
     }
 }
 
+static bool32 StartItemAction(u32 item);
+
+/** Called when Link holds the Mirror up high: he goes through to the other world. */
+static void UseMirror(void) {
+    BLEND_DARK_WORLD ^= 1;
+    SoundReq(SFX_TELEPORTER);
+    WarpInPlace();
+}
+
+/** Holding L + R raises the Magic Mirror, as in A Link to the Past; the warp follows. */
 static void UpdateMirror(void) {
-    if ((gInput.heldKeys & (L_BUTTON | R_BUTTON)) == (L_BUTTON | R_BUTTON) && CanUseMirror()) {
+    u32 held = gBlendLink.heldKeys;
+    if ((held & L_BUTTON) && HasItem(ITEM_MAGIC_MIRROR) && (gArea.areaMetadata & AR_IS_OVERWORLD)) {
+        // with L held, R belongs to the Mirror: Link must not grab or roll first
+        gInput.heldKeys &= ~R_BUTTON;
+        gInput.newKeys &= ~R_BUTTON;
+    }
+    if ((held & (L_BUTTON | R_BUTTON)) == (L_BUTTON | R_BUTTON) && CanUseMirror()) {
         if (++gBlendLink.mirrorTimer == MIRROR_HOLD_FRAMES) {
-            BLEND_DARK_WORLD ^= 1;
-            SoundReq(SFX_TELEPORTER);
-            WarpInPlace();
+            StartItemAction(ITEM_MAGIC_MIRROR);
         }
     } else {
         gBlendLink.mirrorTimer = 0;
@@ -229,17 +255,32 @@ u32 Blend_ItemSpriteAnim(u32 item) {
 
 /* ---- Fire Rod ---------------------------------------------------------- */
 
+ItemBehavior* CreateItem(Item itemId);
+extern ItemDefinition gItemDefinitions[];
+
 /**
- * The Fire Rod and Ice Rod: Link swings them like the Pacci Cane and they shoot
- * the bolt Minish Cap already had for the Mirror Shield, colored red or ice white.
+ * Plays one of Link's A Link to the Past item animations for this item. The item
+ * is drawn into Link's own frames, so the Pacci Cane he would hold stays away.
+ */
+static void StartItemAnim(ItemBehavior* this, u32 index, u32 anim) {
+    this->priority |= 0xf;
+    sub_08077D38(this, index);
+    SetItemAnim(this, anim);
+    sub_0806F948(&gPlayerEntity.base);
+    if (index == 0) {
+        gPlayerState.item = NULL;
+    }
+    this->subtimer = 0;
+}
+
+/**
+ * The Fire Rod and Ice Rod: Link raises the rod and swings it forward, as in A Link
+ * to the Past, and it shoots the bolt Minish Cap already had for the Mirror Shield,
+ * colored red or ice white.
  */
 void ItemFireRod(ItemBehavior* this, u32 index) {
     if (this->stateID == 0) {
-        this->priority |= 0xf;
-        sub_08077D38(this, index);
-        sub_0806F948(&gPlayerEntity.base);
-        sub_08077BB8(this);
-        this->subtimer = 0;
+        StartItemAnim(this, index, this->behaviorId == ITEM_FIRE_ROD ? ANIM_BLEND_FIRE_ROD : ANIM_BLEND_ICE_ROD);
         return;
     }
     if (this->playerFrame & 0x80) {
@@ -746,6 +787,9 @@ static void UseSomaria(void) {
     }
 }
 
+static void CastMedallion(u32 m);
+static s32 MedallionIndex(u32 item);
+
 static void UseVariant(u32 item) {
     switch (item) {
         case ITEM_HOOKSHOT:
@@ -763,21 +807,62 @@ static void UseVariant(u32 item) {
         case ITEM_CANE_OF_SOMARIA:
             UseSomaria();
             break;
+        case ITEM_BOMBOS:
+        case ITEM_ETHER:
+        case ITEM_QUAKE:
+            CastMedallion(MedallionIndex(item));
+            break;
+        case ITEM_MAGIC_MIRROR:
+            UseMirror();
+            break;
+    }
+}
+
+/** Starts a new item that has no button of its own (a medallion, the Mirror). */
+static bool32 StartItemAction(u32 item) {
+    ItemBehavior* b = CreateItem(ITEM_PACCI_CANE);
+    if (b == NULL) {
+        return FALSE;
+    }
+    b->priority = gItemDefinitions[ITEM_PACCI_CANE].priority;
+    b->behaviorId = ITEM_PACCI_CANE;
+    b->field_0x2[1] = 0;
+    b->field_0x2[0] = item;
+    return TRUE;
+}
+
+/** Link's animation for each new item, modeled on A Link to the Past's. */
+static u32 ItemAnim(u32 item) {
+    switch (item) {
+        case ITEM_HOOKSHOT:
+            return ANIM_BLEND_HOOKSHOT;
+        case ITEM_HAMMER:
+            return ANIM_BLEND_HAMMER;
+        case ITEM_CANE_OF_BYRNA:
+            return ANIM_BLEND_BYRNA;
+        case ITEM_MAGIC_POWDER:
+            return ANIM_BLEND_POWDER;
+        case ITEM_CANE_OF_SOMARIA:
+            return ANIM_BLEND_SOMARIA;
+        case ITEM_BOMBOS:
+            return ANIM_BLEND_BOMBOS;
+        case ITEM_ETHER:
+            return ANIM_BLEND_ETHER;
+        case ITEM_QUAKE:
+            return ANIM_BLEND_QUAKE;
+        default:
+            return ANIM_BLEND_MIRROR;
     }
 }
 
 /**
- * Runs a shared-slot item in place of its partner. Link swings it with the Pacci
- * Cane's motion, and the item acts at the height of the swing.
+ * Runs a new item on the Pacci Cane's item slot: Link plays the item's own
+ * animation, and the item acts on the animation's key frame.
  */
 void Blend_ExecuteVariant(ItemBehavior* this, u32 index) {
     u32 item = this->field_0x2[0];
     if (this->stateID == 0) {
-        this->priority |= 0xf;
-        sub_08077D38(this, index);
-        sub_0806F948(&gPlayerEntity.base);
-        sub_08077BB8(this);
-        this->subtimer = 0;
+        StartItemAnim(this, index, ItemAnim(item));
         return;
     }
     if (item == ITEM_HOOKSHOT && gBlendLink.hookState != HOOK_NONE) {
@@ -805,6 +890,16 @@ static const u8 sMedallions[] = { ITEM_BOMBOS, ITEM_ETHER, ITEM_QUAKE };
 static const u8 sMedallionFx[] = { FX_GIANT_EXPLOSION, FX_LIGHTNING_STRIKE, FX_ROCK_HUGE };
 static const u8 sMedallionChoiceFx[] = { FX_RED_AURA, FX_BLUE_AURA, FX_GREEN_ORB };
 static const u16 sMedallionSfx[] = { SFX_ITEM_BOMB_EXPLODE, SFX_SUMMON, SFX_BOSS_EXPLODE };
+
+static s32 MedallionIndex(u32 item) {
+    u32 i;
+    for (i = 0; i < ARRAY_COUNT(sMedallions); i++) {
+        if (sMedallions[i] == item) {
+            return i;
+        }
+    }
+    return 0;
+}
 
 static bool32 HasSword(void) {
     u32 i;
@@ -924,7 +1019,10 @@ static void UpdateMedallions(void) {
         SoundReq(SFX_MENU_ERROR);
         return;
     }
-    CastMedallion(m);
+    // Link holds the medallion up high, and the spell strikes when he does
+    if (StartItemAction(sMedallions[m])) {
+        gBlendLink.medallionUsed = 1;
+    }
 }
 
 /* ---- Bunny ------------------------------------------------------------- */

@@ -108,6 +108,7 @@ SECTIONS {
         . = 0x00036BC0; gMPlayTracks = .;
         . = 0x00038560; gEndOfEwram = .;
 #endif
+        . = 0x0003E000; gAlttpEnemyState = .;
         . = 0x0003F000; gBlendLink = .;
         . = 0x00040000;
     } >ewram
@@ -381,6 +382,7 @@ SECTIONS {
         src/enemy/enemy64.o(.text);
         src/enemy/treeItem.o(.text);
         src/enemy/enemy66.o(.text);
+        src/enemy/alttpEnemies.o(.text);
         /* END enemies */
         src/code_08049CD4.o(.text); /* enemyUtils.c */
         src/code_08049DF4.o(.text);
@@ -1076,6 +1078,7 @@ SECTIONS {
         src/enemy/enemy64.o(.rodata);
         src/enemy/treeItem.o(.rodata);
         src/enemy/enemy66.o(.rodata);
+        src/enemy/alttpEnemies.o(.rodata);
         src/enemy.o(.rodata);
         src/enemyUtils.o(.rodata);
         src/enterPortalSubtask.o(.rodata);
@@ -1698,6 +1701,7 @@ SECTIONS {
         data/sound/sounds.o(.rodata);
         src/eeprom.o(.rodata);
         src/blend.o(.rodata);
+        data/gfx/alttp_enemies.o(.rodata);
     } >rom
 
     /* DWARF 2 sections */

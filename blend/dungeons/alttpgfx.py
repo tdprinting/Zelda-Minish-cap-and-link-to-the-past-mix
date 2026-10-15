@@ -32,6 +32,7 @@ class RoomGfx:
         self.chars = data[:0x4000]
         self.colors = list(struct.unpack('<256H', data[0x4000:0x4200]))
         raw = open(os.path.join(A.ROOMS, '%03x.bin' % room_id), 'rb').read()
+        self.attr, self.lower = raw[:0x1000], raw[0x1000:0x2000]
         self.bg2 = list(struct.unpack('<4096H', raw[0x2000:0x4000]))
         self.bg1 = list(struct.unpack('<4096H', raw[0x4000:0x6000]))
         self._cache = {}
@@ -49,9 +50,56 @@ class RoomGfx:
             self._cache[key] = [[(pal * 16 + c) if c else 0 for c in r] for r in pix]
         return self._cache[key]
 
+    def composite(self, i, unmask=True):
+        """Tile i of the room as the SNES shows it: front to back, upper layer tiles
+        with the priority bit, then lower layer ones with it, then upper, then lower."""
+        front, back = self.order(i)
+        if unmask and any(any(r) for r in back):
+            # black drawn over art on a walkable tile: A Link to the Past's darkness masks
+            # (lights-out rooms), which the game lights up; show what's under them
+            return [[back[y][x] if (front[y][x] and self.is_black(front[y][x]) and back[y][x])
+                     else (front[y][x] or back[y][x]) for x in range(8)] for y in range(8)]
+        return [[front[y][x] or back[y][x] for x in range(8)] for y in range(8)]
+
+    def is_pit(self, i):
+        return A.attr_class(self.attr[i]) in (A.PIT, A.WATER) or A.attr_class(self.lower[i]) in (A.PIT, A.WATER)
+
+    def is_black(self, c):
+        r, g, b = bgr555(self.colors[c])
+        return r + g + b < 60
+
+    def order(self, i):
+        """Front and back tile. The first tilemap is the room's main layer, in front;
+        the second shows behind it (a floor seen through gaps, the level under a
+        walkway, a parallax or translucent layer) unless only it has the priority bit.
+        The Desert Palace fills the whole second layer with a floor pattern that the
+        game shows only through the gaps of the first."""
+        hi, lo = self.bg1[i], self.bg2[i]
+        if (hi & 0x2000) and not (lo & 0x2000):
+            return self.tile(hi), self.tile(lo)
+        return self.tile(lo), self.tile(hi)
+
+    def upper_in_front(self, i):
+        """Whether most of what shows in tile i is the upper layer."""
+        hi, lo = self.tile(self.bg1[i]), self.tile(self.bg2[i])
+        shown = self.composite(i, unmask=not self.is_pit(i))
+        shown_hi = sum(1 for y in range(8) for x in range(8)
+                       if shown[y][x] and shown[y][x] == hi[y][x] and shown[y][x] != lo[y][x])
+        shown_lo = sum(1 for y in range(8) for x in range(8)
+                       if shown[y][x] and shown[y][x] == lo[y][x] and shown[y][x] != hi[y][x])
+        return shown_hi > shown_lo
+
     def image(self, layers=('bg2', 'bg1')):
         im = Image.new('RGB', (512, 512), bgr555(self.colors[0]))
         px = im.load()
+        if layers == 'snes':
+            for i in range(4096):
+                tx, ty = (i % 64) * 8, (i // 64) * 8
+                for y, row in enumerate(self.composite(i, unmask=False)):
+                    for x, c in enumerate(row):
+                        if c:
+                            px[tx + x, ty + y] = bgr555(self.colors[c])
+            return im
         for layer in layers:
             words = getattr(self, layer)
             for i, w in enumerate(words):

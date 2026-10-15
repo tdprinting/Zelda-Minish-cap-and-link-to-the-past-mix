@@ -44,6 +44,11 @@ const EnemyDefinition gEnemyDefinition_5[];
 const EnemyDefinition gEnemyDefinition_30[];
 const EnemyDefinition gEnemyDefinition_15[];
 const EnemyDefinition gEnemyDefinition_46[];
+const EnemyDefinition gEnemyDefinition_AlttpEyegore[];
+extern const Hitbox gHitbox_ArmosKnight;
+#include "../custom/gen/alttp_enemies.h"
+/** Swapped gfx: the enemy's frames are copied into this many 16-tile slots as it animates. */
+#define ALTTP_GFX(slots) (0x4000 | ((slots) << 4))
 
 #define MULTI_FORM(definition_ptr) \
     { 0xffff, 0, { .definition = definition_ptr }, 0, { 0, 0, 0, 0 }, 0, 0, 0, 0 }
@@ -175,6 +180,23 @@ const EnemyDefinition gEnemyDefinitions[] = {
     { 504, 372, { &gHitbox_0 }, SPRITE_GYORGFEMALEMOUTH, { 0, 0, 1, 1 }, 255, 256, 136, 139 },
     { 16448, 338, { (Hitbox*)&gHitbox_28 }, SPRITE_GYORGMALE, { 0, 0, 1, 1 }, 36, 256, 0, 139 },
     { 0, 0, { &gHitbox_0 }, SPRITE_0, { 0, 0, 0, 1 }, 255, 256, 0, 139 },
+    // ENEMY_66 had no entry and read the next table's first (gEnemyDefinition_1's); keep that
+    { 3, 28, { &gHitbox_23 }, SPRITE_CHUCHU, { 1, 0, 0, 0 }, 4, 32, 92, 15 },
+    // A Link to the Past's enemies: swapped gfx from sprite 155 (blend/enemies/alttp_enemies.py).
+    // Hit types 25 and 86 take sword damage; 72 (a Spark's) shrugs it off.
+    { ALTTP_GFX(AS_STALFOS), 0, { &gHitbox_0 }, ALTTP_ENEMY_SPRITE, { 1, 1, 1, 1 }, 4, 256, 25, 139 },
+    MULTI_FORM(gEnemyDefinition_AlttpEyegore),
+    { ALTTP_GFX(AS_POPO), 0, { &gHitbox_23 }, ALTTP_ENEMY_SPRITE, { 1, 1, 1, 1 }, 2, 192, 25, 139 },
+    { ALTTP_GFX(AS_ANTIFAIRY), 0, { &gHitbox_14 }, ALTTP_ENEMY_SPRITE, { 1, 1, 1, 0 }, 255, 256, 72, 139 },
+    { ALTTP_GFX(AS_ARMOS), 0, { &gHitbox_ArmosKnight }, ALTTP_ENEMY_SPRITE, { 1, 1, 1, 2 }, 8, 256, 86, 139 },
+    { ALTTP_GFX(AS_ROPE), 0, { &gHitbox_24 }, ALTTP_ENEMY_SPRITE, { 1, 1, 1, 1 }, 2, 128, 25, 139 },
+    { ALTTP_GFX(AS_MOBLIN), 0, { &gHitbox_0 }, ALTTP_ENEMY_SPRITE, { 1, 1, 1, 2 }, 6, 256, 86, 139 },
+    { ALTTP_GFX(AS_SPEAR), 0, { &gHitbox_22 }, ALTTP_ENEMY_SPRITE, { 1, 1, 1, 0 }, 255, 512, 72, 139 },
+};
+
+const EnemyDefinition gEnemyDefinition_AlttpEyegore[] = {
+    { ALTTP_GFX(AS_EYEGORE), 0, &gHitbox_16, ALTTP_ENEMY_SPRITE, { 1, 1, 1, 2 }, 8, 256, 86, 139 },
+    { ALTTP_GFX(AS_EYEGORE), 0, &gHitbox_16, ALTTP_ENEMY_SPRITE, { 1, 1, 1, 2 }, 16, 256, 86, 139 },
 };
 
 const EnemyDefinition gEnemyDefinition_1[] = {
@@ -534,6 +556,14 @@ void (*const gEnemyFunctions[])(Entity* ent) = {
     [GYORG_FEMALE_MOUTH] = GyorgFemaleMouth,
     [ENEMY_64] = Enemy64,
     [TREE_ITEM] = TreeItem,
-    [ENEMY_66] = Enemy66
+    [ENEMY_66] = Enemy66,
+    [ALTTP_STALFOS] = AlttpStalfos,
+    [ALTTP_EYEGORE] = AlttpEyegore,
+    [ALTTP_POPO] = AlttpPopo,
+    [ALTTP_ANTIFAIRY] = AlttpAntifairy,
+    [ARMOS_KNIGHT] = ArmosKnight,
+    [ALTTP_ROPE] = AlttpRope,
+    [ALTTP_MOBLIN] = AlttpMoblin,
+    [ALTTP_SPEAR] = AlttpSpear,
 };
 // clang-format on

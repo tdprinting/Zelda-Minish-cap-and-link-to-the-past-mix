@@ -5,5 +5,5 @@
     .align 2
 
 gFrameObjLists:: @ 082F3D74
-	.include "gfx/gFrameObjLists.s"
-	.byte 0xff, 0xff, 0xff
+	@ blend: the game's table with new lists spliced in (blend/anim/objlists.py)
+	.include "custom/gen/frame_obj_lists.inc"

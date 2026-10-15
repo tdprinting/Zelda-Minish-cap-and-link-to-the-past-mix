@@ -103,22 +103,15 @@ class Blend:
         return self.tones[blendstyle.blend_color(alttpgfx.bgr555(self.colors[c]))]
 
     def compose(self, gfx):
-        """The room as one picture, in blended, banded colors. A Link to the Past's main
-        layer is the first tilemap (walls, floors, objects); the second layer is shown
-        behind it (a floor seen through gaps, the level below a walkway, a parallax
-        floor) or blended in, so it goes underneath. Also notes, per 8px tile, whether
-        the second layer is the one seen there."""
+        """The room as one picture, layered as the SNES shows it, in blended, banded colors."""
         img = np.zeros((512, 512, 3))
         empty = np.ones((512, 512), dtype=bool)
-        self.hi_seen = np.zeros((64, 64), dtype=bool)
         lut = np.array([self.rgb(c) if c else (0, 0, 0) for c in range(256)], dtype=float)
         for i in range(4096):
-            lo, hi = np.array(gfx.tile(gfx.bg2[i])), np.array(gfx.tile(gfx.bg1[i]))
-            pix = np.where(lo != 0, lo, hi)
+            pix = np.array(gfx.composite(i, unmask=not gfx.is_pit(i)))
             tx, ty = (i % 64) * 8, (i // 64) * 8
             img[ty:ty + 8, tx:tx + 8] = lut[pix]
             empty[ty:ty + 8, tx:tx + 8] = pix == 0
-            self.hi_seen[i // 64, i % 64] = ((lo == 0) & (hi != 0)).sum() * 2 > (pix != 0).sum()
         return img, empty
 
     def room(self, plan, bottom, top):
@@ -136,26 +129,49 @@ class Blend:
             self.metatile(self.meta_t, self.types_t[0])
         alttp = plan.room.cells
         img, empty = self.compose(gfx)
-        self.restone(gfx, plan, img, empty)
+        stoned = self.restone(gfx, plan, img, empty)
 
-        # where the plan opens a way through A Link to the Past's art, draw floor
-        floor = [(i % 32, i // 32) for i in range(1024) if alttp[i] == A.FLOOR and plan.cells[i] == A.FLOOR]
+        # where the plan opens a way through A Link to the Past's art, draw the nearest floor
+        floor = [(i % 32, i // 32) for i in range(1024) if alttp[i] == A.FLOOR and plan.cells[i] == A.FLOOR
+                 and stoned[(i // 32) * 16:(i // 32) * 16 + 16, (i % 32) * 16:(i % 32) * 16 + 16].all()] or \
+                [(i % 32, i // 32) for i in range(1024) if alttp[i] == A.FLOOR and plan.cells[i] == A.FLOOR]
         cls = np.array([[A.attr_class(plan.room.attr[y * 64 + x]) for x in range(64)] for y in range(64)])
         cls = cls.repeat(8, axis=0).repeat(8, axis=1)
+        carved = []
         for i in range(1024):
-            if plan.cells[i] in PASSABLE and alttp[i] in REDRAW_AS_FLOOR and floor:
+            cell = img[(i // 32) * 16:(i // 32) * 16 + 16, (i % 32) * 16:(i % 32) * 16 + 16]
+            dark = np.all(cell == VOID, axis=-1).mean() > 0.5
+            if plan.cells[i] in PASSABLE and (alttp[i] in REDRAW_AS_FLOOR or dark) and floor:
                 cx, cy = i % 32, i // 32
                 sx, sy = min(floor, key=lambda p: abs(p[0] - cx) + abs(p[1] - cy))
                 dst = (slice(cy * 16, cy * 16 + 16), slice(cx * 16, cx * 16 + 16))
                 src = (slice(sy * 16, sy * 16 + 16), slice(sx * 16, sx * 16 + 16))
                 img[dst] = img[src]
                 empty[dst] = empty[src]
+                stoned[dst] = True
                 cls[dst] = A.FLOOR
+                carved.append((cx, cy))
+        # a passage cut through a wall or across the dark gets edges, so it reads as a
+        # walkway rather than a smear of floor
+        for cx, cy in carved:
+            x0, y0 = cx * 16, cy * 16
+            for (nx, ny), side in (((cx - 1, cy), 'l'), ((cx + 1, cy), 'r'), ((cx, cy - 1), 't'), ((cx, cy + 1), 'b')):
+                if 0 <= nx < 32 and 0 <= ny < 32 and plan.cells[ny * 32 + nx] in PASSABLE:
+                    continue
+                # only where it meets the dark: floor beside an invisible wall stays plain
+                if 0 <= nx < 32 and 0 <= ny < 32:
+                    ncell = img[ny * 16:ny * 16 + 16, nx * 16:nx * 16 + 16]
+                    if np.all(ncell == VOID, axis=-1).mean() <= 0.5:
+                        continue
+                edge = {'l': (slice(y0, y0 + 16), slice(x0, x0 + 2)), 'r': (slice(y0, y0 + 16), slice(x0 + 14, x0 + 16)),
+                        't': (slice(y0, y0 + 2), slice(x0, x0 + 16)), 'b': (slice(y0 + 14, y0 + 16), slice(x0, x0 + 16))}[side]
+                img[edge] = celshade.OUTLINE
         # shadows only fall where Link can go: A Link to the Past leaves unseen floor and
         # invisible walls around its rooms
         walk = np.array([[plan.cells[(y // 16) * 32 + x // 16] in PASSABLE for x in range(512)] for y in range(512)])
         receive = np.isin(cls, RECEIVES) & walk
-        cast = np.isin(cls, CASTS) & ~walk
+        # floor never casts, even where A Link to the Past has an invisible wall on it
+        cast = np.isin(cls, CASTS) & ~walk & ~stoned
         img = celshade.shade(img, empty, receive, cast)
 
         new_b, new_t = [], []
@@ -197,19 +213,22 @@ class Blend:
                     p |= h & v
             # then every tile of those pattern words, also where objects break the repeat
             return np.isin(words, np.unique(words[p])) if p.any() else p
-        empty_hi = ~self.hi_seen
-        # floor on the layer the room was planned from (the other is often blank,
-        # which reads as floor everywhere, walls included)
-        floor = np.array([A.attr_class(a) == A.FLOOR for a in plan.room.attr]).reshape(64, 64)
+        empty_hi = ~np.array([gfx.upper_in_front(i) for i in range(4096)]).reshape(64, 64)
+        # floor on the layer the room was planned from, and on the other one where that
+        # holds anything (an unused layer is all zeros, which read as floor, walls included)
+        lower_used = len(set(plan.room.lower)) > 1
+        floor = np.array([A.attr_class(a) == A.FLOOR or (lower_used and A.attr_class(b) == A.FLOOR)
+                          for a, b in zip(plan.room.attr, plan.room.lower)]).reshape(64, 64)
         # and the patterned fill around the rooms, where Link can't go
-        outside = np.array([[plan.cells[(y // 2) * 32 + x // 2] not in PASSABLE for x in range(64)]
-                            for y in range(64)])
-        floor |= outside
+        floor |= ~np.array([plan.cells[(y // 2) * 32 + x // 2] in PASSABLE for y in range(64) for x in range(64)]).reshape(64, 64)
         on_hi = pattern(gfx.bg1) & ~empty_hi & floor
         on_lo = pattern(gfx.bg2) & empty_hi & floor
+        walk = np.array([plan.cells[(y // 2) * 32 + x // 2] in PASSABLE for y in range(64) for x in range(64)]).reshape(64, 64)
         yy, xx = np.mgrid[0:512, 0:512]
-        for tiles in (on_lo & ~outside, on_lo & outside, on_hi & ~outside, on_hi & outside):
-            # each stretch of floor gets its own color
+        stoned = np.zeros((512, 512), dtype=bool)
+        for layer, tiles in ((gfx.bg2, on_lo), (gfx.bg1, on_hi)):
+            words = np.array(layer).reshape(64, 64) & 0xffff
+            comps = []
             seen = np.zeros((64, 64), dtype=bool)
             for sy in range(64):
                 for sx in range(64):
@@ -224,30 +243,44 @@ class Blend:
                             if 0 <= ny < 64 and 0 <= nx < 64 and tiles[ny, nx] and not seen[ny, nx]:
                                 seen[ny, nx] = True
                                 stack.append((ny, nx))
-                    if len(comp) < 4:
-                        continue
-                    part = np.zeros((64, 64), dtype=bool)
-                    for y, x in comp:
-                        part[y, x] = True
-                    mask = part.repeat(8, axis=0).repeat(8, axis=1) & ~empty
-                    if not mask.any():
-                        continue
-                    walk = sum(plan.cells[(y // 2) * 32 + x // 2] in PASSABLE for y, x in comp)
-                    if walk * 2 < len(comp):
-                        if len(comp) < 16:
-                            continue  # a patterned bit of wall, not the space around
-                        # the space around the room, where Link can't go: plain darkness,
-                        # as in Minish Cap (a floor may run on to the room's edge where
-                        # A Link to the Past joins rooms with no door)
-                        img[mask] = VOID
-                        continue
-                    base = celshade.snap(np.median(img[mask], axis=0))
-                    stone = np.empty((512, 512, 3))
-                    stone[:] = base
-                    stone[((xx // 16 + yy // 16) % 2) == 1] = celshade.snap(base * 0.95)
-                    stone[(xx % 16 == 0) | (yy % 16 == 0)] = celshade.snap(base + (255 - base) * 0.16)
-                    stone[(xx % 16 == 15) | (yy % 16 == 15)] = celshade.snap(base * 0.82)
-                    img[mask] = stone[mask]
+                    comps.append(comp)
+            # the space around the room is the pattern that reaches the room's edge where
+            # Link can't walk; wherever else that pattern shows (holes in a floor), it is too
+            void_words = set()
+            for comp in comps:
+                if sum(walk[y, x] for y, x in comp) < 0.15 * len(comp) and \
+                        any(y in (0, 63) or x in (0, 63) for y, x in comp):
+                    void_words |= {int(words[y, x]) for y, x in comp}
+            # the same pattern outside the floor attributes (under doorways and ledges)
+            front = ~empty_hi
+            if void_words:
+                rest = np.isin(words, list(void_words)) & (front if layer is gfx.bg1 else empty_hi) & ~tiles
+                mask = rest.repeat(8, axis=0).repeat(8, axis=1) & ~empty
+                img[mask] = VOID
+            for comp in comps:
+                part = np.zeros((64, 64), dtype=bool)
+                for y, x in comp:
+                    part[y, x] = True
+                mask = part.repeat(8, axis=0).repeat(8, axis=1) & ~empty
+                if not mask.any():
+                    continue
+                walkable = sum(walk[y, x] for y, x in comp) / len(comp)
+                if walkable < 0.15 and {int(words[y, x]) for y, x in comp} <= void_words:
+                    # plain darkness, as around Minish Cap's rooms
+                    img[mask] = VOID
+                    continue
+                if len(comp) < 4:
+                    continue
+                # each stretch of floor gets its own color
+                base = celshade.snap(np.median(img[mask], axis=0))
+                stone = np.empty((512, 512, 3))
+                stone[:] = base
+                stone[((xx // 16 + yy // 16) % 2) == 1] = celshade.snap(base * 0.95)
+                stone[(xx % 16 == 0) | (yy % 16 == 0)] = celshade.snap(base + (255 - base) * 0.16)
+                stone[(xx % 16 == 15) | (yy % 16 == 15)] = celshade.snap(base * 0.82)
+                img[mask] = stone[mask]
+                stoned |= mask
+        return stoned
 
     def tile_key(self, img, empty, x, y):
         pix = tuple(tuple(None if empty[y + j, x + i] else tuple(int(v) for v in img[y + j, x + i])
