@@ -76,8 +76,17 @@ static void BunnyTint(u16* pal) {
 
 /** Link's and the partner's OBJ palettes keep their colors in the Dark World. */
 static bool32 IsPaletteExempt(u32 palIdx) {
-    return palIdx == 16u + gPlayerEntity.base.palette.b.b0 ||
-           (gBlendLink.partnerPalette != 0 && palIdx == 16u + gBlendLink.partnerPalette);
+    u32 id;
+    if (palIdx == 16u + gPlayerEntity.base.palette.b.b0 ||
+        (gBlendLink.partnerPalette != 0 && palIdx == 16u + gBlendLink.partnerPalette)) {
+        return TRUE;
+    }
+    // A Link to the Past's enemies already wear their own Dark World colors
+    if (palIdx >= 16) {
+        id = gPaletteList[palIdx - 16].objPaletteId;
+        return id >= 0x3d0 && id < 0x3f0;
+    }
+    return FALSE;
 }
 
 /**
@@ -159,11 +168,13 @@ static void WarpInPlace(void) {
          p->y.HALF.HI - gRoomControls.origin_y, p->collisionLayer);
 }
 
-/** Dark World versions of overworld enemies, using enemies Minish Cap already has. */
+/** Dark World versions of overworld enemies: A Link to the Past's Rope and Moblin, and darker Minish Cap ones. */
 static u32 DarkWorldEnemy(u32 id) {
     switch (id) {
         case OCTOROK:
-            return ROPE;
+            return ALTTP_ROPE;
+        case SPEAR_MOBLIN:
+            return ALTTP_MOBLIN;
         case CHUCHU:
             return SPINY_CHUCHU;
         case BEETLE:
