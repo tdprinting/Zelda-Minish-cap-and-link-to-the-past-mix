@@ -61,6 +61,7 @@ ITEMS = {
 ALTTP_STALFOS, ALTTP_EYEGORE, ALTTP_POPO, ALTTP_ANTIFAIRY, ARMOS_KNIGHT = 0x67, 0x68, 0x69, 0x6a, 0x6b
 ALTTP_HINOX, LANMOLA, ALTTP_LEEVER, ALTTP_BEAMOS = 0x6f, 0x71, 0x73, 0x74
 ALTTP_POKEY, ALTTP_GIBDO, GIANT_MOLDORM, ALTTP_BARI, ALTTP_HARDHAT, ALTTP_BUMPER = 0x76, 0x77, 0x78, 0x7a, 0x7b, 0x7c
+ALTTP_DEBIRANDO_PIT, ALTTP_KODONGO, MINI_MOLDORM = 0x7d, 0x80, 0x81
 ENEMIES = {
     'A7-Stalfos': ALTTP_STALFOS,
     '105-StalfosDrop': (ALTTP_STALFOS, 1),    # waits in the ceiling and drops on Link
@@ -79,10 +80,10 @@ ENEMIES = {
     '09-Mouldrum': GIANT_MOLDORM,               # zelda3's name for the Moldorm boss
     '26-BlueOrb': ALTTP_HARDHAT,                # sprite 0x26 is the Hardhat Beetle
     '93-RedOrb': ALTTP_BUMPER,                  # sprite 0x93 is the Bumper
-    # Minish Cap stand-ins where there is no blend version yet
-    '18-Moldorm': 0x0d,                         # the small Moldorms
-    '63-SandCrab1': 0x04, '64-SandCrab2': 0x04,  # Debirandos, the sand pit monsters
-    '86-Triceritops': 0x04,                     # Kodongos, the fire-breathing lizards
+    '18-Moldorm': MINI_MOLDORM,                 # the small Moldorms
+    '63-SandCrab1': (ALTTP_DEBIRANDO_PIT, 0),   # a Debirando in its sand pit
+    '64-SandCrab2': (ALTTP_DEBIRANDO_PIT, 1),   # the red one that spits fireballs
+    '86-Triceritops': ALTTP_KODONGO,            # Kodongos, the fire-breathing lizards
 }
 
 DOOR_SMALL_KEY = 0x1c

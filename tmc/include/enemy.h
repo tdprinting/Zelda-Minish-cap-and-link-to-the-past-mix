@@ -204,6 +204,12 @@ enum {
     /*0x7a*/ ALTTP_BARI,
     /*0x7b*/ ALTTP_HARDHAT,
     /*0x7c*/ ALTTP_BUMPER,
+    /*0x7d*/ ALTTP_DEBIRANDO_PIT,
+    /*0x7e*/ ALTTP_DEBIRANDO,
+    /*0x7f*/ ALTTP_FIREBALL,
+    /*0x80*/ ALTTP_KODONGO,
+    /*0x81*/ MINI_MOLDORM,
+    /*0x82*/ MINI_MOLDORM_SEGMENT,
 };
 
 void Octorok();
@@ -330,6 +336,12 @@ void MoldormSegment();
 void AlttpBari();
 void AlttpHardhat();
 void AlttpBumper();
+void AlttpDebirandoPit();
+void AlttpDebirando();
+void AlttpFireball();
+void AlttpKodongo();
+void MiniMoldorm();
+void MiniMoldormSegment();
 
 extern void (*const gUnk_080012C8[])(Entity*);
 

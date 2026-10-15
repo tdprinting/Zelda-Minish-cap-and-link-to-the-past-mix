@@ -212,6 +212,13 @@ const EnemyDefinition gEnemyDefinitions[] = {
     { ALTTP_GFX(AS_BARI), 0, { &gHitbox_23 }, ALTTP_ENEMY_SPRITE_2, { 1, 1, 1, 1 }, 4, 64, 25, 139 },
     { ALTTP_GFX(AS_HARDHAT), 0, { &gHitbox_0 }, ALTTP_ENEMY_SPRITE_2, { 1, 1, 1, 1 }, 200, 256, 25, 139 },
     { ALTTP_GFX(AS_BUMPER), 0, { &gHitbox_0 }, ALTTP_ENEMY_SPRITE_2, { 3, 0, 1, 0 }, 0, 0, 72, 139 },
+    // Debirandos, Kodongos, mini Moldorms, fireballs: sprite 330
+    { ALTTP_GFX(AS_DEBPIT), 0, { &gHitbox_0 }, ALTTP_ENEMY_SPRITE_3, { 3, 0, 1, 0 }, 0, 0, 72, 139 },
+    { ALTTP_GFX(AS_DEBIRANDO), 0, { &gHitbox_0 }, ALTTP_ENEMY_SPRITE_3, { 1, 1, 1, 0 }, 4, 0, 25, 139 },
+    { ALTTP_GFX(AS_KFIRE), 0, { &gHitbox_AlttpLaser }, ALTTP_ENEMY_SPRITE_3, { 1, 1, 1, 0 }, 255, 0x200, 72, 139 },
+    { ALTTP_GFX(AS_KODONGO), 0, { &gHitbox_0 }, ALTTP_ENEMY_SPRITE_3, { 1, 1, 1, 1 }, 8, 0x80, 25, 139 },
+    { ALTTP_GFX(AS_MINIMOLD), 0, { &gHitbox_AlttpCentered }, ALTTP_ENEMY_SPRITE_3, { 1, 1, 1, 0 }, 3, 0x180, 25, 139 },
+    { ALTTP_GFX(AS_MINIMOLD), 0, { &gHitbox_AlttpCentered }, ALTTP_ENEMY_SPRITE_3, { 2, 0, 1, 0 }, 0, 0, 72, 139 },
 };
 
 const EnemyDefinition gEnemyDefinition_AlttpEyegore[] = {
@@ -599,5 +606,11 @@ void (*const gEnemyFunctions[])(Entity* ent) = {
     [ALTTP_BARI] = AlttpBari,
     [ALTTP_HARDHAT] = AlttpHardhat,
     [ALTTP_BUMPER] = AlttpBumper,
+    [ALTTP_DEBIRANDO_PIT] = AlttpDebirandoPit,
+    [ALTTP_DEBIRANDO] = AlttpDebirando,
+    [ALTTP_FIREBALL] = AlttpFireball,
+    [ALTTP_KODONGO] = AlttpKodongo,
+    [MINI_MOLDORM] = MiniMoldorm,
+    [MINI_MOLDORM_SEGMENT] = MiniMoldormSegment,
 };
 // clang-format on

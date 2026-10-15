@@ -2332,3 +2332,494 @@ void AlttpBumper(AlttpEnemy* this) {
         SetFrame(super, AF_BUMPER_0);
     }
 }
+
+/* =============================================================================
+ * Debirandos, Kodongos, mini Moldorms, the crystal switch and the shared
+ * fireballs (sprite 330)
+ * ========================================================================== */
+
+/* ---- fireballs -----------------------------------------------------------------
+ * Type 0: the small fireball Debirandos (and others) spit at Link, flying
+ * straight at where he stood and fizzling on a wall. Type 1: a Kodongo's fire,
+ * rolling along the floor until it meets a wall, then burning there a while.
+ * Projectiles: the sword can't hurt them (hit type 72), and they never hold a
+ * room's doors shut.
+ */
+enum { FB_INIT, FB_FLY, FB_BURN };
+
+void AlttpFireball(AlttpEnemy* this) {
+    switch (super->action) {
+        case FB_INIT:
+            AlttpInit(this, super->type == 1 ? AP_KFIRE : AP_FIREBALL,
+                      super->type == 1 ? AF_KFIRE_0 : AF_FIREBALL_FLARE);
+            super->action = FB_FLY;
+            super->timer = 0;
+            super->spriteSettings.shadow = 0;
+            if (super->speed == 0) {
+                super->speed = super->type == 1 ? 0x180 : 0x200;
+            }
+            break;
+        case FB_FLY:
+            super->timer++;
+            ProcessMovement0(super);
+            if (super->collisions != COL_NONE && super->timer > 2) {
+                if (super->type == 1) {
+                    // the flame catches where it lands
+                    super->action = FB_BURN;
+                    super->timer = 127;
+                    EnqueueSFX(SFX_ITEM_LANTERN_ON);
+                } else {
+                    CreateFx(super, FX_DEATH, 0);
+                    DeleteThisEntity();
+                }
+            } else if (super->timer > 240) {
+                DeleteThisEntity();
+            }
+            if (super->type == 1) {
+                SetFrame(super, AF_KFIRE_0 + ((super->timer >> 2) & 3));
+            } else {
+                SetFrame(super, super->timer < 4 ? AF_FIREBALL_FLARE : AF_FIREBALL_0 + ((super->timer >> 2) & 1));
+            }
+            break;
+        case FB_BURN: {
+            // kFlame_Gfx: the fire rises, flickers, and dies down
+            static const u8 burn[16] = { 5, 4, 3, 1, 2, 0, 3, 0, 1, 2, 3, 0, 1, 2, 3, 0 };
+            if (--super->timer == 0) {
+                DeleteThisEntity();
+            }
+            SetFrame(super, AF_KFLAME_0 + burn[super->timer >> 3]);
+            break;
+        }
+    }
+    super->health = 255;
+}
+
+/* ---- Debirando ----------------------------------------------------------------
+ * A sand pit in the Desert Palace floor that opens into a whirlpool, dragging
+ * Link toward its middle, where a Debirando pops up out of the sand. Type 1 (A
+ * Link to the Past's sprite 0x64) is the red kind that spits fireballs at Link
+ * while it is up. The pit itself is scenery: when its Debirando is beaten, it
+ * closes for good.
+ */
+enum { DP_INIT, DP_CLOSED, DP_OPENING, DP_OPEN, DP_CLOSING, DP_GONE };
+
+void AlttpDebirandoPit(AlttpEnemy* this) {
+    static const u8 opening[4] = { 5, 4, 3, 3 };
+    static const u8 closing[4] = { 3, 3, 4, 5 };
+    u32 g = 6;
+    if (super->action == DP_INIT) {
+        Entity* monster;
+        EnemyInit((Enemy*)this);
+        AlttpInit(this, AP_DEBPIT, AF_DEBPIT_0);
+        COLLISION_OFF(super);
+        super->health = 0;
+        super->spriteSettings.shadow = 0;
+        super->spritePriority.b1 = 3;
+        super->action = DP_CLOSED;
+        super->timer = 1;
+        monster = CreateEnemy(ALTTP_DEBIRANDO, super->type);
+        if (monster != NULL) {
+            CopyPosition(super, monster);
+            monster->parent = super;
+            super->child = monster;
+        }
+    }
+    if (super->action != DP_GONE && (super->child == NULL || super->child->next == NULL ||
+                                      super->child->parent != super ||
+                                      (super->child->action != 0 && super->child->health == 0))) {
+        // its Debirando is gone: the pit closes
+        super->action = DP_GONE;
+        super->timer = 63;
+    }
+    switch (super->action) {
+        case DP_CLOSED:
+            if (--super->timer == 0) {
+                super->action = DP_OPENING;
+                super->timer = 63;
+            }
+            break;
+        case DP_OPENING:
+            g = opening[super->timer >> 4];
+            if (--super->timer == 0) {
+                super->action = DP_OPEN;
+                super->timer = 255;
+            }
+            break;
+        case DP_OPEN:
+            // the sand swirls: three poses in turn
+            g = (gRoomTransition.frameCount >> 4) % 3;
+            if (--super->timer == 0) {
+                super->action = DP_CLOSING;
+                super->timer = 63;
+            }
+            break;
+        case DP_CLOSING:
+            g = closing[super->timer >> 4];
+            if (--super->timer == 0) {
+                super->action = DP_CLOSED;
+                super->timer = 32;
+            }
+            break;
+        case DP_GONE:
+            g = super->timer > 48 ? 3 : super->timer > 24 ? 4 : 5;
+            if (--super->timer == 0) {
+                DeleteThisEntity();
+            }
+            break;
+    }
+    if (g < 3 && LinkNear(super, 18, 18) && gPlayerEntity.base.z.HALF.HI > -4) {
+        // the whirlpool drags Link in, a pixel every other frame
+        Entity* link = &gPlayerEntity.base;
+        if (gRoomTransition.frameCount & 1) {
+            s32 dx = super->x.HALF.HI - link->x.HALF.HI;
+            s32 dy = super->y.HALF.HI - link->y.HALF.HI;
+            link->x.HALF.HI += dx > 0 ? 1 : dx < 0 ? -1 : 0;
+            link->y.HALF.HI += dy > 0 ? 1 : dy < 0 ? -1 : 0;
+        }
+    }
+    if (g == 6) {
+        super->spriteSettings.draw = 0;
+    } else {
+        super->spriteSettings.draw = 1;
+        SetFrame(super, AF_DEBPIT_0 + g);
+    }
+}
+
+enum { DB_INIT, DB_UNDER, DB_EMERGE, DB_UP, DB_SUBMERGE };
+
+static void DebirandoSetVisible(AlttpEnemy* this, bool32 on) {
+    super->spriteSettings.draw = on;
+    if (on) {
+        COLLISION_ON(super);
+    } else {
+        COLLISION_OFF(super);
+    }
+}
+
+static void DebirandoTick(AlttpEnemy* this) {
+    u32 f = AF_DEBIRANDO_0;
+    switch (super->action) {
+        case DB_INIT:
+            AlttpInit(this, super->type ? AP_DEBIRANDO_FIRE : AP_DEBIRANDO, AF_DEBIRANDO_0);
+            super->action = DB_UNDER;
+            super->timer = 96;
+            super->spriteSettings.shadow = 0;
+            DebirandoSetVisible(this, FALSE);
+            break;
+        case DB_UNDER:
+            if (--super->timer == 0) {
+                super->action = DB_EMERGE;
+                super->timer = 31;
+                DebirandoSetVisible(this, TRUE);
+                EnqueueSFX(SFX_PLACE_OBJ);
+            }
+            return;
+        case DB_EMERGE:
+            f = AF_DEBIRANDO_0 + (super->timer >> 4 ? 0 : 1);
+            if (--super->timer == 0) {
+                super->action = DB_UP;
+                super->timer = 128;
+            }
+            break;
+        case DB_UP:
+            // jaws snapping, and the red kind spits fire every half second
+            this->step++;
+            f = AF_DEBIRANDO_2 + ((this->step >> 3) & 1);
+            if (this->pose) {
+                this->pose--;
+                f = AF_DEBIRANDO_SNAP;
+            }
+            if (super->type && (super->timer & 31) == 0) {
+                Entity* fb = CreateEnemy(ALTTP_FIREBALL, 0);
+                if (fb != NULL) {
+                    CopyPosition(super, fb);
+                    fb->y.HALF.HI -= 6;
+                    fb->direction = GetFacingDirection(super, &gPlayerEntity.base);
+                    fb->parent = super;
+                    this->pose = 6;
+                    EnqueueSFX(SFX_ITEM_LANTERN_ON);
+                }
+            }
+            if (--super->timer == 0) {
+                super->action = DB_SUBMERGE;
+                super->timer = 31;
+            }
+            break;
+        case DB_SUBMERGE:
+            f = super->timer > 24 ? AF_DEBIRANDO_GULP : AF_DEBIRANDO_0 + (super->timer >> 4 ? 1 : 0);
+            if (--super->timer == 0) {
+                super->action = DB_UNDER;
+                super->timer = 223;
+                DebirandoSetVisible(this, FALSE);
+            }
+            break;
+    }
+    SetFrame(super, f);
+    AlttpEndTick(this);
+}
+
+static void DebirandoOnCollision(AlttpEnemy* this);
+static void DebirandoOnDeath(AlttpEnemy* this) {
+    AlttpDeath(this, LEEVER);
+}
+
+static void (*const Debirando_Functions[])(AlttpEnemy*) = {
+    DebirandoTick, DebirandoOnCollision, (void (*)(AlttpEnemy*))GenericKnockback,
+    DebirandoOnDeath, (void (*)(AlttpEnemy*))GenericConfused, AlttpGrabbed,
+};
+
+static void DebirandoOnCollision(AlttpEnemy* this) {
+    super->knockbackDuration = 0; // it is rooted in the sand
+    AlttpOnCollision(this, (void (*const*)())Debirando_Functions);
+}
+
+void AlttpDebirando(AlttpEnemy* this) {
+    EnemyFunctionHandler(super, (EntityActionArray)Debirando_Functions);
+}
+
+/* ---- Kodongo ------------------------------------------------------------------
+ * A fire-breathing lizard of the Tower of Hera and the Palace of Darkness. It
+ * walks the floor's grid in straight lines, turning back at walls; now and then,
+ * at a crossing, it stops, puffs up and breathes a string of fireballs ahead of
+ * it, which burn on where they hit a wall. Fire can't hurt it.
+ */
+enum { KD_INIT, KD_PICK, KD_WALK, KD_BREATHE };
+
+static void KodongoSetDir(AlttpEnemy* this) {
+    super->direction = sFaceToDir[this->face];
+    super->speed = 0x80;
+}
+
+static void KodongoTick(AlttpEnemy* this) {
+    static const u8 walkGfx[8] = { 2, 2, 0, 5, 3, 3, 0, 5 };
+    static const u8 walkFlip[8] = { 1, 0, 0, 0, 1, 0, 1, 1 };
+    static const u8 flameGfx[8] = { 2, 2, 0, 5, 4, 4, 1, 6 };
+    u32 j, f;
+    switch (super->action) {
+        case KD_INIT:
+            AlttpInit(this, AP_KODONGO, AF_KODONGO_0);
+            super->action = KD_PICK;
+            break;
+        case KD_PICK: {
+            u32 tries;
+            this->face = Random() & 3;
+            for (tries = 0; tries < 4; tries++) {
+                static const s8 dx[4] = { 12, -12, 0, 0 };
+                static const s8 dy[4] = { 0, 0, 12, -12 };
+                if (GetCollisionDataAtWorldCoords(super->x.HALF.HI + dx[this->face], super->y.HALF.HI + dy[this->face],
+                                                  super->collisionLayer) == 0) {
+                    break;
+                }
+                this->face = (this->face + 1) & 3;
+            }
+            KodongoSetDir(this);
+            super->action = KD_WALK;
+            this->turns = 16;
+            break;
+        }
+        case KD_WALK: {
+            u32 crossing;
+            ProcessMovement0(super);
+            this->step++;
+            if (super->collisions != COL_NONE) {
+                this->face ^= 1;
+                KodongoSetDir(this);
+            }
+            // on a crossing of the floor grid, now and then, it stops to breathe fire
+            crossing = ((super->x.HALF.HI - gRoomControls.origin_x) & 15) == 8 &&
+                       ((super->y.HALF.HI - gRoomControls.origin_y) & 15) == 8;
+            if (this->turns) {
+                this->turns--;
+            } else if (crossing && (Random() & 3) == 0) {
+                super->action = KD_BREATHE;
+                super->timer = 111;
+                this->turns = 32;
+            }
+            break;
+        }
+        case KD_BREATHE:
+            if (--super->timer == 0) {
+                super->action = KD_PICK;
+            } else if (super->timer >= 0x20 && super->timer < 0x50 && (super->timer & 15) == 0) {
+                static const s8 fx[4] = { 8, -8, 0, 0 };
+                static const s8 fy[4] = { 0, 0, 8, -8 };
+                Entity* fire = CreateEnemy(ALTTP_FIREBALL, 1);
+                if (fire != NULL) {
+                    CopyPosition(super, fire);
+                    fire->x.HALF.HI += fx[this->face];
+                    fire->y.HALF.HI += fy[this->face] - 2;
+                    fire->direction = sFaceToDir[this->face];
+                    fire->speed = 0x180;
+                    fire->parent = super;
+                    EnqueueSFX(SFX_ITEM_LANTERN_ON);
+                }
+            }
+            break;
+    }
+    j = ((this->step >> 2) & 4) | this->face;
+    if (super->action == KD_BREATHE) {
+        bool32 breathing = super->timer >= 0x20 && super->timer < 0x50;
+        if (!breathing && super->timer >= 0x50) {
+            // an added wind-up: the chest swells before the fire
+            static const u8 puff[4] = { AF_KODONGO_PUFF_4, AF_KODONGO_PUFF_4, AF_KODONGO_PUFF_1, AF_KODONGO_PUFF_6 };
+            f = super->timer < 0x60 ? puff[this->face] : AF_KODONGO_0 + walkGfx[this->face] * 2 + walkFlip[this->face];
+        } else {
+            f = AF_KODONGO_0 + flameGfx[breathing * 4 + this->face] * 2 + walkFlip[this->face];
+        }
+    } else {
+        f = AF_KODONGO_0 + walkGfx[j] * 2 + walkFlip[j];
+    }
+    SetFrame(super, f);
+    AlttpEndTick(this);
+}
+
+static void KodongoOnCollision(AlttpEnemy* this);
+static void KodongoOnDeath(AlttpEnemy* this) {
+    AlttpDeath(this, ROLLOBITE);
+}
+
+static void (*const Kodongo_Functions[])(AlttpEnemy*) = {
+    KodongoTick, KodongoOnCollision, (void (*)(AlttpEnemy*))GenericKnockback,
+    KodongoOnDeath, (void (*)(AlttpEnemy*))GenericConfused, AlttpGrabbed,
+};
+
+static void KodongoOnCollision(AlttpEnemy* this) {
+    AlttpOnCollision(this, (void (*const*)())Kodongo_Functions);
+}
+
+void AlttpKodongo(AlttpEnemy* this) {
+    EnemyFunctionHandler(super, (EntityActionArray)Kodongo_Functions);
+    EnemySetFXOffset(super, 0, 1, -12);
+}
+
+/* ---- mini Moldorm ---------------------------------------------------------------
+ * A little worm that races about, weaving at random and every sixth turn
+ * swerving round to chase Link, its eyes looking where it goes. It bounces off
+ * walls. Its segment and tail trail behind it (type 1 and 2 of the segment).
+ */
+enum { MM_INIT, MM_STRAIGHT, MM_MEANDER, MM_SEEK };
+
+static void MiniMoldormTick(AlttpEnemy* this) {
+    u32 i;
+    switch (super->action) {
+        case MM_INIT:
+            AlttpInit(this, AP_MINIMOLD, AF_MINIMOLD_HEAD_0);
+            this->face = Random() & 15;
+            super->action = MM_STRAIGHT;
+            super->timer = 16;
+            {
+                Entity* lead = super;
+                for (i = 1; i <= 2; i++) {
+                    Entity* seg = CreateEnemy(MINI_MOLDORM_SEGMENT, i);
+                    if (seg != NULL) {
+                        seg->parent = super;
+                        seg->child = lead; // the one it follows
+                        CopyPosition(super, seg);
+                        lead = seg;
+                    }
+                }
+            }
+            break;
+        case MM_STRAIGHT:
+            if (--super->timer == 0) {
+                if (++this->turns == 6) {
+                    this->turns = 0;
+                    super->action = MM_SEEK;
+                } else {
+                    super->action = MM_MEANDER;
+                }
+                this->head = (Random() & 2) ? 1 : 15;
+                super->timer = (Random() & 31) + 32;
+            }
+            break;
+        case MM_MEANDER:
+            if (--super->timer == 0) {
+                super->timer = (Random() & 15) + 8;
+                super->action = MM_STRAIGHT;
+            } else if ((super->timer & 3) == 0) {
+                this->face = (this->face + this->head) & 15;
+            }
+            break;
+        case MM_SEEK:
+            if ((++this->cooldown & 3) == 0) {
+                u32 want = AngleToHeading(AngleTo(gPlayerEntity.base.x.HALF.HI - super->x.HALF.HI,
+                                                  gPlayerEntity.base.y.HALF.HI - super->y.HALF.HI));
+                s32 diff = (want - this->face) & 15;
+                if (diff == 0) {
+                    super->action = MM_STRAIGHT;
+                    super->timer = 48;
+                } else {
+                    this->face = (this->face + (diff < 8 ? 1 : 15)) & 15;
+                }
+            }
+            break;
+    }
+    super->direction = (this->face * 2 + 8) & 0x1f;
+    super->speed = 0x180;
+    ProcessMovement0(super);
+    if (super->collisions != COL_NONE) {
+        // bounce straight back, and maybe weave the other way
+        this->face = (this->face + 8) & 15;
+        if (Random() & 1) {
+            this->head = 16 - this->head;
+        }
+        this->pose = 6;
+    }
+    this->step++;
+    if (this->pose) {
+        this->pose--;
+        SetFrame(super, AF_MINIMOLD_SQUASH);
+    } else {
+        SetFrame(super, AF_MINIMOLD_HEAD_0 + this->face);
+    }
+    AlttpEndTick(this);
+}
+
+static void MiniMoldormOnCollision(AlttpEnemy* this);
+static void MiniMoldormOnDeath(AlttpEnemy* this) {
+    AlttpDeath(this, ROPE);
+}
+
+static void (*const MiniMoldorm_Functions[])(AlttpEnemy*) = {
+    MiniMoldormTick, MiniMoldormOnCollision, (void (*)(AlttpEnemy*))GenericKnockback,
+    MiniMoldormOnDeath, (void (*)(AlttpEnemy*))GenericConfused, AlttpGrabbed,
+};
+
+static void MiniMoldormOnCollision(AlttpEnemy* this) {
+    AlttpOnCollision(this, (void (*const*)())MiniMoldorm_Functions);
+}
+
+void MiniMoldorm(AlttpEnemy* this) {
+    EnemyFunctionHandler(super, (EntityActionArray)MiniMoldorm_Functions);
+}
+
+/** Type 1 the segment, 2 the tail: each keeps a few pixels behind the one ahead. */
+void MiniMoldormSegment(AlttpEnemy* this) {
+    Entity* lead;
+    s32 dx, dy, d, gap;
+    if (!ParentAlive(super)) {
+        DeleteThisEntity();
+    }
+    if (super->action == 0) {
+        super->flags |= ENT_DID_INIT;
+        AlttpInit(this, AP_MINIMOLD, super->type == 1 ? AF_MINIMOLD_BODY : AF_MINIMOLD_TAIL);
+        COLLISION_OFF(super);
+        super->health = 0;
+        super->spritePriority.b1 = 2;
+        super->spriteSettings.shadow = 0;
+    }
+    lead = super->child;
+    if (lead == NULL || lead->next == NULL || lead->kind != ENEMY) {
+        lead = super->parent;
+    }
+    gap = super->type == 1 ? 7 : 6;
+    dx = super->x.HALF.HI - lead->x.HALF.HI;
+    dy = super->y.HALF.HI - lead->y.HALF.HI;
+    d = Distance(dx, dy);
+    if (d > gap) {
+        super->x.HALF.HI = lead->x.HALF.HI + Div(dx * gap, d);
+        super->y.HALF.HI = lead->y.HALF.HI + Div(dy * gap, d);
+    }
+    super->collisionLayer = super->parent->collisionLayer;
+    SetFrame(super, super->type == 1 ? AF_MINIMOLD_BODY : AF_MINIMOLD_TAIL);
+}

@@ -35,6 +35,10 @@ import blendstyle  # noqa: E402
 
 SPRITE_INDEX = 155    # the Eastern Palace and Dark World set
 SPRITE_INDEX_2 = 329  # the Desert Palace, Tower of Hera and Hinox set (a new gSpritePtrs entry)
+SPRITE_INDEX_3 = 330  # Debirandos, Kodongos, mini Moldorms, the crystal switch, shared fireballs
+SPRITE_INDEX_4 = 331  # the Dark World dungeons' enemies
+SPRITE_INDEX_5 = 332  # the Dark World dungeons' bosses
+SUFFIXES = {SPRITE_INDEX: '', SPRITE_INDEX_2: '2', SPRITE_INDEX_3: '3', SPRITE_INDEX_4: '4', SPRITE_INDEX_5: '5'}
 DUNGEON_PALSET = 11  # the Eastern Palace's sprite colors
 
 # ---------------------------------------------------------------------------
@@ -387,13 +391,15 @@ BUMPER_DMD = [[(-8, -8, 0x00ec, 2), (8, -8, 0x40ec, 2), (-8, 8, 0x80ec, 2), (8, 
 PREVIEW_PALETTES = {'LMDIRT': 'LANMOLA_DIRT', 'BEAMLASER': 'BEAMOS_LASER', 'MOLDTAIL': 'MOLDORM_TAIL',
                     'BARI': 'BARI_BLUE', 'HINOX': 'HINOX', 'LANMOLA': 'LANMOLA', 'LEEVER': 'LEEVER',
                     'BEAMOS': 'BEAMOS', 'POKEY': 'POKEY', 'GIBDO': 'GIBDO', 'MOLDORM': 'MOLDORM',
-                    'HARDHAT': 'HARDHAT', 'BUMPER': 'BUMPER', 'BOMB': 'BOMB'}
+                    'HARDHAT': 'HARDHAT', 'BUMPER': 'BUMPER', 'BOMB': 'BOMB',
+                    'DEBPIT': 'DEBPIT', 'DEBIRANDO': 'DEBIRANDO_FIRE', 'FIREBALL': 'FIREBALL',
+                    'KODONGO': 'KODONGO', 'KFIRE': 'KFIRE', 'KFLAME': 'KFIRE', 'MINIMOLD': 'MINIMOLD'}
 
 # ---------------------------------------------------------------------------
 # the enemies
 
 PALETTES = []      # (name, 16 RGB colors)
-SPRITES = {SPRITE_INDEX: [], SPRITE_INDEX_2: []}   # sprite slot -> its frames
+SPRITES = {n: [] for n in SUFFIXES}   # sprite slot -> its frames
 FRAMES = SPRITES[SPRITE_INDEX]
 
 
@@ -650,6 +656,157 @@ def build_frames_2():
     palette('HARDHAT', mc_palette(4, palset=6))
     palette('BUMPER', mc_palette(2, palset=6))
 
+    build_frames_3()
+
+
+# ---------------------------------------------------------------------------
+# both of A Link to the Past's OAM name tables
+
+class Vram:
+    """A dungeon sprite set as ALttP's OAM sees it: chars 0x140-0x1ff... are the set's
+    four sheets (name table 1), chars 0x40-0xff the shared sheets (name table 0: misc
+    sprites, then sheets 6 and 7 with fire, sparks and sand). Chars are 9-bit."""
+
+    def __init__(self, dset, overworld=False):
+        util, tables, S = z3()
+        self.nt1 = Sheets(dset, overworld)
+        self.nt0 = {1: S.decode_3bit_tileset(10), 2: S.decode_3bit_tileset(6), 3: S.decode_3bit_tileset(7)}
+
+    def pixel(self, char, x, y):
+        if char & 0x100:
+            return self.nt1.pixel(char & 0xff, x, y)
+        src = self.nt0.get((char >> 6) & 3)
+        if src is None:
+            return 0
+        c = char & 63
+        return src[((c >> 4) * 8 + y) * 128 + (c & 15) * 8 + x]
+
+
+def pieces9(table, own=1, add_for=None):
+    """zelda3 DrawMultipleData entries (x, y, char_flags, ext) as 9-bit-char pieces; own
+    is the sprite's own OAM flags, which the entries' flags are XORed with. add_for maps
+    an ALttP palette number to the color offset (0 or 8) it is drawn with."""
+    out = []
+    for e in table:
+        x, y, cf, ext = e[:4]
+        flags = (cf >> 8) ^ own
+        char = (cf & 0xff) | (flags & 1) << 8
+        add = (add_for or {}).get((flags >> 1) & 7, 0)
+        out.append((x, y, char, flags & 0xc0, ext, add))
+    return out
+
+
+def snes_flags_piece(x, y, char, flags, big, own=1, add=0):
+    """One piece in SetOamHelper style: flags XOR the sprite's own picks the name table."""
+    f = flags ^ own
+    return (x, y, (char & 0xff) | (f & 1) << 8, f & 0xc0, big, add)
+
+
+# Debirando pit (DebirandoPit_Draw): six poses of four mirrored quarters
+_DBP_X = [-8, 8, -8, 8, -8, 8, -8, 8, -8, 8, -8, 8, 0, 8, 0, 8, 0, 8, 0, 8, -8, 8, -8, 8]
+_DBP_Y = [-8, -8, 8, 8, -8, -8, 8, 8, -8, -8, 8, 8, 0, 0, 8, 8, 0, 0, 8, 8, -8, -8, 8, 8]
+_DBP_C = [4, 4, 4, 4, 0x22, 0x22, 0x22, 0x22, 2, 2, 2, 2, 0x29, 0x29, 0x29, 0x29,
+          0x39, 0x39, 0x39, 0x39, 0x2a, 0x2a, 0x2a, 0x2a]
+_DBP_F = [0, 0x40, 0x80, 0xc0] * 6
+_DBP_B = [2, 2, 2, 0, 0, 2]
+# Debirando (Debirando_Draw): peeking, half out, out, and jaws open
+_DB_X = [0, 8, 0, 8, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0, 0, 0]
+_DB_Y = [2, 2, 6, 6, -2, -2, 6, 6, -4, -4, -4, -4, -4, -4, -4, -4]
+_DB_C = [0, 0, 0xd8, 0xd8, 0, 0, 0xd9, 0xd9, 0, 0, 0, 0, 0x20, 0x20, 0x20, 0x20]
+_DB_F = [1, 0x41, 0, 0x40, 1, 1, 0, 0x40, 1, 1, 1, 1, 1, 1, 1, 1]
+_DB_B = [0, 0, 0, 0, 2, 2, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2]
+
+# Kodongo: SpriteDraw_SingleLarge chars by pose (kSprite_PrepAndDrawSingleLarge_Tab2)
+KODONGO_CHARS = [0xa0, 0xaa, 0xa4, 0xa6, 0xac, 0xa2, 0xa8]
+# its flame on the floor (Flame_Draw), name table 0 (the fire sheet)
+_FLAME = [(0, 0, 0x018e, 2), (0, 0, 0x018e, 2), (0, 0, 0x01a0, 2), (0, 0, 0x01a0, 2),
+          (0, 0, 0x418e, 2), (0, 0, 0x418e, 2), (0, 0, 0x41a0, 2), (0, 0, 0x41a0, 2),
+          (0, 0, 0x01a2, 2), (0, 0, 0x01a2, 2), (0, -6, 0x01a4, 0), (8, -6, 0x01a5, 0)]
+FLAME_DMD = [_FLAME[g * 2:g * 2 + 2] for g in range(6)]
+
+# mini Moldorm (Moldorm_Draw): eyes either side of the heading, head, segment, tail
+MINIMOLD_EYE_X = [11, 10, 9, 6, 3, 0, -2, -3, -4, -3, -2, 1, 4, 7, 9, 10]
+MINIMOLD_EYE_Y = [4, 6, 9, 10, 11, 10, 9, 6, 3, 0, -2, -3, -4, -3, -2, 1]
+
+
+def build_frames_3():
+    use_sprite(SPRITE_INDEX_3)
+
+    # --- Debirando and its pit (Desert Palace): the pit's six poses, the monster's
+    # four, and added frames: a gulp as it ducks back under, and a jaw snap
+    desert = Vram(10)
+    org = (8, 8)
+    for g in range(6):
+        pieces = [(_DBP_X[g * 4 + i], _DBP_Y[g * 4 + i], 0x100 | _DBP_C[g * 4 + i], _DBP_F[g * 4 + i], _DBP_B[g])
+                  for i in range(4)]
+        frame('DEBPIT_%d' % g, compose(desert, pieces, (0, 0)))
+    for g in range(4):
+        pieces = []
+        for i in range(4):
+            j = g * 4 + i
+            f = _DB_F[j]
+            if f & 0xf:   # the monster: its own name table and colors
+                pieces.append((_DB_X[j], _DB_Y[j], 0x100 | _DB_C[j], f & 0xc0, _DB_B[j], 0))
+            else:         # the sand around it: the shared sheet, colors + 8
+                pieces.append((_DB_X[j], _DB_Y[j], _DB_C[j], f & 0xc0, _DB_B[j], 8))
+        frame('DEBIRANDO_%d' % g, compose(desert, pieces, org))
+    frame('DEBIRANDO_GULP', scaled(compose(desert, [(0, -2, 0x100, 0, 2)], org), 1.15, 0.8))
+    frame('DEBIRANDO_SNAP', scaled(compose(desert, [(0, -4, 0x120, 0, 2)], org), 1.1, 1.1, dy=-1))
+
+    # --- fireballs: the small one Debirandos and Medusas spit (char 0x8d of the fire
+    # sheet), spinning, and an added flare as it leaves the mouth
+    org = (4, 4)
+    ball = compose(desert, [(0, 0, 0x8d, 0, 0)], org)
+    frame('FIREBALL_0', ball)
+    frame('FIREBALL_1', mirrored(ball))
+    frame('FIREBALL_FLARE', scaled(ball, 1.5, 1.5, dy=2))
+
+    # --- Kodongo (Tower of Hera, Palace of Darkness): seven poses and their mirrors,
+    # plus a puffed-up chest before it breathes fire
+    hera = Vram(25)
+    org = (8, 12)
+    for g, c in enumerate(KODONGO_CHARS):
+        p = compose(hera, [(0, 0, 0x100 | c, 0, 2)], org)
+        frame('KODONGO_%d' % g, p)
+        frame('KODONGO_%d_FLIP' % g, mirrored(p))
+    for g, flip in ((4, False), (1, False), (6, False)):
+        p = compose(hera, [(0, 0, 0x100 | KODONGO_CHARS[g], 0, 2)], org)
+        frame('KODONGO_PUFF_%d' % g, scaled(p, 1.12, 1.06))
+    # its fire: the moving fireball, spinning four ways, and the flame it leaves
+    # burning where it lands (A Link to the Past's lamp fire)
+    org = (8, 8)
+    spin = compose(hera, [(0, 0, 0x18c, 0, 2)], org)
+    frame('KFIRE_0', spin)
+    frame('KFIRE_1', mirrored(spin))
+    frame('KFIRE_2', {(-1 - x, -1 - y): c for (x, y), c in spin.items()})
+    frame('KFIRE_3', {(x, -1 - y): c for (x, y), c in spin.items()})
+    org = (8, 12)
+    for g in range(6):
+        frame('KFLAME_%d' % g, compose(hera, pieces9(FLAME_DMD[g], own=1), org))
+
+    # --- mini Moldorm: the head with its two eyes for 16 headings, a segment, the
+    # tail, and an added squash for the bounce off a wall
+    org = (8, 8)
+    for d in range(16):
+        pieces = []
+        b = (d - 1) & 15
+        for i in range(2):
+            e = (b + i * 2) & 15
+            pieces.append((MINIMOLD_EYE_X[e], MINIMOLD_EYE_Y[e], 0x14d, 0, 0))
+        pieces.append((0, 0, 0x160, 0, 2))
+        frame('MINIMOLD_HEAD_%d' % d, compose(hera, pieces, org))
+    frame('MINIMOLD_BODY', compose(hera, [(0, 0, 0x162, 0, 2)], org))
+    frame('MINIMOLD_TAIL', compose(hera, [(4, 4, 0x15d, 0, 0)], org))
+    frame('MINIMOLD_SQUASH', scaled(compose(hera, [(0, 0, 0x160, 0, 2)], org), 1.2, 0.8, dy=2))
+
+    palette('DEBPIT', mc_palette(0, palset=9))
+    palette('DEBIRANDO', two_palettes(mc_palette(4, palset=9), mc_palette(0, palset=9)))
+    palette('DEBIRANDO_FIRE', two_palettes(mc_palette(3, palset=9), mc_palette(0, palset=9)))
+    palette('FIREBALL', mc_palette(3, palset=9))
+    palette('KODONGO', mc_palette(6, palset=6))
+    palette('KFIRE', mc_palette(1, palset=6))
+    palette('MINIMOLD', mc_palette(3, palset=6))
+
 
 # ---------------------------------------------------------------------------
 # Minish Cap sprite data
@@ -754,8 +911,8 @@ def write_sprite(index, frames, suffix):
 def write(preview=None):
     os.makedirs(os.path.join(OUT, 'objlists'), exist_ok=True)
     inc = ['@ generated by blend/enemies/alttp_enemies.py from your own cartridge; do not commit']
-    inc += write_sprite(SPRITE_INDEX, SPRITES[SPRITE_INDEX], '')
-    inc += write_sprite(SPRITE_INDEX_2, SPRITES[SPRITE_INDEX_2], '2')
+    for n, suffix in SUFFIXES.items():
+        inc += write_sprite(n, SPRITES[n], suffix)
     inc += ['\t.align 2', 'gAlttpEnemyPalettes::']
     for name, cols in PALETTES:
         inc.append('\t.2byte ' + ', '.join('0x%04x' % gba_color(c) for c in cols) + ' @ ' + name)
@@ -765,7 +922,10 @@ def write(preview=None):
     h = ['/* generated by blend/enemies/alttp_enemies.py; frame and palette numbers */',
          '#ifndef ALTTP_ENEMIES_GEN_H', '#define ALTTP_ENEMIES_GEN_H',
          '#define ALTTP_ENEMY_SPRITE %d' % SPRITE_INDEX,
-         '#define ALTTP_ENEMY_SPRITE_2 %d' % SPRITE_INDEX_2]
+         '#define ALTTP_ENEMY_SPRITE_2 %d' % SPRITE_INDEX_2,
+         '#define ALTTP_ENEMY_SPRITE_3 %d' % SPRITE_INDEX_3,
+         '#define ALTTP_ENEMY_SPRITE_4 %d' % SPRITE_INDEX_4,
+         '#define ALTTP_ENEMY_SPRITE_5 %d' % SPRITE_INDEX_5]
     slots = {}
     for index, frames in SPRITES.items():
         h.append('/* sprite %d */' % index)
@@ -795,7 +955,7 @@ def draw_preview(path):
                'SPEAR': 'MOBLIN'}
     pal_for.update(PREVIEW_PALETTES)
     pals = dict(PALETTES)
-    frames = SPRITES[SPRITE_INDEX] + SPRITES[SPRITE_INDEX_2]
+    frames = [f for n in SUFFIXES for f in SPRITES[n]]
     cols = 12
     rows = (len(frames) + cols - 1) // cols
     im = Image.new('RGB', (cols * 48, rows * 56), (40, 48, 40))
