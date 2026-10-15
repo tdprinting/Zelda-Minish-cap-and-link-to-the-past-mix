@@ -44,7 +44,7 @@ LIGHT, DARK, BOTH = 1, 2, 3
 class Site:
     def __init__(self, name, area, room, world, door, src, src_door, dungeon=0, cave_flag=0,
                  drop=(), keep=(), ground=8, rows=2, door_cells=None, sealed_from=None, shade=True, ground_share=0.85,
-                 avoid_rows=()):
+                 avoid_rows=(), see_through=False):
         self.name = name
         self.area, self.room, self.world = area, room, world
         self.door = door                  # the transition's (x, y) in the room, pixels
@@ -61,6 +61,7 @@ class Site:
         self.shade = shade                # cel-shade the art (outlines, rim light)
         self.ground_share = ground_share  # how much of a cell must be ground colors to count as ground
         self.avoid_rows = avoid_rows      # palette rows the room loads at run time (a static background)
+        self.see_through = see_through    # the room's own ground shows through the front's ground pixels
 
 
 # Where each A Link to the Past dungeon meets the Minish Cap overworld. The doors are
@@ -74,16 +75,16 @@ SITES = [
     Site('TowerOfHera', 0x06, 3, LIGHT, (0x348, 0x58), (0x03, 44, 1, 51, 9), (47, 7),
          dungeon=0x1c, cave_flag=0x44),
     # the Dark World's: where its dungeons stand in A Link to the Past's Dark World
-    Site('PalaceOfDarkness', 0x03, 3, DARK, (0xa8, 0x98), (0x5e, 46, 0, 61, 8), (53, 3),
+    Site('PalaceOfDarkness', 0x03, 3, DARK, (0xa8, 0x98), (0x5e, 46, 3, 61, 7), (53, 3),
          dungeon=0x1d),
-    Site('SwampPalace', 0x04, 0, DARK, (0x1a8, 0x1a2), (0x7b, 20, 11, 27, 19), (23, 14),
+    Site('SwampPalace', 0x04, 0, DARK, (0x1a8, 0x1a2), (0x7b, 22, 11, 26, 19), (23, 14),
          dungeon=0x1e),
     Site('SkullWoods', 0x00, 0, DARK, (0x70, 0x48), (0x40, 8, 10, 12, 17), (9, 12),
          dungeon=0x1f, drop=((8, 13, 9, 17), (11, 14, 12, 17))),
     Site('IcePalace', 0x0b, 0, DARK, (0x148, 0x374), (0x75, 39, 24, 48, 32), (43, 28),
          dungeon=0x3a),
-    Site('MiseryMire', 0x0a, 0, DARK, (0x38, 0x1e2), (0x70, 15, 11, 22, 18), (18, 13),
-         dungeon=0x3b),
+    Site('MiseryMire', 0x0a, 0, DARK, (0x38, 0x1e2), (0x70, 17, 12, 21, 18), (18, 13),
+         dungeon=0x3b, see_through=True),
     Site('TurtleRock', 0x06, 0, DARK, (0x328, 0x34), (0x47, 15, 19, 19, 23), (16, 19),
          dungeon=0x3c, avoid_rows=(4, 5)),  # the mountain top's sky loads rows 4 and 5
     Site('GanonsTower', 0x06, 3, DARK, (0x348, 0x58), (0x43, 42, 0, 53, 8), (47, 3),
@@ -315,7 +316,7 @@ def ground_cells(src, site, x0, y0, w, h):
     """ALttP cells in the crop that are plain ground (left out, so Minish Cap's ground
     shows): cells drawn almost only in the colors of the area's commonest cells."""
     common = src.common_map16(site.ground)
-    colors = set()
+    colors = {tuple(int(v) for v in src.pal[0])}  # the backdrop shows through empty ground too
     for my in range(src.size):
         for mx in range(src.size):
             if int(src.map[my, mx]) in common:
@@ -334,7 +335,16 @@ def ground_cells(src, site, x0, y0, w, h):
         g[max(0, ry0 - y0):max(0, ry1 - y0), max(0, rx0 - x0):max(0, rx1 - x0)] = True
     for rx0, ry0, rx1, ry1 in site.keep:
         g[max(0, ry0 - y0):max(0, ry1 - y0), max(0, rx0 - x0):max(0, rx1 - x0)] = False
-    return g
+    return g, colors
+
+
+def dark_world(rgb):
+    """Blend_TransformPalette (tmc/src/blend.c): the Dark World's colors, on 8-bit RGB."""
+    r, g, b = (rgb[..., 0] >> 3), (rgb[..., 1] >> 3), (rgb[..., 2] >> 3)
+    nr = np.minimum((r * 141 + g * 64 + b * 26 + 256) >> 8, 31)
+    ng = (r * 31 + g * 154 + b * 20) >> 8
+    nb = np.minimum((r * 38 + g * 38 + b * 102 + 768) >> 8, 31)
+    return np.stack([nr, ng, nb], -1) << 3
 
 
 def pick_types(mc):
@@ -364,12 +374,24 @@ def build_site(site, palettes, char_pool, meta_pool=None, log=print):
     # place: the ALttP door cell onto the Minish Cap door cell
     dcx, dcy = site.door[0] // 16, site.door[1] // 16
     ox, oy = dcx - (site.src_door[0] - sx0), dcy - (site.src_door[1] - sy0)
-    ground = ground_cells(src, site, sx0, sy0, w, h)
-    art = style_colors(src.render(sx0, sy0, w, h))
+    ground, ground_colors = ground_cells(src, site, sx0, sy0, w, h)
+    raw = src.render(sx0, sy0, w, h)
+    art = style_colors(raw)
     if site.shade:
         cast = np.kron(~ground, np.ones((16, 16), dtype=bool))
         art = celshade.shade(art.astype(float), np.zeros(cast.shape, dtype=bool),
                              np.zeros(cast.shape, dtype=bool), cast).astype(np.int64)
+    if site.see_through:
+        # the front's own ground pixels show the room's ground under them instead
+        room = np.asarray(mc.render())[..., :3].astype(np.int64)
+        if site.world == DARK:
+            room = dark_world(room)
+        mask = np.array([[tuple(c) in ground_colors for c in line] for line in raw.tolist()])
+        for y in range(h * 16):
+            for x in range(w * 16):
+                ry, rx = oy * 16 + y, ox * 16 + x
+                if mask[y, x] and 0 <= ry < room.shape[0] and 0 <= rx < room.shape[1]:
+                    art[y, x] = room[ry, rx]
     walk_t, solid_t = pick_types(mc)
 
     cells = []                  # (mc x, my, alttp x, y)

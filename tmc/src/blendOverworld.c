@@ -27,6 +27,8 @@
 #include "room.h"
 #include "main.h"
 #include "save.h"
+#include "message.h"
+#include "player.h"
 
 typedef struct {
     u16 cell;   /**< packed room map index: y * room width + x */
@@ -63,7 +65,7 @@ typedef struct {
     u8 room;
     u8 world;
     u16 rowMask;  /**< palette rows of the exterior shown now (they keep their colors in the Dark World) */
-    u16 pad;
+    u16 seen;     /**< frames Link has been free in front of it */
     const BlendExterior* active;
 } BlendExteriorState;
 
@@ -162,6 +164,7 @@ void Blend_ExteriorAfterMap(void) {
     }
     s->active = e;
     s->rowMask = e->rowMask;
+    s->seen = 0;
     s->dirty = 1;
     s->area = e->area;
     s->room = e->room;
@@ -202,4 +205,75 @@ bool32 Blend_ExteriorActive(void) {
 /** The exterior's palette rows wear their own Dark World colors already. */
 bool32 Blend_ExteriorKeepsColors(u32 palIdx) {
     return palIdx < 16 && (gBlendExterior.rowMask & (1 << palIdx)) && Blend_ExteriorActive();
+}
+
+/**
+ * What Ezlo says the first time Link stands before each dungeon's front: what the place
+ * is, and what opens it (new lines at the end of Ezlo's text). One bit each in the save.
+ */
+typedef struct {
+    u8 dungeon;
+    u8 text;
+} FrontStory;
+
+static const FrontStory sFrontStories[] = {
+    { 0x0e, 0x74 }, // the Eastern Palace
+    { 0x1b, 0x75 }, // the Desert Palace
+    { 0x1c, 0x76 }, // the Tower of Hera
+    { 0x1d, 0x77 }, // the Palace of Darkness
+    { 0x1e, 0x78 }, // the Swamp Palace
+    { 0x1f, 0x79 }, // Skull Woods
+    { 0x3a, 0x7a }, // the Ice Palace
+    { 0x3b, 0x7b }, // Misery Mire
+    { 0x3c, 0x7c }, // Turtle Rock
+    { 0x3d, 0x7d }, // Ganon's Tower
+};
+
+#define FRONT_STORY_DELAY 75
+
+static bool32 IsLinkFree(void) {
+    if (gMessage.state & MESSAGE_ACTIVE)
+        return FALSE;
+    if (gPlayerState.framestate != PL_STATE_IDLE && gPlayerState.framestate != PL_STATE_WALK)
+        return FALSE;
+    return gPlayerState.controlMode == CONTROL_ENABLED;
+}
+
+static void UpdateFrontStory(void) {
+    const BlendExterior* e = gBlendExterior.active;
+    u32 i, bit;
+    if (e->doorCount == 0 || !IsLinkFree()) {
+        return;
+    }
+    for (i = 0; i < ARRAY_COUNT(sFrontStories); i++) {
+        if (sFrontStories[i].dungeon == e->doors[0].dungeon) {
+            break;
+        }
+    }
+    if (i == ARRAY_COUNT(sFrontStories)) {
+        return;
+    }
+    bit = 1 << i;
+    // halves, since the filler bytes have no alignment
+    if ((gSave.fillerA[20] | (gSave.fillerA[21] << 8)) & bit) {
+        return;
+    }
+    if (++gBlendExterior.seen < FRONT_STORY_DELAY) {
+        return;
+    }
+    if (bit < 0x100) {
+        gSave.fillerA[20] |= bit;
+    } else {
+        gSave.fillerA[21] |= bit >> 8;
+    }
+    MessageFromTarget(TEXT_INDEX(TEXT_EZLO, sFrontStories[i].text));
+}
+
+/** Every gameplay frame: keeps the front's colors, and has Ezlo speak up the first time. */
+void Blend_ExteriorUpdate(void) {
+    if (!Blend_ExteriorActive()) {
+        return;
+    }
+    Blend_ExteriorRefreshColors();
+    UpdateFrontStory();
 }

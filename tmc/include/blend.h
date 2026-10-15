@@ -141,6 +141,7 @@ void Blend_ExteriorBeforeMap(void);
 void Blend_ExteriorAfterMap(void);
 bool32 Blend_ExteriorActive(void);
 void Blend_ExteriorRefreshColors(void);
+void Blend_ExteriorUpdate(void);
 bool32 Blend_ExteriorKeepsColors(u32 palIdx);
 bool32 Blend_CanEnterDungeon(u32 area);
 /** The Temple of Bonds, the co-op temple (blendShrine.c): its plates, gates, seals and guard. */
