@@ -196,9 +196,22 @@ static u32 DarkWorldEnemy(u32 id) {
     }
 }
 
+/** Light World enemies that A Link to the Past's take the place of: its Leevers in Hyrule Field. */
+static u32 LightWorldEnemy(u32 id) {
+    if (id == LEEVER && gRoomControls.area == AREA_HYRULE_FIELD) {
+        return ALTTP_LEEVER;
+    }
+    return id;
+}
+
 void Blend_ApplyDarkWorldEnemy(Entity* entity) {
     u32 id;
     if (!Blend_IsDarkWorldActive()) {
+        id = LightWorldEnemy(entity->id);
+        if (id != entity->id) {
+            entity->id = id;
+            entity->type = 0;
+        }
         return;
     }
     id = DarkWorldEnemy(entity->id);
