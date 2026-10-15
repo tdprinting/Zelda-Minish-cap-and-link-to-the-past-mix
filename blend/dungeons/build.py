@@ -196,7 +196,6 @@ STAND_INS = {
     'A2-KholdStare': (MC_DARK_NUT, 2),
     'BD-Viterous': (MC_DARK_NUT, 2),
     'CB-TriNexx1': (MC_DARK_NUT, 2),
-    '7A-Agahnim': (MC_DARK_NUT, 2),             # Ganon's Tower's Agahnim
     # Ganon's Tower's soldiers: a Darknut for the sword soldier, a Moblin for the spearmen
     '41-BlueSoldier': MC_DARK_NUT,
     '43-RedSpearSoldier': ALTTP_MOBLIN,
