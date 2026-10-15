@@ -72,7 +72,7 @@ without asking, and `--no-update` skips the check once.
 
 ## Playing on Android (AYN Odin 2 Portal)
 
-The APK (`picori-seal-vX.Y-android.apk`) has the game inside it. It's made for the
+The APK (`picori-seal-vX.Y.apk`) has the game inside it. It's made for the
 AYN Odin 2 Portal and runs on any 64-bit Android 8+ device with a gamepad.
 
 1. Copy the APK to the device and open it to install (allow installing from your
@@ -91,7 +91,14 @@ AYN Odin 2 Portal and runs on any 64-bit Android 8+ device with a gamepad.
   `Android/data/com.picoriseal.game/files/` on the device's storage, where you can
   back them up over USB. A newer `zelda-blend.gba` put in that folder is played
   instead of the one in the APK (installing a newer APK takes over again).
-- Updates install over the old version and keep the saves. Uninstalling deletes them.
+- Updates: open the downloaded `picori-seal-vX.Y.zip` with the game (or let it check
+  a folder you pick once, or a private source, under the app's **Update settings**
+  shortcut; long-press the app icon). It puts the new game file in its files folder,
+  keeps the saves (with a copy in `previous`), and restarts. A new
+  `picori-seal-vX.Y.apk` is only needed when the app itself changes; the game installs
+  it through Android's installer, over the old version, keeping the saves. Every APK
+  must be signed with the same key, or Android won't update over the installed game.
+  Uninstalling deletes the saves.
 
 ## Building
 
@@ -130,6 +137,7 @@ make -C blend/host                               # needs libsdl2-dev, libmgba-de
 | `blend/host/coop.c` | Split-screen co-op player (SDL2 + libmgba); `--play SCRIPT --screenshot FILE` renders a scripted run for tests |
 | `blend/host/updater.c` | The Windows player's auto updater: finds, checks (sha256, zip CRCs, ROM header), installs and restarts into newer builds |
 | `blend/host/android.c`, `blend/android/` | Android version of the player: where the game and saves live, the activity that starts it (`PicoriActivity.java` tells the player which pads are built in), and `build-apk.sh` |
+| `blend/android/java/com/picoriseal/game/Updater.java` | The Android app's auto updater: the same sources and checks; installs the zip's game file, or an APK through Android's installer. `updater-test/run.sh` tests it on a desktop JVM |
 | `blend/harness/harness.c` | Headless test runner used to check builds |
 
 The shared state block `gBlendLink` sits at a fixed address, `0x0203F000`, so the
