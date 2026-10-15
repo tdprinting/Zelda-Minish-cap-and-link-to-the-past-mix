@@ -30,6 +30,7 @@
 #include "player.h"
 #include "hitbox.h"
 #include "collision.h"
+#include "alttpBossCam.h"
 #include "../../custom/gen/alttp_enemies.h"
 
 extern const u16 gAlttpEnemyPalettes[];
@@ -37,6 +38,47 @@ extern u8 gAlttpEnemyState[];
 u32 FindFreeObjPalette(u32 paletteCount);
 void SetEntityObjPalette(Entity* entity, s32 palette);
 void CleanUpObjPalettes(void);
+
+/** A boss shows the camera where it is this frame (its body's middle). */
+static void BossCamAt(s32 x, s32 y) {
+    gAlttpBossCam.sumX += x;
+    gAlttpBossCam.sumY += y;
+    gAlttpBossCam.n++;
+}
+
+static void BossCam(Entity* e, s32 dy) {
+    BossCamAt(e->x.HALF.HI, e->y.HALF.HI + dy + e->z.HALF.HI);
+}
+
+/**
+ * Called by Scroll1 each frame the camera follows Link: lean it from Link halfway
+ * to the boss (or the middle of the bosses), so the fight stays on screen in rooms
+ * taller than it, and ease back once the boss is gone.
+ */
+void AlttpBossCamUpdate(s32 targetX, s32 targetY) {
+    AlttpBossCam* c = &gAlttpBossCam;
+    if (c->area != gRoomControls.area || c->room != gRoomControls.room) {
+        MemClear(c, sizeof(*c));
+        c->area = gRoomControls.area;
+        c->room = gRoomControls.room;
+        return;
+    }
+    if (c->n) {
+        s32 wx = (c->sumX / c->n - targetX) / 2;
+        s32 wy = (c->sumY / c->n - targetY) / 2;
+        c->wantX = wx < -64 ? -64 : wx > 64 ? 64 : wx;
+        c->wantY = wy < -64 ? -64 : wy > 36 ? 36 : wy;
+        c->hold = 8;
+    } else if (c->hold) {
+        c->hold--;
+    } else {
+        c->wantX = c->wantY = 0;
+    }
+    c->sumX = c->sumY = 0;
+    c->n = 0;
+    c->biasX += c->wantX > c->biasX ? 1 : c->wantX < c->biasX ? -1 : 0;
+    c->biasY += c->wantY > c->biasY ? 1 : c->wantY < c->biasY ? -1 : 0;
+}
 
 /** An Armos Knight is 32 pixels square. */
 const Hitbox gHitbox_ArmosKnight = { 0, -10, { 10, 8, 8, 10 }, 11, 11 };
@@ -905,6 +947,7 @@ static void ArmosOnCollision(AlttpEnemy* this) {
 
 void ArmosKnight(AlttpEnemy* this) {
     EnemyFunctionHandler(super, (EntityActionArray)Armos_Functions);
+    BossCam(super, -12);
 }
 
 /* ---- Rope -----------------------------------------------------------------
@@ -1569,6 +1612,7 @@ static void LanmolaOnCollision(AlttpEnemy* this) {
 
 void Lanmola(AlttpEnemy* this) {
     EnemyFunctionHandler(super, (EntityActionArray)Lanmola_Functions);
+    BossCam(super, -8);
 }
 
 /** A body segment (type 1-7, 7 the tail) trailing the head along its recorded path. */
@@ -2104,6 +2148,7 @@ static void MoldormOnCollision(AlttpEnemy* this) {
 
 void GiantMoldorm(AlttpEnemy* this) {
     EnemyFunctionHandler(super, (EntityActionArray)Moldorm_Functions);
+    BossCam(super, -8);
 }
 
 /** Moldorm's body: type 0 and 1 the big segments, 2 the small one, 3 the tail. Only
@@ -2938,6 +2983,18 @@ static bool32 HammerNear(Entity* at, s32 range) {
         }
     }
     return FALSE;
+}
+
+/**
+ * A boss that A Link to the Past starts against its room's top wall starts lower:
+ * the Game Boy Advance's screen is shorter, so with Link at the door it would be under
+ * the hearts. Moves it down by up to n pixels, keeping clear of walls.
+ */
+static void BossStartDown(Entity* e, s32 n) {
+    while (n > 0 && !WallAt(e, 0, 24)) {
+        e->y.HALF.HI += 4;
+        n -= 4;
+    }
 }
 
 static bool32 InRoom(Entity* e, s32 margin) {
@@ -3812,6 +3869,7 @@ static void HelmasaurKingTick(AlttpEnemy* this) {
     if (super->action == 0) {
         static const s8 legX[4] = { -28, -28, 28, 28 };
         AlttpInit(this, AP_HK, AF_HKUP);
+        BossStartDown(super, 12);
         MemClear(&gHk, sizeof(gHk));
         gHk.radius = 0x30;
         gHk.angle = 0x80;
@@ -3932,10 +3990,10 @@ static void (*const HelmasaurKing_Functions[])(AlttpEnemy*) = {
 static void HelmasaurKingOnCollision(AlttpEnemy* this) {
     Entity* by = super->contactedEntity;
     super->knockbackDuration = 0;
-    if (super->health < this->savedHealth) {
+    if (super->health < this->savedHealth || (IsBlast(by) && gHk.mask < 3)) {
         if (gHk.mask < 3) {
             RestoreHealth(this);
-            if (IsHeavy(by)) {
+            if (IsHeavy(by) || IsBlast(by)) {
                 // a chip off the mask
                 u32 hp = this->unused[0];
                 u32 m;
@@ -3976,6 +4034,7 @@ static void HelmasaurKingOnCollision(AlttpEnemy* this) {
 
 void HelmasaurKing(AlttpEnemy* this) {
     EnemyFunctionHandler(super, (EntityActionArray)HelmasaurKing_Functions);
+    BossCam(super, -16);
 }
 
 /** A Helmasaur King fireball. Type 0 is spat out, sinks and splits in three (type
@@ -4382,6 +4441,7 @@ static void ArrghusOnCollision(AlttpEnemy* this) {
 
 void Arrghus(AlttpEnemy* this) {
     EnemyFunctionHandler(super, (EntityActionArray)Arrghus_Functions);
+    BossCam(super, -8);
 }
 
 /** One of Arrghus's puffs (type: its place in the ring). */
@@ -4683,6 +4743,7 @@ static void MothulaOnCollision(AlttpEnemy* this) {
 
 void Mothula(AlttpEnemy* this) {
     EnemyFunctionHandler(super, (EntityActionArray)Mothula_Functions);
+    BossCam(super, -8);
 }
 
 /** Mothula's beam: a ring of light flying out, flickering, gone at a wall. */
@@ -5169,6 +5230,7 @@ static void BlindTick(AlttpEnemy* this) {
     u32 j;
     if (super->action == BL_INIT) {
         AlttpInit(this, AP_BLIND, AF_BLIND_9);
+        BossStartDown(super, 24);
         ((Enemy*)this)->enemyFlags |= EM_FLAG_BOSS;
         super->action = BL_RETREAT;
         super->timer = 96;
@@ -5405,6 +5467,7 @@ static void BlindOnCollision(AlttpEnemy* this) {
 
 void Blind(AlttpEnemy* this) {
     EnemyFunctionHandler(super, (EntityActionArray)Blind_Functions);
+    BossCam(super, -16);
 }
 
 /* ---- Kholdstare --------------------------------------------------------------------
@@ -5616,6 +5679,7 @@ static void KholdstareOnCollision(AlttpEnemy* this) {
 
 void Kholdstare(AlttpEnemy* this) {
     EnemyFunctionHandler(super, (EntityActionArray)Kholdstare_Functions);
+    BossCam(super, -16);
 }
 
 /** Kholdstare's shell of ice, in two halves (type 0 the left, which takes the hits;
@@ -5778,6 +5842,7 @@ static void VitreousTick(AlttpEnemy* this) {
         static const s8 ey[13] = { -8, -12, -8, -12, 0, -20, -1, -12, -24, -20, -1, -12, -24 };
         u32 i;
         AlttpInit(this, AP_VITREOUS, AF_VITREOUS_4);
+        BossStartDown(super, 16);
         ((Enemy*)this)->enemyFlags |= EM_FLAG_BOSS;
         super->action = VI_DORMANT;
         super->spritePriority.b0 = 3;
@@ -5925,6 +5990,7 @@ static void VitreousOnCollision(AlttpEnemy* this) {
 
 void Vitreous(AlttpEnemy* this) {
     EnemyFunctionHandler(super, (EntityActionArray)Vitreous_Functions);
+    BossCam(super, -8);
 }
 
 /** One of Vitreous's small eyes (type 1: one of the four that stay shut, until Vitreous
@@ -6053,6 +6119,7 @@ static void TrinexxTick(AlttpEnemy* this) {
     u32 i;
     if (super->action == TX_INIT) {
         AlttpInit(this, AP_TRINEXX, AF_TRINEXX_0);
+        BossStartDown(super, 40);
         ((Enemy*)this)->enemyFlags |= EM_FLAG_BOSS;
         MemClear(&gTrinexx, sizeof(gTrinexx));
         super->action = TX_WAIT;
@@ -6064,6 +6131,7 @@ static void TrinexxTick(AlttpEnemy* this) {
         this->homeY = super->y.HALF.HI;
         this->turns = 0;
         this->idx = 0;
+        this->pose = 0; // (the room's spawn data leaves bytes here)
         *vx = *vy = 0;
         gTrinexx.headX = super->x.HALF.HI;
         gTrinexx.headY = super->y.HALF.HI;
@@ -6314,6 +6382,12 @@ static void TrinexxOnCollision(AlttpEnemy* this) {
 
 void Trinexx(AlttpEnemy* this) {
     EnemyFunctionHandler(super, (EntityActionArray)Trinexx_Functions);
+    if (gTrinexx.final) {
+        BossCam(super, -8);
+    } else {
+        // the shell, with the side heads above it
+        BossCamAt(gTrinexx.bodyX, gTrinexx.bodyY - 16);
+    }
 }
 
 /** A side head (type 0 the fire head, on the left; 1 the ice head). Fields: face its
@@ -8227,6 +8301,7 @@ static void AgahnimOnCollision(AlttpEnemy* this) {
 
 void Agahnim(AlttpEnemy* this) {
     EnemyFunctionHandler(super, (EntityActionArray)Agahnim_Functions);
+    BossCam(super, -8);
 }
 
 /* ---- his balls (AGAHNIM_BALL) ----------------------------------------------------------

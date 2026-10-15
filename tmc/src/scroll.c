@@ -1,4 +1,5 @@
 #include "scroll.h"
+#include "alttpBossCam.h"
 
 #include "asm.h"
 #include "beanstalkSubtask.h"
@@ -93,9 +94,15 @@ void Scroll1(RoomControls* controls) {
     s32 targetValue;
 
     if (controls->camera_target != NULL) {
+        s32 leanX = 0, leanY = 0;
+        if (controls->camera_target == &gPlayerEntity.base) {
+            AlttpBossCamUpdate(gPlayerEntity.base.x.HALF.HI, gPlayerEntity.base.y.HALF.HI);
+            leanX = gAlttpBossCam.biasX;
+            leanY = gAlttpBossCam.biasY;
+        }
         // Scroll in x direction.
         unused = controls->scroll_x;
-        targetValue = controls->camera_target->x.HALF.HI - 0x78;
+        targetValue = controls->camera_target->x.HALF.HI - 0x78 + leanX;
         diff = controls->scroll_x - targetValue;
         if (diff != 0) {
             uVar5 = controls->scroll_x & 7;
@@ -133,7 +140,7 @@ void Scroll1(RoomControls* controls) {
 
         // Scroll in y direction.
         unused = controls->scroll_y;
-        targetValue = controls->camera_target->y.HALF.HI - 0x50;
+        targetValue = controls->camera_target->y.HALF.HI - 0x50 + leanY;
         diff = controls->scroll_y - (targetValue);
         if (diff != 0) {
             uVar5 = controls->scroll_y & 7;
