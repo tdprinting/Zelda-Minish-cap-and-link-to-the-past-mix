@@ -22,6 +22,8 @@ import yaml
 
 import alttprooms as A
 import autotile
+import alttpgfx
+import tileset
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 TMC = os.path.join(HERE, '..', '..', 'tmc')
@@ -111,6 +113,7 @@ class Plan:
         self.enemies = []    # (mc enemy, pixel x, pixel y)
         self._doors()
         self._stairs()
+        self._reach()
         self._chests()
         self._enemies()
         self._clean()
@@ -189,6 +192,25 @@ class Plan:
                     self.put(p[0], p[1], A.FLOOR)
                 x, y = min(cluster, key=lambda p: (p[1], p[0]))
                 self.stairs.append((x, y, index))
+
+    def _reach(self):
+        """A Link to the Past marks the unseen space around a room as floor; Minish Cap's
+        camera shows all of it, so wall off any floor Link can't get to from a door or stairs."""
+        seeds = [d['inner'] for d in self.doors] + [(x, y) for (x, y, _) in self.stairs]
+        if not seeds:
+            return
+        seen, stack = set(), list(seeds)
+        while stack:
+            p = stack.pop()
+            if p in seen or not (0 <= p[0] < 32 and 0 <= p[1] < 32):
+                continue
+            if self.at(*p) in (A.SOLID, A.TORCH) and p not in seeds:
+                continue
+            seen.add(p)
+            stack += [(p[0] + 1, p[1]), (p[0] - 1, p[1]), (p[0], p[1] + 1), (p[0], p[1] - 1)]
+        for i, c in enumerate(self.cells):
+            if c == A.FLOOR and (i % 32, i // 32) not in seen:
+                self.cells[i] = A.SOLID
 
     def _chests(self):
         items = self.yaml.get('Chests') or []
@@ -286,6 +308,10 @@ def generate():
         flag = dg['flag_base']
         door_flags = {}
 
+        blend = tileset.Blend(name) if os.path.exists(os.path.join(alttpgfx.GFX, '%03x.gfx' % ids[0])) else None
+        if blend is None:
+            print('%s: no A Link to the Past room graphics, drawing with Minish Cap tiles' % name)
+
         rooms_inc.append('gAreaRoomHeaders_%s::' % name)
         maps_list = []
         area_list = []
@@ -300,6 +326,8 @@ def generate():
             for (cx, cy, _) in p.stairs:
                 bottom[cy * 32 + cx] = TILE_STAIRS
                 top[cy * 32 + cx] = 0
+            if blend:
+                bottom, top = blend.room(p, bottom, top)
             for layer, cells in (('bottom', bottom), ('top', top)):
                 open(os.path.join(OUT, '%s_%02d_%s.bin' % (name, i, layer)), 'wb').write(
                     struct.pack('<%dH' % len(cells), *cells))
@@ -373,6 +401,17 @@ def generate():
 
         rooms_inc.append('\t.2byte 0xFFFF\n')
         maps_inc.append('')
+        if blend:
+            maps_inc += blend.write(OUT)
+        else:
+            # the Minish Cap tiles the rooms were drawn with
+            cd = lambda k: '(gAreaTileSet%s_CastorDarknut_%s - gMapData)' % k
+            maps_inc += ['\t.align 2\ngAreaTileSets_%s::\n\t.4byte gAreaTileSet_CastorDarknut_0' % name,
+                         'gAreaTiles_%s::' % name,
+                         '\ttiles_bottom %s, 0x3868, 1' % cd(('', 'bottom')),
+                         '\ttiles_top %s, 0x3850, 1' % cd(('', 'top')),
+                         '\ttile_types_bottom %s, 0xE1A, 1' % cd(('Types', 'bottom')),
+                         '\ttile_types_top %s, 0xE14, 1, 1' % cd(('Types', 'top'))]
         for i, m in enumerate(maps_list):
             maps_inc.append('\t.align 2\ngAreaRoomMap_%s::' % m)
             maps_inc.append('\tmap_bottom (%s_bottom - gMapData), 0x800, 0' % m)
@@ -399,4 +438,10 @@ def generate():
 
 
 if __name__ == '__main__':
-    generate()
+    import sys
+    if sys.argv[1:] == ['--rooms']:
+        # for make-dungeons.sh: each dungeon's entrance room, then its rooms
+        for dg in DUNGEONS:
+            print(' '.join('%x' % r for r in [dg['entrance']] + dg['rooms']))
+    else:
+        generate()

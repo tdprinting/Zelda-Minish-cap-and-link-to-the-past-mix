@@ -1018,7 +1018,7 @@ gAreaTileSets:: @ 0810246C
 	.4byte gAreaTileSets_LakeHylia               @ 0xB
 	.4byte gAreaTileSets_LakeWoodsCave           @ 0xC
 	.4byte gAreaTileSets_Beanstalks              @ 0xD
-	.4byte gAreaTileSets_FortressOfWinds         @ 0xE (Eastern Palace)
+	.4byte gAreaTileSets_EasternPalace           @ 0xE (Eastern Palace)
 	.4byte gAreaTileSets_HyruleDigCaves          @ 0xF
 	.4byte gAreaTileSets_MelarisMine             @ 0x10
 	.4byte gAreaTileSets_MinishPaths            @ 0x11

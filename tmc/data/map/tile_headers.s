@@ -344,7 +344,7 @@ gAreaTiles:: @ 0810309C
 	.4byte gAreaTiles_LakeHylia               @ 0xB
 	.4byte gAreaTiles_MinishWoods             @ 0xC
 	.4byte gAreaTiles_Beanstalks              @ 0xD
-	.4byte gAreaTiles_FortressOfWinds         @ 0xE (Eastern Palace)
+	.4byte gAreaTiles_EasternPalace           @ 0xE (Eastern Palace)
 	.4byte gAreaTiles_HyruleTown              @ 0xF
 	.4byte gAreaTiles_MelarisMine             @ 0x10
 	.4byte gAreaTiles_MnishPaths1             @ 0x11

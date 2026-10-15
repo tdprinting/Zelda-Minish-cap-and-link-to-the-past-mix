@@ -1,0 +1,63 @@
+"""
+A Link to the Past room graphics as the game shows them: the background tiles and
+colors dumped by `dumprooms gfx`, and the room's two tilemaps.
+"""
+import os
+import struct
+
+from PIL import Image
+
+import alttprooms as A
+
+GFX = os.environ.get('ALTTP_GFX', os.path.join(os.path.dirname(A.ROOMS.rstrip('/')), 'gfx'))
+
+
+def snes_tile(chars, index):
+    b = chars[index * 32:index * 32 + 32]
+    rows = []
+    for y in range(8):
+        p0, p1, p2, p3 = b[y * 2], b[y * 2 + 1], b[16 + y * 2], b[16 + y * 2 + 1]
+        rows.append([((p0 >> (7 - x)) & 1) | (((p1 >> (7 - x)) & 1) << 1) |
+                     (((p2 >> (7 - x)) & 1) << 2) | (((p3 >> (7 - x)) & 1) << 3) for x in range(8)])
+    return rows
+
+
+def bgr555(c):
+    return ((c & 31) << 3, ((c >> 5) & 31) << 3, ((c >> 10) & 31) << 3)
+
+
+class RoomGfx:
+    def __init__(self, room_id):
+        data = open(os.path.join(GFX, '%03x.gfx' % room_id), 'rb').read()
+        self.chars = data[:0x4000]
+        self.colors = list(struct.unpack('<256H', data[0x4000:0x4200]))
+        raw = open(os.path.join(A.ROOMS, '%03x.bin' % room_id), 'rb').read()
+        self.bg2 = list(struct.unpack('<4096H', raw[0x2000:0x4000]))
+        self.bg1 = list(struct.unpack('<4096H', raw[0x4000:0x6000]))
+        self._cache = {}
+
+    def tile(self, entry):
+        """8x8 color indexes (0..255, 0 = clear) for one tilemap entry."""
+        key = entry & 0xdfff
+        if key not in self._cache:
+            idx, pal = entry & 0x3ff, (entry >> 10) & 7
+            pix = snes_tile(self.chars, idx) if idx < 512 else [[0] * 8 for _ in range(8)]
+            if entry & 0x8000:
+                pix = pix[::-1]
+            if entry & 0x4000:
+                pix = [r[::-1] for r in pix]
+            self._cache[key] = [[(pal * 16 + c) if c else 0 for c in r] for r in pix]
+        return self._cache[key]
+
+    def image(self, layers=('bg2', 'bg1')):
+        im = Image.new('RGB', (512, 512), bgr555(self.colors[0]))
+        px = im.load()
+        for layer in layers:
+            words = getattr(self, layer)
+            for i, w in enumerate(words):
+                tx, ty = (i % 64) * 8, (i // 64) * 8
+                for y, row in enumerate(self.tile(w)):
+                    for x, c in enumerate(row):
+                        if c:
+                            px[tx + x, ty + y] = bgr555(self.colors[c])
+        return im

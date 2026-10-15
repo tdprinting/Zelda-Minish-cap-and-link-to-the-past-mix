@@ -11,6 +11,7 @@
 #include "src/util.h"
 #include "src/config.h"
 #include "src/zelda_rtl.h"
+#include "src/load_gfx.h"
 
 const uint8 *g_asset_ptrs[kNumberOfAssets];
 uint32 g_asset_sizes[kNumberOfAssets];
@@ -33,9 +34,42 @@ static void LoadAssets(void) {
   }
 }
 
+// gfx mode: the room's background graphics and colors as A Link to the Past shows them.
+// The main tileset comes from the dungeon's entrance, the rest from each room's header.
+static int DumpGfx(const char *outdir, int entrance_room, char **rooms, int n) {
+  int theme = -1;
+  for (int i = 0; i < (int)(kEntranceData_rooms_SIZE / 2); i++) {
+    if (kEntranceData_rooms[i] == entrance_room) { theme = kEntranceData_blockset[i]; break; }
+  }
+  if (theme < 0) Die("no entrance leads to that room");
+  for (int k = 0; k < n; k++) {
+    int r = (int)strtol(rooms[k], NULL, 16);
+    memset(g_ram, 0, 0x20000);
+    memset(g_zenv.vram, 0, 0x10000);
+    Init_LoadDefaultTileAttr();
+    memcpy(movable_block_datas, kMovableBlockDataInit, kMovableBlockDataInit_SIZE);
+    memcpy(dung_torch_data, kTorchDataInit, kTorchDataInit_SIZE);
+    main_module_index = 7;
+    dungeon_room_index = r;
+    Dungeon_LoadRoom();
+    main_tile_theme_index = theme;
+    InitializeTilesets();
+    Palette_Load_DungeonSet();
+    char name[256];
+    snprintf(name, sizeof(name), "%s/%03x.gfx", outdir, r);
+    FILE *f = fopen(name, "wb");
+    fwrite(&g_zenv.vram[0x2000], 2, 0x2000, f);     // background tiles, SNES 4bpp, tile 0 first
+    fwrite(aux_palette_buffer, 2, 256, f);          // colors, BGR555
+    fclose(f);
+  }
+  return 0;
+}
+
 int main(int argc, char **argv) {
   LoadAssets();
   ZeldaInitialize();
+  if (argc > 3 && !strcmp(argv[1], "gfx"))
+    return DumpGfx(argv[2], (int)strtol(argv[3], NULL, 16), argv + 4, argc - 4);
   const char *outdir = argc > 1 ? argv[1] : "rooms";
   for (int r = 0; r < 296; r++) {
     memset(g_ram, 0, 0x20000);
