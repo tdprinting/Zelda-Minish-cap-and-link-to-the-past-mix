@@ -1053,10 +1053,74 @@ static void UpdateStory(void) {
     }
 }
 
+static bool32 RoomHasEnemies(void) {
+    u32 i;
+    Entity* e;
+    for (i = 0; i < ARRAY_COUNT(gEntityLists); i++) {
+        LinkedList* list = &gEntityLists[i];
+        for (e = list->first; (u32)e != (u32)list; e = e->next) {
+            if (e->kind == ENEMY && e->health != 0) {
+                return TRUE;
+            }
+        }
+    }
+    return FALSE;
+}
+
+// A Link to the Past's boss rooms: when every enemy in the room is gone, a Heart
+// Container appears, and once Link takes it the boss stays beaten.
+typedef struct {
+    u8 area;
+    u8 room;
+    u8 flag; /**< local flag in the dungeon's bank, set once the Heart Container is taken */
+    u16 x;
+    u16 y;
+} BossRoom;
+
+enum { BOSS_FIGHTING, BOSS_PRIZE_OUT, BOSS_DONE };
+
+static const BossRoom sBossRooms[] = {
+    { AREA_EMPTY, 8, 0x7f, 0x178, 0x170 }, // Eastern Palace: the Armos Knights
+};
+
+static void UpdateBossRoom(void) {
+    u32 i;
+    for (i = 0; i < ARRAY_COUNT(sBossRooms); i++) {
+        const BossRoom* b = &sBossRooms[i];
+        Entity* e;
+        if (b->area != gRoomControls.area || b->room != gRoomControls.room) {
+            continue;
+        }
+        if (gBlendLink.bossState == BOSS_DONE || CheckLocalFlag(b->flag)) {
+            return;
+        }
+        if (gBlendLink.bossState == BOSS_PRIZE_OUT) {
+            if (gSave.stats.maxHealth > gBlendLink.bossMaxHealth) {
+                SetLocalFlag(b->flag);
+                gBlendLink.bossState = BOSS_DONE;
+            }
+            return;
+        }
+        if (RoomHasEnemies()) {
+            return;
+        }
+        e = CreateObject(GROUND_ITEM, ITEM_HEART_CONTAINER, 0);
+        if (e != NULL) {
+            e->x.HALF.HI = gRoomControls.origin_x + b->x;
+            e->y.HALF.HI = gRoomControls.origin_y + b->y;
+            e->collisionLayer = 1;
+            gBlendLink.bossMaxHealth = gSave.stats.maxHealth;
+            gBlendLink.bossState = BOSS_PRIZE_OUT;
+            SoundReq(SFX_SECRET_BIG);
+        }
+    }
+}
+
 static void UpdateRoom(void) {
     u32 key = (gRoomControls.area << 8) | gRoomControls.room;
     if (key != gBlendLink.roomKey) {
         gBlendLink.roomKey = key;
+        gBlendLink.bossState = BOSS_FIGHTING;
         gBlendLink.medallionUsed = 0;
         gBlendLink.somariaUsed = 0;
         ForgetFrozen();
@@ -1068,6 +1132,9 @@ static void UpdateRoom(void) {
         if (++gBlendLink.treasureSpawned == 30) {
             SpawnTreasures();
         }
+    }
+    if (gBlendLink.treasureSpawned >= 30) {
+        UpdateBossRoom();
     }
 }
 
