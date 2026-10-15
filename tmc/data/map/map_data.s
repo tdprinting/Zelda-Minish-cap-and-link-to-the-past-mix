@@ -3703,3 +3703,6 @@ gAreaRoomMap_8f_0_top::
 
 @ A Link to the Past dungeons rebuilt with Minish Cap tiles (made by blend/dungeons/build.py)
 	.include "custom/gen/maps.inc"
+
+@ Soft shadows for the overworld (made by blend/overworld/build.py)
+	.include "custom/gen/ow/shadows.inc"

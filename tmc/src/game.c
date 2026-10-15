@@ -255,6 +255,7 @@ static void GameMain_Update(void) {
     DecreasePortalTimer();
     DrawUI();
     UpdateManagers();
+    Blend_ShadowUpdate();
     DrawUIElements();
     UpdateCarriedObject();
     DrawEntities();

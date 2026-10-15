@@ -108,6 +108,7 @@ SECTIONS {
         . = 0x00036BC0; gMPlayTracks = .;
         . = 0x00038560; gEndOfEwram = .;
 #endif
+        . = 0x0003D000; gBlendShadow = .;
         . = 0x0003E000; gAlttpEnemyState = .;
         . = 0x0003F000; gBlendLink = .;
         . = 0x00040000;
@@ -869,6 +870,7 @@ SECTIONS {
         src/eeprom.o(.text);
         *libc.a:memcpy.o(.text);
         src/blend.o(.text);
+        src/blendShadows.o(.text);
         /* handwritten assembly in arm mode */
         asm/src/intr.o(.text);
 
@@ -1702,6 +1704,7 @@ SECTIONS {
         src/eeprom.o(.rodata);
         src/blend.o(.rodata);
         data/gfx/alttp_enemies.o(.rodata);
+        src/blendShadows.o(.rodata);
     } >rom
 
     /* DWARF 2 sections */
