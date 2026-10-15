@@ -196,14 +196,17 @@ DUNGEONS = [
         name='SkullWoods',
         # in through the north wing, where the dungeon's three small keys can all be found
         # before a key door (the big chest room's own door, 0x58's, is the second way out)
-        rooms=[0x57, 0x58, 0x56, 0x67, 0x68, 0x59, 0x49, 0x39, 0x29],
+        rooms=[0x57, 0x58, 0x56, 0x67, 0x68, 0x49, 0x39, 0x29],
         entrance=0x57,
-        # the Business Scrub's hollow tree in the Minish Woods, in the Dark World
+        # the Great Fairy's hollow tree in the north-west Minish Woods, in the Dark World
         area='AREA_NULL_1F',
-        exit=('AREA_MINISH_WOODS', 'ROOM_MINISH_WOODS_MAIN', 0x210, 0x1d8),
+        exit=('AREA_MINISH_WOODS', 'ROOM_MINISH_WOODS_MAIN', 0x70, 0x58),
         # the west lobby's door leads through the woods to the skull's back door, as in
-        # A Link to the Past
-        links={0x56: 0x59, 0x59: 0x56},
+        # A Link to the Past. The back door's own hall (0x59) is left out: its walkways
+        # and the maze under them are two floors at once, which the 16px plan can't hold,
+        # so the way in comes straight into the Gibdo hall above it
+        links={0x56: 0x49, 0x49: 0x56},
+        outside={0x49: (DIR_S,)},
         # the Gibdo room's hole drops into Mothula's lair
         drops={0x39: 0x29},
         flag_base=0x10,
@@ -234,9 +237,10 @@ def read_room(room_id, lower=False):
 class Plan:
     """One room, at 16px cells, ready to draw."""
 
-    def __init__(self, room_id, sealed=()):
+    def __init__(self, room_id, sealed=(), outside=()):
         self.id = room_id
         self.sealed = sealed  # sides whose doors stay shut (to rooms the dungeon leaves out)
+        self.outside = outside  # sides whose door leads outside instead (past a room left out)
         self.yaml = yaml.safe_load(open(os.path.join(YAML_DIR, 'dungeon-%d.yaml' % room_id)))
         # a room whose doors are all on its second layer has its walls there too (the
         # Tower of Hera's entrance hall); its first layer only scrolls along
@@ -286,7 +290,7 @@ class Plan:
             if dr in self.sealed and d['type'] not in DOOR_EXITS:
                 continue
             kind = {DOOR_SMALL_KEY: 'key', DOOR_BIG_KEY: 'boss'}.get(d['type'], 'open')
-            if d['type'] in DOOR_EXITS:
+            if d['type'] in DOOR_EXITS or dr in self.outside:
                 kind = 'exit'
             if d['type'] in DOOR_STAIR_KEY:
                 # a locked door in front of stairs: the stairs stay, a key door stands
@@ -448,8 +452,10 @@ class Plan:
                 if p not in corridor and p not in keep and self.at(*p) == A.FLOOR and \
                         any(open_run(p[0], p[1], dx, dy) for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1))):
                     seen.discard(p)
+        # (blocks and pots too: the plan turns them to floor later, which would leave
+        # pockets of floor in the walls, like Skull Woods's ring of blocks in room 0x58)
         for i, c in enumerate(self.cells):
-            if c == A.FLOOR and (i % 32, i // 32) not in seen:
+            if c in (A.FLOOR, A.BLOCK, A.POT) and (i % 32, i // 32) not in seen:
                 self.cells[i] = A.SOLID
 
     def _chests(self):
@@ -673,7 +679,7 @@ def generate():
         name = dg['name']
         ids = dg['rooms']
         assert ids[0] == dg['entrance'], '%s: the entrance must be the first room' % name
-        plans = {r: Plan(r, dg.get('sealed', {}).get(r, ())) for r in ids}
+        plans = {r: Plan(r, dg.get('sealed', {}).get(r, ()), dg.get('outside', {}).get(r, ())) for r in ids}
         edges = open_edges(plans)
         for r in ids:
             plans[r].finish(edges[r])
@@ -784,10 +790,17 @@ def generate():
                 exits.append('\t{ WARP_TYPE_AREA, 0x%x, 0x%x, 0x%x, 0x%x, TRANSITION_SHAPE_AREA_12x12, %s, %d, 1, '
                              'TRANSITION_TYPE_NORMAL, 0x4, 0x0, 0x0, 0x0 },' % (
                                  cx * 16 + 8, cy * 16 + 8, lx * 16 + 8, ly * 16 + 8, dg['area'], index[dest]))
-            for (cx, cy, dest, (lx, ly)) in p.drops:
-                exits.append('\t{ WARP_TYPE_AREA, 0x%x, 0x%x, 0x%x, 0x%x, TRANSITION_SHAPE_AREA_12x12, %s, %d, 1, '
+            # a hole is one exit per row, as wide as the hole (no gap between its cells)
+            rows = {}
+            for (cx, cy, dest, land) in p.drops:
+                rows.setdefault((cy, dest, land), []).append(cx)
+            for (cy, dest, (lx, ly)), xs in sorted(rows.items()):
+                # (wide enough that Link, sliding along the hole's edge, still drops in)
+                shape = '12x12' if len(xs) == 1 else '44x12'
+                exits.append('\t{ WARP_TYPE_AREA, 0x%x, 0x%x, 0x%x, 0x%x, TRANSITION_SHAPE_AREA_%s, %s, %d, 1, '
                              'TRANSITION_TYPE_NORMAL, 0x4, 0x0, 0x0, 0x0 },' % (
-                                 cx * 16 + 8, cy * 16 + 8, lx * 16 + 8, ly * 16 + 8, dg['area'], index[dest]))
+                                 (min(xs) + max(xs) + 1) * 8, cy * 16 + 8, lx * 16 + 8, ly * 16 + 8, shape,
+                                 dg['area'], index[dest]))
             for d in p.doors:
                 if d['kind'] != 'exit':
                     continue
@@ -796,7 +809,9 @@ def generate():
                     # straight on to the linked room's own door to the outside
                     x, y = arrival(plans[link])
                     cx, cy = link_cell(p)
-                    exits.append('\t{ WARP_TYPE_AREA, 0x%x, 0x%x, 0x%x, 0x%x, TRANSITION_SHAPE_AREA_12x12, %s, %d, 1, '
+                    # wide: the step snaps Link sideways as he walks on (a doorway's walls
+                    # keep him from coming at it anywhere else)
+                    exits.append('\t{ WARP_TYPE_AREA, 0x%x, 0x%x, 0x%x, 0x%x, TRANSITION_SHAPE_AREA_44x12, %s, %d, 1, '
                                  'TRANSITION_TYPE_NORMAL, 0x4, 0x0, 0x0, 0x0 },' % (
                                      cx * 16 + 8, cy * 16 + 8, x, y, dg['area'], index[link]))
                     break

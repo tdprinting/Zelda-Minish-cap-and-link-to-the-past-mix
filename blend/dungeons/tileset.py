@@ -276,7 +276,20 @@ class Blend:
             grown[1:, :-1] |= near[:-1, 1:]
             grown[:-1, 1:] |= near[1:, :-1]
             near = grown
-        return {i for i in range(1024) if not near.flat[i] and plan.room.cells[i] not in (A.PIT, A.WATER)}
+        # pits and water stay where they reach (pit to pit) within that distance: a chasm
+        # beside the floor keeps its whole extent, a pit off in an unreached quarter goes
+        wet = [plan.room.cells[i] in (A.PIT, A.WATER) for i in range(1024)]
+        keep = {i for i in range(1024) if wet[i] and near.flat[i]}
+        stack = list(keep)
+        while stack:
+            i = stack.pop()
+            x, y = i % 32, i // 32
+            for nx, ny in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
+                j = ny * 32 + nx
+                if 0 <= nx < 32 and 0 <= ny < 32 and wet[j] and j not in keep:
+                    keep.add(j)
+                    stack.append(j)
+        return {i for i in range(1024) if not near.flat[i] and i not in keep}
 
     def restone(self, gfx, plan, img, empty):
         """Swaps A Link to the Past's patterned floors for calm stone slabs: big 16px
@@ -303,8 +316,17 @@ class Blend:
                           for a, b in zip(plan.room.attr, plan.room.lower)]).reshape(64, 64)
         # and the patterned fill around the rooms, where Link can't go (not in a maze of
         # thin walls, whose wall tiles repeat like a floor pattern)
+        # Only a cell or more away from where Link walks: the fill lies beyond the walls,
+        # while a row of pillars standing on the floor (Skull Woods's room 0x57) repeats
+        # like a pattern too and must keep its art
         if plan.id not in A.THIN_WALL_ROOMS:
-            floor |= ~np.array([plan.cells[(y // 2) * 32 + x // 2] in PASSABLE for y in range(64) for x in range(64)]).reshape(64, 64)
+            passable = np.array([c in PASSABLE for c in plan.cells]).reshape(32, 32)
+            near = passable.copy()
+            near[1:, :] |= passable[:-1, :]
+            near[:-1, :] |= passable[1:, :]
+            near[:, 1:] |= passable[:, :-1]
+            near[:, :-1] |= passable[:, 1:]
+            floor |= ~near.repeat(2, axis=0).repeat(2, axis=1)
         if plan.id in A.SPIKE_RING_ROOMS:
             # a ring of spikes repeats like a floor pattern too; its spikes stay spikes
             floor &= ~np.isin(np.frombuffer(bytes(plan.room.attr), dtype=np.uint8), A.SPIKE_ATTRS).reshape(64, 64)

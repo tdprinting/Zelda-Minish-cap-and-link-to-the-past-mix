@@ -1260,7 +1260,7 @@ static const BossRoom sBossRooms[] = {
     { AREA_NULL_1C, 5, 0xbe, 0x118, 0x108 }, // Tower of Hera: Moldorm
     { AREA_NULL_1D, 13, 0x7f, 0x178, 0x188 }, // Palace of Darkness: the Helmasaur King
     { AREA_NULL_1E, 11, 0x7f, 0x78, 0x188 },  // Swamp Palace: Arrghus
-    { AREA_NULL_1F, 8, 0x7f, 0x188, 0x178 },  // Skull Woods: Mothula
+    { AREA_NULL_1F, 7, 0x7f, 0x188, 0x178 },  // Skull Woods: Mothula
 };
 
 static void UpdateBossRoom(void) {
