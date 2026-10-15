@@ -1052,9 +1052,9 @@ gAreaRoomHeaders:: @ 0811E214
 	.4byte gAreaRoomHeaders_VeilFallsTop            @ 0x1A
 	.4byte gAreaRoomHeaders_DesertPalace             @ 0x1B (A Link to the Past)
 	.4byte gAreaRoomHeaders_TowerOfHera              @ 0x1C (A Link to the Past)
-	.4byte 0x0                                      @ 0x1D
-	.4byte 0x0                                      @ 0x1E
-	.4byte 0x0                                      @ 0x1F
+	.4byte gAreaRoomHeaders_PalaceOfDarkness        @ 0x1D (A Link to the Past)
+	.4byte gAreaRoomHeaders_SwampPalace              @ 0x1E (A Link to the Past)
+	.4byte gAreaRoomHeaders_SkullWoods               @ 0x1F (A Link to the Past)
 	.4byte gAreaRoomHeaders_MinishHouseInteriors    @ 0x20
 	.4byte gAreaRoomHeaders_HouseInteriors1         @ 0x21
 	.4byte gAreaRoomHeaders_HouseInteriors2         @ 0x22
@@ -1080,13 +1080,13 @@ gAreaRoomHeaders:: @ 0811E214
 	.4byte gAreaRoomHeaders_CastleGardenMinishHoles @ 0x36
 	.4byte gAreaRoomHeaders_37                      @ 0x37
 	.4byte gAreaRoomHeaders_EzloCutscene            @ 0x38
-	.4byte 0x0                                      @ 0x39
-	.4byte 0x0                                      @ 0x3A
-	.4byte 0x0                                      @ 0x3B
-	.4byte 0x0                                      @ 0x3C
-	.4byte 0x0                                      @ 0x3D
-	.4byte 0x0                                      @ 0x3E
-	.4byte 0x0                                      @ 0x3F
+	.4byte gAreaRoomHeaders_ThievesTown               @ 0x39 (A Link to the Past)
+	.4byte gAreaRoomHeaders_IcePalace               @ 0x3A (A Link to the Past)
+	.4byte gAreaRoomHeaders_MiseryMire               @ 0x3B (A Link to the Past)
+	.4byte gAreaRoomHeaders_TurtleRock               @ 0x3C (A Link to the Past)
+	.4byte gAreaRoomHeaders_GanonsTower               @ 0x3D (A Link to the Past)
+	.4byte gAreaRoomHeaders_Pyramid               @ 0x3E (A Link to the Past)
+	.4byte gAreaRoomHeaders_TempleOfBonds               @ 0x3F (the blend's co-op temple)
 	.4byte gAreaRoomHeaders_40                      @ 0x40
 	.4byte gAreaRoomHeaders_HyruleTownUnderground   @ 0x41
 	.4byte gAreaRoomHeaders_GardenFountains         @ 0x42

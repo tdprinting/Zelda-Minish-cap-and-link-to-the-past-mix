@@ -99,6 +99,9 @@ const Dialog gUnk_0810CF4C[] = {
     { 0, 0, DIALOG_NONE, 0, { 0, 0 } },
     { 0, 0, DIALOG_NONE, 0, { 0, 0 } },
     { 0, 0, DIALOG_NONE, 0, { 0, 0 } },
+    // blend: the guard at the Temple of Bonds (blendShrine.c), to one player and to two
+    { 0, 0, DIALOG_NORMAL, 1, { 0, TEXT_INDEX(TEXT_EZLO, 0x72) } },
+    { 0, 0, DIALOG_NORMAL, 1, { 0, TEXT_INDEX(TEXT_EZLO, 0x73) } },
 };
 
 const Dialog gUnk_0810D0A4[] = {

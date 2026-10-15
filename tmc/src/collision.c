@@ -1,4 +1,5 @@
 #include "asm.h"
+#include "blend.h"
 #include "collision.h"
 #include "common.h"
 #include "enemy.h"
@@ -246,6 +247,9 @@ s32 CalculateDamage(Entity* org, Entity* tgt) {
                     damage *= 2;
                     break;
             }
+            // blend: the Golden Sword strikes twice as hard, in a burst of golden stars
+            damage = Blend_GoldenSwordDamage(tgt, damage);
+            Blend_GoldenSwordHit(tgt, org);
         }
         health = org->health - damage;
         if (org->kind == ENEMY) {

@@ -1033,9 +1033,9 @@ gAreaTileSets:: @ 0810246C
 	.4byte gAreaTileSets_VeilFallsTop            @ 0x1A
 	.4byte gAreaTileSets_DesertPalace             @ 0x1B (A Link to the Past)
 	.4byte gAreaTileSets_TowerOfHera              @ 0x1C (A Link to the Past)
-	.4byte gAreaTileSets_Unused                  @ 0x1D
-	.4byte gAreaTileSets_Unused                  @ 0x1E
-	.4byte gAreaTileSets_Unused                  @ 0x1F
+	.4byte gAreaTileSets_PalaceOfDarkness        @ 0x1D (A Link to the Past)
+	.4byte gAreaTileSets_SwampPalace              @ 0x1E (A Link to the Past)
+	.4byte gAreaTileSets_SkullWoods               @ 0x1F (A Link to the Past)
 	.4byte gAreaTileSets_MinishHouseInteriors    @ 0x20
 	.4byte gAreaTileSets_HouseInteriors1         @ 0x21
 	.4byte gAreaTileSets_HouseInteriors2         @ 0x22
@@ -1061,13 +1061,13 @@ gAreaTileSets:: @ 0810246C
 	.4byte gAreaTileSets_CastleGardenMinishHoles @ 0x36
 	.4byte gAreaTileSets_37                      @ 0x37
 	.4byte gAreaTileSets_EzloCutscene            @ 0x38
-	.4byte gAreaTileSets_Unused                  @ 0x39
-	.4byte gAreaTileSets_Unused                  @ 0x3A
-	.4byte gAreaTileSets_Unused                  @ 0x3B
-	.4byte gAreaTileSets_Unused                  @ 0x3C
-	.4byte gAreaTileSets_Unused                  @ 0x3D
-	.4byte gAreaTileSets_Unused                  @ 0x3E
-	.4byte gAreaTileSets_Unused                  @ 0x3F
+	.4byte gAreaTileSets_ThievesTown               @ 0x39 (A Link to the Past)
+	.4byte gAreaTileSets_IcePalace               @ 0x3A (A Link to the Past)
+	.4byte gAreaTileSets_MiseryMire               @ 0x3B (A Link to the Past)
+	.4byte gAreaTileSets_TurtleRock               @ 0x3C (A Link to the Past)
+	.4byte gAreaTileSets_GanonsTower               @ 0x3D (A Link to the Past)
+	.4byte gAreaTileSets_Pyramid               @ 0x3E (A Link to the Past)
+	.4byte gAreaTileSets_TempleOfBonds               @ 0x3F (the blend's co-op temple)
 	.4byte gAreaTileSets_40                      @ 0x40
 	.4byte gAreaTileSets_HyruleTownUnderground   @ 0x41
 	.4byte gAreaTileSets_40                      @ 0x42

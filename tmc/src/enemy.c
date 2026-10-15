@@ -51,6 +51,30 @@ extern const Hitbox gHitbox_AlttpTall;
 extern const Hitbox gHitbox_AlttpCentered;
 extern const Hitbox gHitbox_AlttpLaser;
 extern const Hitbox gHitbox_GiantMoldorm;
+extern const Hitbox gHitbox_HelmasaurKing;
+extern const Hitbox gHitbox_Arrghus;
+extern const Hitbox gHitbox_Mothula;
+extern const EnemyDefinition gEnemyDefinition_BossPart[];
+extern const Hitbox gHitbox_Blind;
+extern const Hitbox gHitbox_Kholdstare;
+extern const Hitbox gHitbox_KholdShell;
+extern const Hitbox gHitbox_Vitreous;
+extern const Hitbox gHitbox_Trinexx;
+extern const Hitbox gHitbox_TrinexxShell;
+extern const EnemyDefinition gEnemyDefinition_Kholdstare[];
+extern const EnemyDefinition gEnemyDefinition_BossPiece[];
+extern const EnemyDefinition gEnemyDefinition_AlttpBolt[];
+extern const EnemyDefinition gEnemyDefinition_Zazak[];
+extern const EnemyDefinition gEnemyDefinition_Gibo[];
+extern const EnemyDefinition gEnemyDefinition_FireBar[];
+extern const Hitbox gHitbox_Agahnim;
+extern const EnemyDefinition gEnemyDefinition_AgahnimBall[];
+extern const Hitbox gHitbox_Ganon;
+extern const Hitbox gHitbox_GanonBat;
+extern const EnemyDefinition gEnemyDefinition_GanonPart[];
+extern const EnemyDefinition gEnemyDefinition_AlttpSoldier[];
+extern const EnemyDefinition gEnemyDefinition_WallCannon[];
+extern const EnemyDefinition gEnemyDefinition_FlyingTile[];
 #include "../custom/gen/alttp_enemies.h"
 /** Swapped gfx: the enemy's frames are copied into this many 16-tile slots as it animates. */
 #define ALTTP_GFX(slots) (0x4000 | ((slots) << 4))
@@ -188,35 +212,204 @@ const EnemyDefinition gEnemyDefinitions[] = {
     // ENEMY_66 had no entry and read the next table's first (gEnemyDefinition_1's); keep that
     { 3, 28, { &gHitbox_23 }, SPRITE_CHUCHU, { 1, 0, 0, 0 }, 4, 32, 92, 15 },
     // A Link to the Past's enemies: swapped gfx from sprite 155 (blend/enemies/alttp_enemies.py).
-    // Hit types 25 and 86 take sword damage; 72 (a Spark's) shrugs it off.
+    // Hit types 25 and 100 take sword damage and hurt Link on touch (100 is not pulled by
+    // the Gust Jar); 81 takes it too but is only solid to touch; 72 (a Spark's) shocks
+    // Link and his sword. Not 86 (a Darknut's): it guards the front and writes the blow
+    // into byte 0x79, which here is AlttpEnemy.shield.
     { ALTTP_GFX(AS_STALFOS), 0, { &gHitbox_0 }, ALTTP_ENEMY_SPRITE, { 1, 1, 1, 1 }, 4, 256, 25, 139 },
     MULTI_FORM(gEnemyDefinition_AlttpEyegore),
     { ALTTP_GFX(AS_POPO), 0, { &gHitbox_23 }, ALTTP_ENEMY_SPRITE, { 1, 1, 1, 1 }, 2, 192, 25, 139 },
     { ALTTP_GFX(AS_ANTIFAIRY), 0, { &gHitbox_14 }, ALTTP_ENEMY_SPRITE, { 1, 1, 1, 0 }, 255, 256, 72, 139 },
-    { ALTTP_GFX(AS_ARMOS), 0, { &gHitbox_ArmosKnight }, ALTTP_ENEMY_SPRITE, { 1, 1, 1, 2 }, 8, 256, 86, 139 },
+    { ALTTP_GFX(AS_ARMOS), 0, { &gHitbox_ArmosKnight }, ALTTP_ENEMY_SPRITE, { 1, 1, 1, 2 }, 8, 256, 100, 139 },
     { ALTTP_GFX(AS_ROPE), 0, { &gHitbox_24 }, ALTTP_ENEMY_SPRITE, { 1, 1, 1, 1 }, 2, 128, 25, 139 },
-    { ALTTP_GFX(AS_MOBLIN), 0, { &gHitbox_0 }, ALTTP_ENEMY_SPRITE, { 1, 1, 1, 2 }, 6, 256, 86, 139 },
+    { ALTTP_GFX(AS_MOBLIN), 0, { &gHitbox_0 }, ALTTP_ENEMY_SPRITE, { 1, 1, 1, 2 }, 6, 256, 100, 139 },
     { ALTTP_GFX(AS_SPEAR), 0, { &gHitbox_22 }, ALTTP_ENEMY_SPRITE, { 1, 1, 1, 0 }, 255, 512, 72, 139 },
     // the Desert Palace, Tower of Hera and Hinox set: sprite 329
-    { ALTTP_GFX(AS_HINOX), 0, { &gHitbox_AlttpHinox }, ALTTP_ENEMY_SPRITE_2, { 1, 1, 1, 2 }, 12, 128, 86, 139 },
+    { ALTTP_GFX(AS_HINOX), 0, { &gHitbox_AlttpHinox }, ALTTP_ENEMY_SPRITE_2, { 1, 1, 1, 2 }, 12, 128, 100, 139 },
     { ALTTP_GFX(AS_BOMB), 0, { &gHitbox_22 }, ALTTP_ENEMY_SPRITE_2, { 3, 0, 1, 1 }, 0, 0, 72, 139 },
-    { ALTTP_GFX(AS_LANMOLA), 0, { &gHitbox_AlttpCentered }, ALTTP_ENEMY_SPRITE_2, { 1, 1, 1, 2 }, 12, 256, 86, 139 },
+    { ALTTP_GFX(AS_LANMOLA), 0, { &gHitbox_AlttpCentered }, ALTTP_ENEMY_SPRITE_2, { 1, 1, 1, 2 }, 12, 256, 100, 139 },
     { ALTTP_GFX(AS_LANMOLA), 0, { &gHitbox_AlttpCentered }, ALTTP_ENEMY_SPRITE_2, { 2, 0, 1, 1 }, 0, 0, 72, 139 },
     { ALTTP_GFX(AS_LEEVER), 0, { &gHitbox_0 }, ALTTP_ENEMY_SPRITE_2, { 1, 1, 1, 1 }, 4, 256, 25, 139 },
-    { ALTTP_GFX(AS_BEAMOS), 0, { &gHitbox_AlttpTall }, ALTTP_ENEMY_SPRITE_2, { 1, 1, 1, 1 }, 255, 0, 86, 139 },
+    { ALTTP_GFX(AS_BEAMOS), 0, { &gHitbox_AlttpTall }, ALTTP_ENEMY_SPRITE_2, { 1, 1, 1, 1 }, 255, 0, 81, 139 },
     { ALTTP_GFX(AS_BEAMLASER), 0, { &gHitbox_AlttpLaser }, ALTTP_ENEMY_SPRITE_2, { 1, 1, 1, 0 }, 255, 0x500, 72, 139 },
     { ALTTP_GFX(AS_POKEY), 0, { &gHitbox_AlttpTall }, ALTTP_ENEMY_SPRITE_2, { 1, 1, 1, 1 }, 6, 256, 25, 139 },
     { ALTTP_GFX(AS_GIBDO), 0, { &gHitbox_0 }, ALTTP_ENEMY_SPRITE_2, { 1, 1, 1, 1 }, 10, 128, 25, 139 },
-    { ALTTP_GFX(AS_MOLDORM), 0, { &gHitbox_GiantMoldorm }, ALTTP_ENEMY_SPRITE_2, { 1, 1, 1, 0 }, 16, 0x180, 86, 139 },
+    { ALTTP_GFX(AS_MOLDORM), 0, { &gHitbox_GiantMoldorm }, ALTTP_ENEMY_SPRITE_2, { 1, 1, 1, 0 }, 16, 0x180, 100, 139 },
     { ALTTP_GFX(AS_MOLDORM), 0, { &gHitbox_AlttpCentered }, ALTTP_ENEMY_SPRITE_2, { 2, 1, 1, 0 }, 0, 0, 25, 139 },
     { ALTTP_GFX(AS_BARI), 0, { &gHitbox_23 }, ALTTP_ENEMY_SPRITE_2, { 1, 1, 1, 1 }, 4, 64, 25, 139 },
     { ALTTP_GFX(AS_HARDHAT), 0, { &gHitbox_0 }, ALTTP_ENEMY_SPRITE_2, { 1, 1, 1, 1 }, 200, 256, 25, 139 },
     { ALTTP_GFX(AS_BUMPER), 0, { &gHitbox_0 }, ALTTP_ENEMY_SPRITE_2, { 3, 0, 1, 0 }, 0, 0, 72, 139 },
+    // Debirandos, Kodongos, mini Moldorms, fireballs: sprite 330
+    { ALTTP_GFX(AS_DEBPIT), 0, { &gHitbox_0 }, ALTTP_ENEMY_SPRITE_3, { 3, 0, 1, 0 }, 0, 0, 72, 139 },
+    { ALTTP_GFX(AS_DEBIRANDO), 0, { &gHitbox_0 }, ALTTP_ENEMY_SPRITE_3, { 1, 1, 1, 0 }, 4, 0, 25, 139 },
+    { ALTTP_GFX(AS_KFIRE), 0, { &gHitbox_AlttpLaser }, ALTTP_ENEMY_SPRITE_3, { 1, 1, 1, 0 }, 255, 0x200, 72, 139 },
+    { ALTTP_GFX(AS_KODONGO), 0, { &gHitbox_0 }, ALTTP_ENEMY_SPRITE_3, { 1, 1, 1, 1 }, 8, 0x80, 25, 139 },
+    { ALTTP_GFX(AS_MINIMOLD), 0, { &gHitbox_AlttpCentered }, ALTTP_ENEMY_SPRITE_3, { 1, 1, 1, 0 }, 3, 0x180, 25, 139 },
+    { ALTTP_GFX(AS_MINIMOLD), 0, { &gHitbox_AlttpCentered }, ALTTP_ENEMY_SPRITE_3, { 2, 0, 1, 0 }, 0, 0, 72, 139 },
+    // the Dark World dungeons' bosses: sprite 332
+    { ALTTP_GFX(AS_HKUP), 0, { &gHitbox_HelmasaurKing }, ALTTP_ENEMY_SPRITE_5, { 1, 1, 1, 0 }, 24, 0, 100, 139 },
+    MULTI_FORM(gEnemyDefinition_BossPart),
+    { ALTTP_GFX(AS_HKFIRE), 0, { &gHitbox_AlttpLaser }, ALTTP_ENEMY_SPRITE_5, { 1, 1, 1, 0 }, 255, 0, 72, 139 },
+    { ALTTP_GFX(AS_ARRGHUS), 0, { &gHitbox_Arrghus }, ALTTP_ENEMY_SPRITE_5, { 1, 1, 1, 2 }, 24, 0, 100, 139 },
+    { ALTTP_GFX(AS_ARRGHI), 0, { &gHitbox_AlttpCentered }, ALTTP_ENEMY_SPRITE_5, { 1, 1, 1, 0 }, 4, 0, 25, 139 },
+    { ALTTP_GFX(AS_MOTHULA), 0, { &gHitbox_Mothula }, ALTTP_ENEMY_SPRITE_5, { 1, 1, 1, 2 }, 24, 0, 100, 139 },
+    { ALTTP_GFX(AS_MBEAM), 0, { &gHitbox_AlttpLaser }, ALTTP_ENEMY_SPRITE_5, { 1, 1, 1, 0 }, 255, 0, 72, 139 },
+    // the Dark World dungeons' enemies: sprite 331
+    { ALTTP_GFX(AS_SPIKEBLOCK), 0, { &gHitbox_AlttpCentered }, ALTTP_ENEMY_SPRITE_4, { 1, 1, 1, 0 }, 0, 0, 72, 139 },
+    { ALTTP_GFX(AS_MINIHELM), 0, { &gHitbox_0 }, ALTTP_ENEMY_SPRITE_4, { 1, 1, 1, 1 }, 4, 0x100, 25, 139 },
+    { ALTTP_GFX(AS_TERRORPIN), 0, { &gHitbox_0 }, ALTTP_ENEMY_SPRITE_4, { 1, 1, 1, 1 }, 8, 0, 25, 139 },
+    { ALTTP_GFX(AS_HOVER), 0, { &gHitbox_0 }, ALTTP_ENEMY_SPRITE_4, { 1, 1, 1, 1 }, 4, 0, 25, 139 },
+    { ALTTP_GFX(AS_KYAM), 0, { &gHitbox_AlttpCentered }, ALTTP_ENEMY_SPRITE_4, { 1, 0, 1, 0 }, 4, 0, 25, 139 },
+    { ALTTP_GFX(AS_ZOL), 0, { &gHitbox_0 }, ALTTP_ENEMY_SPRITE_4, { 1, 0, 0, 0 }, 4, 0, 25, 139 },
+    { ALTTP_GFX(AS_FIRESNAKE), 0, { &gHitbox_AlttpCentered }, ALTTP_ENEMY_SPRITE_4, { 1, 1, 1, 0 }, 0, 0, 72, 139 },
+    { ALTTP_GFX(AS_FIREBALL), 0, { &gHitbox_0 }, ALTTP_ENEMY_SPRITE_3, { 1, 0, 0, 0 }, 0, 0, 72, 139 },    // the Ice Palace, Misery Mire, Turtle Rock and Thieves' Town bosses: sprites 334 and 335
+    { ALTTP_GFX(AS_BLIND), 0, { &gHitbox_Blind }, ALTTP_ENEMY_SPRITE_7, { 1, 1, 1, 2 }, 255, 0, 100, 139 },
+    MULTI_FORM(gEnemyDefinition_Kholdstare),
+    { ALTTP_GFX(AS_KSHELL), 0, { &gHitbox_KholdShell }, ALTTP_ENEMY_SPRITE_7, { 1, 1, 1, 0 }, 255, 0, 81, 139 },
+    { ALTTP_GFX(AS_VITREOUS), 0, { &gHitbox_Vitreous }, ALTTP_ENEMY_SPRITE_8, { 1, 1, 1, 2 }, 24, 0, 100, 139 },
+    { ALTTP_GFX(AS_VEYE), 0, { &gHitbox_AlttpCentered }, ALTTP_ENEMY_SPRITE_8, { 1, 1, 1, 0 }, 2, 0, 25, 139 },
+    { ALTTP_GFX(AS_TRINEXX), 0, { &gHitbox_Trinexx }, ALTTP_ENEMY_SPRITE_8, { 1, 1, 1, 0 }, 255, 0, 100, 139 },
+    { ALTTP_GFX(AS_THEAD), 0, { &gHitbox_Trinexx }, ALTTP_ENEMY_SPRITE_8, { 1, 1, 1, 0 }, 8, 0, 100, 139 },
+    MULTI_FORM(gEnemyDefinition_BossPiece),
+    MULTI_FORM(gEnemyDefinition_AlttpBolt),
+    // their dungeons' enemies: sprite 333
+    { ALTTP_GFX(AS_FREEZOR), 0, { &gHitbox_0 }, ALTTP_ENEMY_SPRITE_6, { 1, 1, 1, 1 }, 6, 0, 25, 139 },
+    { ALTTP_GFX(AS_PENGATOR), 0, { &gHitbox_0 }, ALTTP_ENEMY_SPRITE_6, { 1, 1, 1, 1 }, 4, 0, 25, 139 },
+    { ALTTP_GFX(AS_KNIGHT), 0, { &gHitbox_AlttpTall }, ALTTP_ENEMY_SPRITE_6, { 1, 1, 1, 2 }, 12, 0, 100, 139 },
+    { ALTTP_GFX(AS_WIZZROBE), 0, { &gHitbox_0 }, ALTTP_ENEMY_SPRITE_6, { 1, 1, 1, 1 }, 4, 0, 25, 139 },
+    { ALTTP_GFX(AS_LASEREYE), 0, { &gHitbox_0 }, ALTTP_ENEMY_SPRITE_6, { 1, 0, 1, 0 }, 0, 0, 72, 139 },
+    { ALTTP_GFX(AS_CHOMP), 0, { &gHitbox_AlttpCentered }, ALTTP_ENEMY_SPRITE_6, { 1, 1, 1, 1 }, 0, 0, 72, 139 },
+    MULTI_FORM(gEnemyDefinition_Zazak),
+    MULTI_FORM(gEnemyDefinition_Gibo),
+    MULTI_FORM(gEnemyDefinition_FireBar),
+    { ALTTP_GFX(AS_SKULL), 0, { &gHitbox_0 }, ALTTP_ENEMY_SPRITE_6, { 1, 1, 1, 1 }, 4, 0, 25, 139 },
+    // Agahnim and his energy balls: sprite 336
+    { ALTTP_GFX(AS_AGAHNIM), 0, { &gHitbox_Agahnim }, ALTTP_ENEMY_SPRITE_9, { 1, 1, 1, 2 }, 255, 0, 100, 139 },
+    MULTI_FORM(gEnemyDefinition_AgahnimBall),
+    // Ganon, and his trident, fire bats, flames and torches: sprite 337
+    { ALTTP_GFX(AS_GANON), 0, { &gHitbox_Ganon }, ALTTP_ENEMY_SPRITE_10, { 1, 1, 1, 2 }, 255, 0, 100, 139 },
+    MULTI_FORM(gEnemyDefinition_GanonPart),
+    // Ganon's Tower's soldiers, wall cannons, flying floor tiles and Sparks: sprite 340
+    MULTI_FORM(gEnemyDefinition_AlttpSoldier),
+    MULTI_FORM(gEnemyDefinition_WallCannon),
+    MULTI_FORM(gEnemyDefinition_FlyingTile),
+    { ALTTP_GFX(AS_SPARK), 0, { &gHitbox_AlttpCentered }, ALTTP_ENEMY_SPRITE_11, { 1, 1, 1, 0 }, 255, 0, 72, 139 },
+};
+
+/** The bosses' parts, by type: the Helmasaur King's lower body, a leg, its face, a
+ * ball of its tail, the mace, a piece of the mask. */
+const EnemyDefinition gEnemyDefinition_BossPart[] = {
+    { ALTTP_GFX(AS_HKLOW), 0, { &gHitbox_0 }, ALTTP_ENEMY_SPRITE_5, { 1, 0, 1, 0 }, 0, 0, 72, 139 },
+    { ALTTP_GFX(AS_HKLEG), 0, { &gHitbox_0 }, ALTTP_ENEMY_SPRITE_5, { 1, 0, 1, 0 }, 0, 0, 72, 139 },
+    { ALTTP_GFX(AS_HKFACE), 0, { &gHitbox_0 }, ALTTP_ENEMY_SPRITE_5, { 1, 0, 1, 0 }, 0, 0, 72, 139 },
+    { ALTTP_GFX(AS_HKTAIL), 0, { &gHitbox_AlttpCentered }, ALTTP_ENEMY_SPRITE_5, { 1, 0, 1, 0 }, 0, 0, 72, 139 },
+    { ALTTP_GFX(AS_HKTAIL), 0, { &gHitbox_AlttpCentered }, ALTTP_ENEMY_SPRITE_5, { 1, 0, 1, 0 }, 0, 0, 72, 139 },
+    { ALTTP_GFX(AS_HKBIT), 0, { &gHitbox_0 }, ALTTP_ENEMY_SPRITE_5, { 1, 0, 1, 1 }, 0, 0, 72, 139 },
+};
+
+/** Kholdstare: type 0 the eye inside the shell, type 1 the three it splits into. */
+const EnemyDefinition gEnemyDefinition_Kholdstare[] = {
+    { ALTTP_GFX(AS_KHOLD), 0, { &gHitbox_Kholdstare }, ALTTP_ENEMY_SPRITE_7, { 1, 1, 1, 0 }, 255, 0, 100, 139 },
+    { ALTTP_GFX(AS_KHOLD), 0, { &gHitbox_Kholdstare }, ALTTP_ENEMY_SPRITE_7, { 1, 1, 1, 0 }, 10, 0, 100, 139 },
+};
+
+/** The later bosses' pieces, by type: Blind's head, his flying head, Kholdstare's pupil,
+ * Trinexx's legs, a half of its shell, a part of a neck, a part of the snake, and a
+ * Chain Chomp's chain link. */
+const EnemyDefinition gEnemyDefinition_BossPiece[] = {
+    { ALTTP_GFX(AS_BLINDHEAD), 0, { &gHitbox_0 }, ALTTP_ENEMY_SPRITE_7, { 1, 0, 1, 0 }, 0, 0, 72, 139 },
+    { ALTTP_GFX(AS_BLINDHEAD), 0, { &gHitbox_AlttpCentered }, ALTTP_ENEMY_SPRITE_7, { 1, 1, 1, 1 }, 0, 0, 72, 139 },
+    { ALTTP_GFX(AS_KPUPIL), 0, { &gHitbox_0 }, ALTTP_ENEMY_SPRITE_7, { 1, 0, 1, 0 }, 0, 0, 72, 139 },
+    { ALTTP_GFX(AS_TLEGS), 0, { &gHitbox_0 }, ALTTP_ENEMY_SPRITE_8, { 1, 0, 1, 0 }, 0, 0, 72, 139 },
+    { ALTTP_GFX(AS_TSHELL), 0, { &gHitbox_TrinexxShell }, ALTTP_ENEMY_SPRITE_8, { 1, 1, 1, 0 }, 0, 0, 72, 139 },
+    { ALTTP_GFX(AS_TNECK), 0, { &gHitbox_AlttpCentered }, ALTTP_ENEMY_SPRITE_8, { 1, 1, 1, 0 }, 0, 0, 72, 139 },
+    { ALTTP_GFX(AS_TRINEXX), 0, { &gHitbox_AlttpCentered }, ALTTP_ENEMY_SPRITE_8, { 1, 1, 1, 0 }, 0, 0, 72, 139 },
+    { ALTTP_GFX(AS_CHOMPLINK), 0, { &gHitbox_0 }, ALTTP_ENEMY_SPRITE_6, { 1, 0, 1, 0 }, 0, 0, 72, 139 },
+};
+
+/** Shots and trails, by type (see AlttpBolt). */
+const EnemyDefinition gEnemyDefinition_AlttpBolt[] = {
+    { ALTTP_GFX(AS_BLINDLASER), 0, { &gHitbox_AlttpLaser }, ALTTP_ENEMY_SPRITE_7, { 1, 1, 1, 0 }, 0, 0, 72, 139 },
+    { ALTTP_GFX(AS_BLINDLASER), 0, { &gHitbox_AlttpLaser }, ALTTP_ENEMY_SPRITE_7, { 1, 1, 1, 0 }, 0, 0, 72, 139 },
+    { ALTTP_GFX(AS_BOLT), 0, { &gHitbox_AlttpCentered }, ALTTP_ENEMY_SPRITE_8, { 1, 1, 1, 0 }, 0, 0, 72, 139 },
+    { ALTTP_GFX(AS_BOLT), 0, { &gHitbox_AlttpCentered }, ALTTP_ENEMY_SPRITE_8, { 1, 1, 1, 0 }, 0, 0, 72, 139 },
+    { ALTTP_GFX(AS_ICEBALL), 0, { &gHitbox_AlttpLaser }, ALTTP_ENEMY_SPRITE_6, { 1, 1, 1, 1 }, 0, 0, 72, 139 },
+    { ALTTP_GFX(AS_ICEBALL), 0, { &gHitbox_AlttpLaser }, ALTTP_ENEMY_SPRITE_6, { 1, 1, 1, 0 }, 0, 0, 72, 139 },
+    { ALTTP_GFX(AS_KFIRE), 0, { &gHitbox_AlttpLaser }, ALTTP_ENEMY_SPRITE_3, { 1, 1, 1, 0 }, 0, 0, 72, 139 },
+    { ALTTP_GFX(AS_KFLAME), 0, { &gHitbox_AlttpLaser }, ALTTP_ENEMY_SPRITE_3, { 1, 1, 1, 0 }, 0, 0, 72, 139 },
+    { ALTTP_GFX(AS_WIZZBEAM), 0, { &gHitbox_AlttpLaser }, ALTTP_ENEMY_SPRITE_6, { 1, 1, 1, 0 }, 0, 0, 72, 139 },
+    { ALTTP_GFX(AS_LASER), 0, { &gHitbox_AlttpLaser }, ALTTP_ENEMY_SPRITE_6, { 1, 1, 1, 0 }, 0, 0, 72, 139 },
+    { ALTTP_GFX(AS_LASER), 0, { &gHitbox_AlttpLaser }, ALTTP_ENEMY_SPRITE_6, { 1, 1, 1, 0 }, 0, 0, 72, 139 },
+    { ALTTP_GFX(AS_PHLEGM), 0, { &gHitbox_AlttpLaser }, ALTTP_ENEMY_SPRITE_6, { 1, 1, 1, 0 }, 0, 0, 72, 139 },
+};
+
+/** Zazaks: type 0 the blue, 1 the red (which breathes fire). */
+const EnemyDefinition gEnemyDefinition_Zazak[] = {
+    { ALTTP_GFX(AS_ZAZAK), 0, { &gHitbox_AlttpTall }, ALTTP_ENEMY_SPRITE_6, { 1, 1, 1, 1 }, 6, 0, 25, 139 },
+    { ALTTP_GFX(AS_ZAZAK), 0, { &gHitbox_AlttpTall }, ALTTP_ENEMY_SPRITE_6, { 1, 1, 1, 1 }, 8, 0, 25, 139 },
+};
+
+/** Gibo: type 0 the shell, 1 the nucleus. */
+const EnemyDefinition gEnemyDefinition_Gibo[] = {
+    { ALTTP_GFX(AS_GIBO), 0, { &gHitbox_AlttpCentered }, ALTTP_ENEMY_SPRITE_6, { 1, 1, 1, 1 }, 255, 0, 72, 139 },
+    { ALTTP_GFX(AS_GIBOCORE), 0, { &gHitbox_AlttpLaser }, ALTTP_ENEMY_SPRITE_6, { 1, 1, 1, 0 }, 8, 0, 25, 139 },
+};
+
+/** The fire bar: types 0 and 1 its post (turning either way), 2 a fireball. */
+const EnemyDefinition gEnemyDefinition_FireBar[] = {
+    { ALTTP_GFX(AS_FIREBAR), 0, { &gHitbox_AlttpLaser }, ALTTP_ENEMY_SPRITE_6, { 1, 0, 0, 0 }, 0, 0, 72, 139 },
+    { ALTTP_GFX(AS_FIREBAR), 0, { &gHitbox_AlttpLaser }, ALTTP_ENEMY_SPRITE_6, { 1, 0, 0, 0 }, 0, 0, 72, 139 },
+    { ALTTP_GFX(AS_FIREBAR), 0, { &gHitbox_AlttpLaser }, ALTTP_ENEMY_SPRITE_6, { 1, 1, 1, 0 }, 0, 0, 72, 139 },
+};
+
+/** Agahnim's balls, by type: the energy ball, the seeker, a spark of a burst seeker,
+ * the trail a ball leaves, and the spell glowing between his hands. */
+const EnemyDefinition gEnemyDefinition_AgahnimBall[] = {
+    { ALTTP_GFX(AS_AGBALL), 0, { &gHitbox_AlttpCentered }, ALTTP_ENEMY_SPRITE_9, { 1, 1, 1, 0 }, 255, 0, 100, 139 },
+    { ALTTP_GFX(AS_AGBALL), 0, { &gHitbox_AlttpCentered }, ALTTP_ENEMY_SPRITE_9, { 1, 1, 1, 0 }, 255, 0, 100, 139 },
+    { ALTTP_GFX(AS_AGBALL), 0, { &gHitbox_AlttpLaser }, ALTTP_ENEMY_SPRITE_9, { 1, 1, 1, 0 }, 0, 0, 72, 139 },
+    { ALTTP_GFX(AS_AGBALL), 0, { &gHitbox_0 }, ALTTP_ENEMY_SPRITE_9, { 1, 0, 1, 0 }, 0, 0, 72, 139 },
+    { ALTTP_GFX(AS_AGGLOW), 0, { &gHitbox_0 }, ALTTP_ENEMY_SPRITE_9, { 1, 0, 1, 0 }, 0, 0, 72, 139 },
+};
+
+/** Ganon's pieces, by type: the trident, a bat of his ring, a spiralling bat, a bat
+ * flung at Link, a flame a bat leaves, a torch, a torch's flame, his afterimage. */
+const EnemyDefinition gEnemyDefinition_GanonPart[] = {
+    { ALTTP_GFX(AS_TRIDENT), 0, { &gHitbox_AlttpCentered }, ALTTP_ENEMY_SPRITE_10, { 1, 1, 1, 0 }, 0, 0, 72, 139 },
+    { ALTTP_GFX(AS_FIREBAT), 0, { &gHitbox_GanonBat }, ALTTP_ENEMY_SPRITE_10, { 1, 1, 1, 0 }, 0, 0, 72, 139 },
+    { ALTTP_GFX(AS_FIREBAT), 0, { &gHitbox_GanonBat }, ALTTP_ENEMY_SPRITE_10, { 1, 1, 1, 0 }, 0, 0, 72, 139 },
+    { ALTTP_GFX(AS_FIREBAT), 0, { &gHitbox_GanonBat }, ALTTP_ENEMY_SPRITE_10, { 1, 1, 1, 0 }, 0, 0, 72, 139 },
+    { ALTTP_GFX(AS_GFLAME), 0, { &gHitbox_AlttpLaser }, ALTTP_ENEMY_SPRITE_10, { 1, 1, 1, 0 }, 0, 0, 72, 139 },
+    { ALTTP_GFX(AS_GTORCH), 0, { &gHitbox_0 }, ALTTP_ENEMY_SPRITE_10, { 4, 0, 1, 0 }, 0, 0, 72, 139 },
+    { ALTTP_GFX(AS_GFLAME), 0, { &gHitbox_0 }, ALTTP_ENEMY_SPRITE_10, { 1, 0, 1, 0 }, 0, 0, 72, 139 },
+    { ALTTP_GFX(AS_GANON), 0, { &gHitbox_0 }, ALTTP_ENEMY_SPRITE_10, { 1, 0, 1, 0 }, 0, 0, 72, 139 },
+};
+
+/** Soldiers: type 0 the blue sword soldier, 1 the red spearman. */
+const EnemyDefinition gEnemyDefinition_AlttpSoldier[] = {
+    { ALTTP_GFX(AS_SOLDIER), 0, { &gHitbox_AlttpTall }, ALTTP_ENEMY_SPRITE_11, { 1, 1, 1, 1 }, 4, 0, 100, 139 },
+    { ALTTP_GFX(AS_SPEARMAN), 0, { &gHitbox_AlttpTall }, ALTTP_ENEMY_SPRITE_11, { 1, 1, 1, 1 }, 6, 0, 100, 139 },
+};
+
+/** Wall cannons, by the way they fire (types 0 right, 1 left, 2 down, 3 up), and
+ * (type 4) a cannonball. The cannons sit in the wall and can't be touched. */
+const EnemyDefinition gEnemyDefinition_WallCannon[] = {
+    { ALTTP_GFX(AS_CANNON), 0, { &gHitbox_0 }, ALTTP_ENEMY_SPRITE_11, { 1, 0, 1, 0 }, 0, 0, 72, 139 },
+    { ALTTP_GFX(AS_CANNON), 0, { &gHitbox_0 }, ALTTP_ENEMY_SPRITE_11, { 1, 0, 1, 0 }, 0, 0, 72, 139 },
+    { ALTTP_GFX(AS_CANNON), 0, { &gHitbox_0 }, ALTTP_ENEMY_SPRITE_11, { 1, 0, 1, 0 }, 0, 0, 72, 139 },
+    { ALTTP_GFX(AS_CANNON), 0, { &gHitbox_0 }, ALTTP_ENEMY_SPRITE_11, { 1, 0, 1, 0 }, 0, 0, 72, 139 },
+    { ALTTP_GFX(AS_CANNONBALL), 0, { &gHitbox_AlttpCentered }, ALTTP_ENEMY_SPRITE_11, { 1, 1, 1, 1 }, 0, 0, 72, 139 },
+};
+
+/** Flying floor tiles: type 0 the room's (invisible) tile spawner, 1 a tile. */
+const EnemyDefinition gEnemyDefinition_FlyingTile[] = {
+    { ALTTP_GFX(AS_FTILE), 0, { &gHitbox_0 }, ALTTP_ENEMY_SPRITE_11, { 1, 0, 0, 0 }, 0, 0, 72, 139 },
+    { ALTTP_GFX(AS_FTILE), 0, { &gHitbox_AlttpCentered }, ALTTP_ENEMY_SPRITE_11, { 1, 1, 1, 1 }, 1, 0, 25, 139 },
 };
 
 const EnemyDefinition gEnemyDefinition_AlttpEyegore[] = {
-    { ALTTP_GFX(AS_EYEGORE), 0, &gHitbox_16, ALTTP_ENEMY_SPRITE, { 1, 1, 1, 2 }, 8, 256, 86, 139 },
-    { ALTTP_GFX(AS_EYEGORE), 0, &gHitbox_16, ALTTP_ENEMY_SPRITE, { 1, 1, 1, 2 }, 16, 256, 86, 139 },
+    { ALTTP_GFX(AS_EYEGORE), 0, &gHitbox_16, ALTTP_ENEMY_SPRITE, { 1, 1, 1, 2 }, 8, 256, 100, 139 },
+    { ALTTP_GFX(AS_EYEGORE), 0, &gHitbox_16, ALTTP_ENEMY_SPRITE, { 1, 1, 1, 2 }, 16, 256, 100, 139 },
 };
 
 const EnemyDefinition gEnemyDefinition_1[] = {
@@ -599,5 +792,53 @@ void (*const gEnemyFunctions[])(Entity* ent) = {
     [ALTTP_BARI] = AlttpBari,
     [ALTTP_HARDHAT] = AlttpHardhat,
     [ALTTP_BUMPER] = AlttpBumper,
+    [ALTTP_DEBIRANDO_PIT] = AlttpDebirandoPit,
+    [ALTTP_DEBIRANDO] = AlttpDebirando,
+    [ALTTP_FIREBALL] = AlttpFireball,
+    [ALTTP_KODONGO] = AlttpKodongo,
+    [MINI_MOLDORM] = MiniMoldorm,
+    [MINI_MOLDORM_SEGMENT] = MiniMoldormSegment,
+    [HELMASAUR_KING] = HelmasaurKing,
+    [BOSS_PART] = BossPart,
+    [HELMASAUR_FIREBALL] = HelmasaurFireball,
+    [ARRGHUS] = Arrghus,
+    [ARRGHI] = Arrghi,
+    [MOTHULA] = Mothula,
+    [MOTHULA_BEAM] = MothulaBeam,
+    [ALTTP_SPIKE_BLOCK] = AlttpSpikeBlock,
+    [MINI_HELMASAUR] = MiniHelmasaur,
+    [TERRORPIN] = Terrorpin,
+    [HOVER] = Hover,
+    [KYAMERON] = Kyameron,
+    [ZOL] = Zol,
+    [FIRESNAKE] = Firesnake,
+    [ALTTP_SHOOTER] = AlttpShooter,
+    [BLIND] = Blind,
+    [KHOLDSTARE] = Kholdstare,
+    [KHOLDSTARE_SHELL] = KholdstareShell,
+    [VITREOUS] = Vitreous,
+    [VITREOUS_EYE] = VitreousEye,
+    [TRINEXX] = Trinexx,
+    [TRINEXX_HEAD] = TrinexxHead,
+    [BOSS_PIECE] = BossPiece,
+    [ALTTP_BOLT] = AlttpBolt,
+    [FREEZOR] = Freezor,
+    [PENGATOR] = Pengator,
+    [STALFOS_KNIGHT] = StalfosKnight,
+    [WIZZROBE] = Wizzrobe,
+    [LASER_EYE] = LaserEye,
+    [CHAIN_CHOMP] = ChainChomp,
+    [ZAZAK] = Zazak,
+    [GIBO] = Gibo,
+    [FIRE_BAR] = FireBar,
+    [STALFOS_HEAD] = StalfosHead,
+    [AGAHNIM] = Agahnim,
+    [AGAHNIM_BALL] = AgahnimBall,
+    [GANON] = Ganon,
+    [GANON_PART] = GanonPart,
+    [ALTTP_SOLDIER] = AlttpSoldier,
+    [WALL_CANNON] = WallCannon,
+    [FLYING_TILE] = FlyingTile,
+    [ALTTP_SPARK] = AlttpSpark,
 };
 // clang-format on

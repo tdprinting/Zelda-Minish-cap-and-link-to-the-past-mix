@@ -28,7 +28,9 @@
 #include "backgroundAnimations.h"
 #include "itemDefinitions.h"
 #include "ui.h"
+#include "blend.h"
 #include "fade.h"
+#include "blend.h"
 
 static void sub_08077E54(ItemBehavior* this);
 
@@ -505,22 +507,31 @@ void sub_08077D38(ItemBehavior* this, u32 index) {
 
     ptr = &gItemDefinitions[this->behaviorId];
     if (ptr->frameIndex) {
+        // blend: Link can carry any item before he meets Ezlo. The game only had
+        // capless animations for the Smith's Sword, the shield and grabbing, and
+        // left every other item's animation unset (a leftover register), so the
+        // bow never reached its shoot frame. Every sword and shield takes its
+        // capless animation (same frames and flags); the rest play their own.
+        anim = ptr->frameIndex;
         if ((gPlayerState.flags & PL_NO_CAP)) {
             switch (this->behaviorId) {
-                case 0x1b:
+                case ITEM_TRY_PICKUP_OBJECT:
                     anim = ANIM_GRAB_NOCAP;
                     break;
-                case 1:
+                case ITEM_SMITH_SWORD:
+                case ITEM_GREEN_SWORD:
+                case ITEM_RED_SWORD:
+                case ITEM_BLUE_SWORD:
+                case ITEM_FOURSWORD:
                     anim = ANIM_SWORD_NOCAP;
                     break;
-                case 0xd:
+                case ITEM_SHIELD:
+                case ITEM_MIRROR_SHIELD:
                     anim = ANIM_SHIELD_PULLOUT_NOCAP;
                     break;
             }
-            SetItemAnim(this, anim);
-        } else {
-            SetItemAnim(this, ptr->frameIndex);
         }
+        SetItemAnim(this, anim);
     }
 
     this->animPriority = ptr->animPriority;
@@ -1240,8 +1251,12 @@ InteractableObject* sub_080784E4(void) {
         switch (iObject->type) {
             case INTERACTION_NONE:
                 continue;
-            case INTERACTION_TALK:
             case INTERACTION_OPEN_CHEST:
+                // blend: a big chest in an A Link to the Past dungeon wants the big key
+                if (Blend_IsLockedBigChest(entity))
+                    continue;
+                // fall through
+            case INTERACTION_TALK:
             case INTERACTION_UNUSED:
             case INTERACTION_LIFT_SHOP_ITEM:
             case INTERACTION_CHECK:
@@ -3875,7 +3890,9 @@ void LoadRoomGfx(void) {
     MemClear(gMapTop.collisionData, sizeof(gMapTop.collisionData));
     MemClear(&gMapDataBottomSpecial, 0x8000);
     MemClear(&gMapDataTopSpecial, 0x8000);
+    Blend_ExteriorBeforeMap();
     LoadMapData((gArea.pCurrentRoomInfo)->map);
+    Blend_ExteriorAfterMap();
     if (gMapBottom.mapData[0] != 0xffff) {
         sub_0807C8B0(gMapBottom.mapData, roomControls->width / 16, roomControls->height / 16);
         sub_0807C8B0(gMapTop.mapData, roomControls->width / 16, roomControls->height / 16);
@@ -4364,11 +4381,11 @@ u32 SetInventoryValue(u32 item, u32 value) {
 }
 
 void EnableDungeonWarp(u32 warp) {
-    gSave.dungeonWarps[gArea.dungeon_idx] |= (1 << warp);
+    DUNGEON_WARPS(gArea.dungeon_idx) |= (1 << warp);
 }
 
 u32 IsDungeonWarpActive(u32 warp) {
-    return gSave.dungeonWarps[gArea.dungeon_idx] >> warp & 1;
+    return DUNGEON_WARPS(gArea.dungeon_idx) >> warp & 1;
 }
 
 u32 CheckLocalFlagByBank(u32 bank, u32 flag) {

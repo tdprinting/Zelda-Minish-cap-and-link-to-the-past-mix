@@ -33,7 +33,32 @@ BACKDROP_MODES = ('None', 'Parallaxing', 'Translucent', 'Transparent', 'Addition
 
 # rooms set to "Normal" whose second layer is still a backdrop: the Desert Palace's
 # courtyard fills it with a checkered floor that would cover the room
-BACKDROP_ROOMS = {0x53}
+# Skull Woods's Mothula lair fills its first layer with the moving floor, under the
+# walls and spikes of its second
+BACKDROP_ROOMS = {0x53, 0x29}
+
+# rooms whose first layer only holds a cover over part of the room, which the game
+# lifts as Link comes near: the Palace of Darkness's room 0x1B ("On top") hides its
+# staircase corner under one. The room is all on the second layer; the cover is left out.
+# The Swamp Palace's room 0x54 has the swamp's water surface there, over a basin the
+# blend keeps drained like the others (its busy ripple would cover the whole floor)
+# Kholdstare's ice shell (0xDE) and Trinexx's rock body (0xA4) sit alone on the first
+# layer: the bosses draw them as sprites that melt or move, so they are left out too
+COVER_ROOMS = {0x1b, 0x54, 0xde, 0xa4}
+# the Desert Palace's room 0x43 hides its north-west corner, the way up to the Lanmolas,
+# under a cover of sand and wall the same way
+COVER_ROOMS |= {0x43}
+# the Palace of Darkness's room 0x2b keeps the whole room (walls, chest, crystal switch,
+# the octagon's dais) on its second layer and fills the first with plain floor, which
+# would leave the room's lower half without walls: the first is the backdrop there
+BACKDROP_ROOMS |= {0x2b}
+
+
+# A Link to the Past's entrance mat with the daylight falling in through the door: a
+# herringbone in a dark tone with a pale cone over it, drawn with color math. Without the
+# blending the cone is a pale diagonal smear, so the blend lays the mat in one calm tone
+ENTRANCE_LIGHT = (0xc0, 0xc2, 0xc3, 0xc4, 0xc5, 0xd1, 0xe8, 0xf8)
+ENTRANCE_LIGHT_PAL = 5
 
 
 def layer_mode(room_id):
@@ -56,6 +81,8 @@ class RoomGfx:
         self.attr, self.lower = raw[:0x1000], raw[0x1000:0x2000]
         self.bg2 = list(struct.unpack('<4096H', raw[0x2000:0x4000]))
         self.bg1 = list(struct.unpack('<4096H', raw[0x4000:0x6000]))
+        if room_id in COVER_ROOMS:
+            self.bg1 = [0x3ff] * 4096  # a blank tile
         self.layer_mode = 'None' if room_id in BACKDROP_ROOMS else layer_mode(room_id)
         self._cache = {}
 
@@ -64,6 +91,12 @@ class RoomGfx:
         key = entry & 0xdfff
         if key not in self._cache:
             idx, pal = entry & 0x3ff, (entry >> 10) & 7
+            if pal == ENTRANCE_LIGHT_PAL and idx in ENTRANCE_LIGHT:
+                # the light falling in at an entrance: a flat mat in the herringbone's own tone
+                base = [c for r in snes_tile(self.chars, ENTRANCE_LIGHT[0]) for c in r if c]
+                c = max(set(base), key=base.count) if base else 0
+                self._cache[key] = [[pal * 16 + c if c else 0] * 8 for _ in range(8)]
+                return self._cache[key]
             pix = snes_tile(self.chars, idx) if idx < 512 else [[0] * 8 for _ in range(8)]
             if entry & 0x8000:
                 pix = pix[::-1]
@@ -136,3 +169,62 @@ class RoomGfx:
                         if c:
                             px[tx + x, ty + y] = bgr555(self.colors[c])
         return im
+
+
+# A Link to the Past's crystal switch (sprite 0x1E): one 16x16 sprite, char 0xe4 of the
+# dungeon sprite set, in sprite palette 1 (orange, while the blue pegs are up) or 2
+# (blue). The blend draws it into the tileset, so its two looks are dumped from the
+# cartridge by make-dungeons.sh into the git-ignored gfx folder.
+PEG_SWITCH = os.path.join(GFX, 'pegswitch.rgba')
+
+
+def write_peg_switch(rom, path=PEG_SWITCH, sprite_set=25):
+    import sys
+    here = os.path.dirname(os.path.abspath(__file__))
+    sys.path.insert(0, os.path.join(here, '..', 'enemies'))
+    import alttp_enemies as E
+    util, _, _ = E.z3()
+    util.load_rom(rom)
+    sheets = E.Sheets(sprite_set)
+    pix = E.compose(sheets, [(0, 0, 0xe4, 0, 1)], (0, 0))
+    out = bytearray()
+    for pal in (1, 2):
+        cols = E.mc_palette(pal)
+        for y in range(16):
+            for x in range(16):
+                v = pix.get((x, y))
+                out += bytes(cols[v]) + b'\xff' if v is not None else bytes(4)
+    open(path, 'wb').write(bytes(out))
+
+
+def peg_switch_art():
+    """[(16x16 RGB rows, 16x16 opaque mask)] for the switch's two looks (state 0
+    orange, state 1 blue), or None if make-dungeons.sh hasn't dumped it."""
+    try:
+        data = open(PEG_SWITCH, 'rb').read()
+    except OSError:
+        return None
+    looks = []
+    for k in range(2):
+        d = data[k * 1024:(k + 1) * 1024]
+        rgb = [[tuple(d[(y * 16 + x) * 4:(y * 16 + x) * 4 + 3]) for x in range(16)] for y in range(16)]
+        mask = [[d[(y * 16 + x) * 4 + 3] != 0 for x in range(16)] for y in range(16)]
+        looks.append((rgb, mask))
+    return looks
+
+
+def swapped_pegs(gfx):
+    """The room as it looks once the crystal switch is hit: A Link to the Past swaps the
+    raised and lowered peg characters (0x1d0-0x1d3 and 0x1d4-0x1d7) in video memory."""
+    chars = bytearray(gfx.chars)
+    a, b = chars[0x1d0 * 32:0x1d4 * 32], chars[0x1d4 * 32:0x1d8 * 32]
+    chars[0x1d0 * 32:0x1d4 * 32], chars[0x1d4 * 32:0x1d8 * 32] = b, a
+    gfx.chars = bytes(chars)
+    gfx._cache = {}
+    return gfx
+
+
+if __name__ == '__main__':
+    import sys
+    if sys.argv[1:2] == ['--peg-switch']:
+        write_peg_switch(sys.argv[2])

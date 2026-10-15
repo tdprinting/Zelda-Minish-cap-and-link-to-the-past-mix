@@ -1661,5 +1661,70 @@ gMoreSpritePtrs:: @ 08003DD4
 	.4byte gSprite_AlttpEnemies2
 	.4byte 00000000
 
+	@ 330: Debirandos, Kodongos, mini Moldorms, the crystal switch, fireballs
+	.4byte gSpriteAnimations_AlttpEnemies3
+	.4byte gSpriteFrames_AlttpEnemies3
+	.4byte gSprite_AlttpEnemies3
+	.4byte 00000000
+
+	@ 331: the Dark World dungeons' enemies
+	.4byte gSpriteAnimations_AlttpEnemies4
+	.4byte gSpriteFrames_AlttpEnemies4
+	.4byte gSprite_AlttpEnemies4
+	.4byte 00000000
+
+	@ 332: the Dark World dungeons' bosses
+	.4byte gSpriteAnimations_AlttpEnemies5
+	.4byte gSpriteFrames_AlttpEnemies5
+	.4byte gSprite_AlttpEnemies5
+	.4byte 00000000
+
+	@ 333: the Ice Palace, Misery Mire, Turtle Rock and Thieves' Town enemies
+	.4byte gSpriteAnimations_AlttpEnemies6
+	.4byte gSpriteFrames_AlttpEnemies6
+	.4byte gSprite_AlttpEnemies6
+	.4byte 00000000
+
+	@ 334: Blind and Kholdstare
+	.4byte gSpriteAnimations_AlttpEnemies7
+	.4byte gSpriteFrames_AlttpEnemies7
+	.4byte gSprite_AlttpEnemies7
+	.4byte 00000000
+
+	@ 335: Vitreous and Trinexx
+	.4byte gSpriteAnimations_AlttpEnemies8
+	.4byte gSpriteFrames_AlttpEnemies8
+	.4byte gSprite_AlttpEnemies8
+	.4byte 00000000
+
+	@ 336: Agahnim
+	.4byte gSpriteAnimations_AlttpEnemies9
+	.4byte gSpriteFrames_AlttpEnemies9
+	.4byte gSprite_AlttpEnemies9
+	.4byte 00000000
+
+	@ 337: Ganon
+	.4byte gSpriteAnimations_AlttpEnemies10
+	.4byte gSpriteFrames_AlttpEnemies10
+	.4byte gSprite_AlttpEnemies10
+	.4byte 00000000
+
+	@ 338: co-op, the Revive Fairy (blend/coop/revive_fairy.py; REVIVE_FAIRY_SPRITE in blendCoop.h)
+	.4byte gSpriteAnimations_ReviveFairy
+	.4byte gSpriteFrames_ReviveFairy
+	.4byte gSprite_ReviveFairy
+	.4byte 00000000
+	@ 339: co-op puzzles, the Twin Stone and the Toss Bell (blend/coop/twin_relics.py; TWIN_RELICS_SPRITE)
+	.4byte gSpriteAnimations_TwinRelics
+	.4byte gSpriteFrames_TwinRelics
+	.4byte gSprite_TwinRelics
+	.4byte 00000000
+
+	@ 340: Ganon's Tower's soldiers, wall cannons, flying floor tiles and Sparks
+	.4byte gSpriteAnimations_AlttpEnemies11
+	.4byte gSpriteFrames_AlttpEnemies11
+	.4byte gSprite_AlttpEnemies11
+	.4byte 00000000
+
 gUnk_08003E44:: @ 08003E44
 	.incbin "data_080029B4/gUnk_08003E44.bin"

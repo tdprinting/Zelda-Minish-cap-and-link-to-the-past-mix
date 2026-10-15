@@ -553,9 +553,9 @@ void DrawKeys(void) {
             row2[3] = temp + 3;
             gScreen.bg0.updated = 1;
         }
-        if ((gHUD.dungeonKeys != gSave.dungeonKeys[gArea.dungeon_idx]) || (gHUD.unk_10 == 0)) {
+        if ((gHUD.dungeonKeys != DUNGEON_KEYS(gArea.dungeon_idx)) || (gHUD.unk_10 == 0)) {
             gHUD.unk_10 = 2;
-            gHUD.dungeonKeys = gSave.dungeonKeys[gArea.dungeon_idx];
+            gHUD.dungeonKeys = DUNGEON_KEYS(gArea.dungeon_idx);
             RenderDigits(0x76, gHUD.dungeonKeys, 0, 2);
         }
     }

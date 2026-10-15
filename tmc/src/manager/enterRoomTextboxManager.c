@@ -17,8 +17,11 @@
 const u16 gUnk_08108DE8[] = { 0,     0x70b, 0x70c, 0x70d, 0x70e, 0x70f, 0x710, 0x711, 0x712, 0x713, 0x714,
                               0x715, 0x716, 0x717, 0x718, 0x719, 0x71a, 0x71b, 0x71c, 0x71d, 0x71e, 0x71f,
                               0x726, 0x720, 0x720, 0x721, 0x722, 0x723, 0x725, 0x727, 0x724, 0x729,
-                              // A Link to the Past: 31 Eastern Palace, 32 Desert Palace, 33 Tower of Hera
-                              0x72a, 0x72b };
+                              // A Link to the Past: 31 Eastern Palace, 32 Desert Palace, 33 Tower of Hera,
+                              // 34 Palace of Darkness, 35 Swamp Palace, 36 Skull Woods, 37 Thieves' Town,
+                              // 38 Ice Palace, 39 Misery Mire, 40 Turtle Rock, 41 Ganon's Tower, 42 the Temple of Bonds,
+                              // 43 Pyramid of Power
+                              0x72a, 0x72b, 0x72c, 0x72d, 0x72e, 0x72f, 0x730, 0x731, 0x732, 0x733, 0x734, 0x735 };
 void sub_0805E140(EnterRoomTextboxManager*);
 void sub_0805E18C(EnterRoomTextboxManager*);
 void (*const EnterRoomTextboxManager_Actions[])(EnterRoomTextboxManager*) = {

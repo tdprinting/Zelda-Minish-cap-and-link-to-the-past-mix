@@ -35,6 +35,9 @@ const Transition gExitList_MinishWoods_Main[] = {
       1, TRANSITION_TYPE_NORMAL, 0x0, 0x0, 0x0, 0x0 },
     { WARP_TYPE_AREA, 0x0210, 0x01c8, 0x0078, 0x0078, TRANSITION_SHAPE_AREA_28x12, AREA_TREE_INTERIORS,
       ROOM_TREE_INTERIORS_MINISH_WOODS_BUSINESS_SCRUB, 1, TRANSITION_TYPE_NORMAL, 0x0, 0x0, 0x0, 0x0 },
+    // in the Dark World, for a player with the Fire Rod, the Great Fairy's tree is Skull Woods
+    { WARP_TYPE_AREA, 0x0070, 0x0048, ENTRY_SkullWoods, TRANSITION_SHAPE_AREA_28x12, AREA_NULL_1F, 0,
+      1, TRANSITION_TYPE_NORMAL, 0x0, 0x0, 0x0, 0x0 },
     { WARP_TYPE_AREA, 0x0070, 0x0048, 0x0078, 0x0078, TRANSITION_SHAPE_AREA_28x12, AREA_TREE_INTERIORS,
       ROOM_TREE_INTERIORS_MINISH_WOODS_GREAT_FAIRY, 1, TRANSITION_TYPE_NORMAL, 0x0, 0x0, 0x0, 0x0 },
     { WARP_TYPE_AREA, 0x02c0, 0x0048, 0x0078, 0x0088, TRANSITION_SHAPE_AREA_28x12, AREA_TREE_INTERIORS, ROOM_TREE_INTERIORS_WITCH_HUT,
@@ -74,6 +77,10 @@ const Transition gExitList_LakeHylia_Main[] = {
       ROOM_MINISH_HOUSE_INTERIORS_LIBRARI, 1, TRANSITION_TYPE_NORMAL, 0x0, 0x0, 0x0, 0x0 },
     { WARP_TYPE_AREA, 0x02b8, 0x0058, 0x0188, 0x01a8, TRANSITION_SHAPE_AREA_12x12, AREA_MINISH_CAVES, ROOM_MINISH_CAVES_LAKE_HYLIA_NORTH,
       1, TRANSITION_TYPE_NORMAL, 0x0, 0x0, 0x0, 0x0 },
+    // in the Dark World, with the Moon Pearl and the Flippers (and the Fire Rod to melt its
+    // ice), the cave on the south shore is the Ice Palace
+    { WARP_TYPE_AREA, 0x0148, 0x0374, ENTRY_IcePalace, TRANSITION_SHAPE_AREA_12x12, AREA_NULL_3A, 0,
+      1, TRANSITION_TYPE_NORMAL, 0x0, 0x0, 0x0, 0x0 },
     { WARP_TYPE_AREA, 0x0148, 0x0374, 0x0248, 0x01a8, TRANSITION_SHAPE_AREA_12x12, AREA_LAKE_WOODS_CAVE, ROOM_LAKE_WOODS_CAVE_MAIN,
       1, TRANSITION_TYPE_NORMAL, 0x0, 0x0, 0x0, 0x0 },
     { WARP_TYPE_BORDER, 0x0000, 0x0000, 0x02c8, 0x0fff, TRANSITION_SHAPE_BORDER_WEST, AREA_HYRULE_FIELD, ROOM_HYRULE_FIELD_LON_LON_RANCH,
@@ -102,6 +109,9 @@ const Transition gExitList_CastorWilds_Main[] = {
     { WARP_TYPE_AREA, 0x0248, 0x0032, 0x0038, 0x0078, TRANSITION_SHAPE_AREA_12x12, AREA_CASTOR_CAVES, ROOM_CASTOR_CAVES_NORTH,
       1, TRANSITION_TYPE_NORMAL, 0x0, 0x0, 0x0, 0x0 },
     { WARP_TYPE_AREA, 0x0288, 0x0032, 0x0128, 0x0078, TRANSITION_SHAPE_AREA_12x12, AREA_CASTOR_CAVES, ROOM_CASTOR_CAVES_NORTH,
+      1, TRANSITION_TYPE_NORMAL, 0x0, 0x0, 0x0, 0x0 },
+    // in the Dark World, with the Flippers, the swamp cave leads to the Swamp Palace instead
+    { WARP_TYPE_AREA, 0x01a8, 0x01a2, ENTRY_SwampPalace, TRANSITION_SHAPE_AREA_12x12, AREA_NULL_1E, 0,
       1, TRANSITION_TYPE_NORMAL, 0x0, 0x0, 0x0, 0x0 },
     { WARP_TYPE_AREA, 0x01a8, 0x01a2, 0x0088, 0x0078, TRANSITION_SHAPE_AREA_12x12, AREA_CASTOR_CAVES, ROOM_CASTOR_CAVES_DARKNUT,
       1, TRANSITION_TYPE_NORMAL, 0x0, 0x0, 0x0, 0x0 },
@@ -191,6 +201,9 @@ const Transition gExitList_HyruleTown_0[] = {
       ROOM_HOUSE_INTERIORS_3_BORLOV_ENTRANCE, 1, TRANSITION_TYPE_NORMAL, 0x0, 0x0, 0x0, 0x0 },
     { WARP_TYPE_AREA, 0x0090, 0x02c8, 0x0078, 0x0098, TRANSITION_SHAPE_AREA_28x12, AREA_HOUSE_INTERIORS_4, ROOM_HOUSE_INTERIORS_4_CARPENTER,
       1, TRANSITION_TYPE_NORMAL, 0x0, 0x0, 0x0, 0x0 },
+    // in the Dark World, with the Moon Pearl and the Hammer, the stranger's house is Thieves' Town
+    { WARP_TYPE_AREA, 0x0098, 0x0168, ENTRY_ThievesTown, TRANSITION_SHAPE_AREA_12x12, AREA_NULL_39, 0,
+      1, TRANSITION_TYPE_NORMAL, 0x0, 0x0, 0x0, 0x0 },
     { WARP_TYPE_AREA, 0x0098, 0x0168, 0x0078, 0x0078, TRANSITION_SHAPE_AREA_12x12, AREA_HOUSE_INTERIORS_2, ROOM_HOUSE_INTERIORS_2_STRANGER,
       1, TRANSITION_TYPE_NORMAL, 0x0, 0x0, 0x0, 0x0 },
     { WARP_TYPE_AREA, 0x0038, 0x0248, 0x0078, 0x0098, TRANSITION_SHAPE_AREA_12x12, AREA_HOUSE_INTERIORS_2, ROOM_HOUSE_INTERIORS_2_DR_LEFT,
@@ -239,6 +252,10 @@ const Transition* const gExitLists_FestivalTown[] = {
 };
 
 const Transition gExitList_MtCrenel_MountainTop[] = {
+    // in the Dark World, once Quake has opened it (and with the Cane of Somaria), the cave on
+    // the summit is Turtle Rock
+    { WARP_TYPE_AREA, 0x328, 0x34, ENTRY_TurtleRock, TRANSITION_SHAPE_AREA_12x12, AREA_NULL_3C, 0,
+      1, TRANSITION_TYPE_NORMAL, 0x0, 0x0, 0x0, 0x0 },
     { WARP_TYPE_AREA, 0x328, 0x34, 0x1a8, 0x28, TRANSITION_SHAPE_AREA_12x12, AREA_CRENEL_CAVES, ROOM_CRENEL_CAVES_BLOCK_PUSHING,
       1, TRANSITION_TYPE_NORMAL, 0x0, 0x0, 0x0, 0x0 },
     { WARP_TYPE_BORDER, 0x0, 0x0, 0xfff, 0x18, TRANSITION_SHAPE_BORDER_SOUTH, AREA_MT_CRENEL, ROOM_MT_CRENEL_WALL_CLIMB, 1, TRANSITION_TYPE_NORMAL,
@@ -274,6 +291,10 @@ const Transition gExitList_MtCrenel_CaveOfFlamesEntrance[] = {
     TransitionListEnd,
 };
 const Transition gExitList_MtCrenel_GustJarShortcut[] = {
+    // in the Dark World, once Link has the seven crystals, the cracked cave is Ganon's Tower,
+    // which stands where the Tower of Hera does, as in A Link to the Past
+    { WARP_TYPE_AREA, 0x348, 0x58, ENTRY_GanonsTower, TRANSITION_SHAPE_AREA_12x12, AREA_NULL_3D, 0,
+      1, TRANSITION_TYPE_NORMAL, 0x0, 0x0, 0x0, 0x0 },
     { WARP_TYPE_AREA, 0xa8, 0x48, 0x78, 0x78, TRANSITION_SHAPE_AREA_12x12, AREA_CRENEL_CAVES, ROOM_CRENEL_CAVES_FAIRY_FOUNTAIN,
       1, TRANSITION_TYPE_NORMAL, 0x0, 0x0, 0x0, 0x0 },
     { WARP_TYPE_AREA, 0x2f8, 0x28, 0x38, 0x98, TRANSITION_SHAPE_AREA_12x12, AREA_CRENEL_CAVES, ROOM_CRENEL_CAVES_SPINY_CHU_PUZZLE,
@@ -326,7 +347,10 @@ const Transition gExitList_HyruleField_SouthHyruleField[] = {
       ROOM_TREE_INTERIORS_SOUTH_HYRULE_FIELD_HEART_PIECE, 1, TRANSITION_TYPE_NORMAL, 0x0, 0x0, 0x0, 0x0 },
     { WARP_TYPE_AREA, 0x118, 0xa8, 0x78, 0x78, TRANSITION_SHAPE_AREA_12x12, AREA_CAVES, ROOM_CAVES_SOUTH_HYRULE_FIELD_FAIRY_FOUNTAIN,
       1, TRANSITION_TYPE_NORMAL, 0x0, 0x0, 0x0, 0x0 },
-    { WARP_TYPE_AREA, 0x58, 0x118, 0x78, 0x78, TRANSITION_SHAPE_AREA_12x12, AREA_CAVES, ROOM_CAVES_SOUTH_HYRULE_FIELD_RUPEE,
+    // the little rupee cave west of Link's house is the way into the Temple of Bonds, which
+    // only two players together may enter: a guard stands in front of it otherwise
+    // (blendShrine.c; Blend_IsTransitionClosed)
+    { WARP_TYPE_AREA, 0x58, 0x118, ENTRY_TempleOfBonds, TRANSITION_SHAPE_AREA_12x12, AREA_NULL_3F, 0,
       1, TRANSITION_TYPE_NORMAL, 0x0, 0x0, 0x0, 0x0 },
     { WARP_TYPE_AREA, 0x178, 0xd8, 0x78, 0xb8, TRANSITION_SHAPE_AREA_12x12, AREA_MINISH_CAVES, ROOM_MINISH_CAVES_OUTSIDE_LINKS_HOUSE,
       1, TRANSITION_TYPE_NORMAL, 0x0, 0x0, 0x0, 0x0 },
@@ -344,6 +368,10 @@ const Transition gExitList_HyruleField_EasternHillsSouth[] = {
     TransitionListEnd,
 };
 const Transition gExitList_HyruleField_EasternHillsCenter[] = {
+    // in the Dark World the hillside cave leads to the Palace of Darkness instead (taken
+    // only in the Dark World with the Moon Pearl: Blend_IsTransitionClosed)
+    { WARP_TYPE_AREA, 0xa8, 0x98, ENTRY_PalaceOfDarkness, TRANSITION_SHAPE_AREA_12x12, AREA_NULL_1D, 0, 1, TRANSITION_TYPE_NORMAL,
+      0x0, 0x0, 0x0, 0x0 },
     // the hillside cave is now the way into A Link to the Past's Eastern Palace
     { WARP_TYPE_AREA, 0xa8, 0x98, ENTRY_EasternPalace, TRANSITION_SHAPE_AREA_12x12, AREA_EMPTY, 0, 1, TRANSITION_TYPE_NORMAL,
       0x0, 0x0, 0x0, 0x0 },
@@ -463,6 +491,10 @@ const Transition* const gExitLists_HyruleField[] = {
 
 // TODO this is one table
 const Transition gExitList_CastleGarden_Main[] = {
+    // in the Dark World, once Agahnim has fallen in Ganon's Tower, the castle door leads down
+    // into the Pyramid of Power, Ganon's hall (taken only then: Blend_IsTransitionClosed)
+    { WARP_TYPE_AREA, 0x1f8, 0x28, ENTRY_Pyramid, TRANSITION_SHAPE_AREA_28x12, AREA_NULL_3E, 0, 1, TRANSITION_TYPE_NORMAL,
+      0x0, 0x0, 0x0, 0x0 },
     { WARP_TYPE_AREA, 0x1f8, 0x28, 0xd8, 0x208, TRANSITION_SHAPE_AREA_28x12, AREA_HYRULE_CASTLE, ROOM_HYRULE_CASTLE_0, 1, TRANSITION_TYPE_NORMAL,
       0x0, 0x0, 0x0, 0x0 },
     { WARP_TYPE_AREA, 0x308, 0x48, 0x78, 0x78, TRANSITION_SHAPE_AREA_12x12, AREA_GARDEN_FOUNTAINS, ROOM_GARDEN_FOUNTAINS_EAST,
@@ -478,6 +510,10 @@ const Transition gExitList_CastleGarden_Main[] = {
     TransitionListEnd,
 };
 const Transition gUnk_08134FBC[] = {
+    // in the Dark World, once Agahnim has fallen in Ganon's Tower, the castle door leads down
+    // into the Pyramid of Power, Ganon's hall (taken only then: Blend_IsTransitionClosed)
+    { WARP_TYPE_AREA, 0x1f8, 0x28, ENTRY_Pyramid, TRANSITION_SHAPE_AREA_28x12, AREA_NULL_3E, 0, 1, TRANSITION_TYPE_NORMAL,
+      0x0, 0x0, 0x0, 0x0 },
     { WARP_TYPE_AREA, 0x1f8, 0x28, 0x198, 0x1f0, TRANSITION_SHAPE_AREA_28x12, AREA_DARK_HYRULE_CASTLE, ROOM_DARK_HYRULE_CASTLE_1F_ENTRANCE,
       1, TRANSITION_TYPE_NORMAL, 0x0, 0x0, 0x0, 0x0 },
     { WARP_TYPE_AREA, 0x308, 0x48, 0x78, 0x78, TRANSITION_SHAPE_AREA_12x12, AREA_GARDEN_FOUNTAINS, ROOM_GARDEN_FOUNTAINS_EAST,
@@ -559,6 +595,9 @@ const Transition gExitList_VeilFalls_Main[] = {
     { WARP_TYPE_AREA, 0x158, 0x22, 0x118, 0x78, TRANSITION_SHAPE_AREA_12x12, AREA_VEIL_FALLS_CAVES, ROOM_VEIL_FALLS_CAVES_HALLWAY_2F,
       1, TRANSITION_TYPE_NORMAL, 0x0, 0x0, 0x0, 0x0 },
     { WARP_TYPE_AREA, 0x118, 0x42, 0xb8, 0x78, TRANSITION_SHAPE_AREA_12x12, AREA_VEIL_FALLS_CAVES, ROOM_VEIL_FALLS_CAVES_HALLWAY_1F,
+      1, TRANSITION_TYPE_NORMAL, 0x0, 0x0, 0x0, 0x0 },
+    // in the Dark World, once Ether has opened it, the cave at the falls' foot is Misery Mire
+    { WARP_TYPE_AREA, 0x38, 0x1e2, ENTRY_MiseryMire, TRANSITION_SHAPE_AREA_12x12, AREA_NULL_3B, 0,
       1, TRANSITION_TYPE_NORMAL, 0x0, 0x0, 0x0, 0x0 },
     { WARP_TYPE_AREA, 0x38, 0x1e2, 0x38, 0x78, TRANSITION_SHAPE_AREA_12x12, AREA_VEIL_FALLS_CAVES, ROOM_VEIL_FALLS_CAVES_ENTRANCE,
       1, TRANSITION_TYPE_NORMAL, 0x0, 0x0, 0x0, 0x0 },
@@ -3836,9 +3875,9 @@ const Transition* const* const gExitLists[] = {
     /*AREA_VEIL_FALLS_TOP*/ gExitLists_VeilFallsTop,
     /*AREA_NULL_1B*/ gExitLists_DesertPalace,
     /*AREA_NULL_1C*/ gExitLists_TowerOfHera,
-    /*AREA_NULL_1D*/ gExitLists_NoExit,
-    /*AREA_NULL_1E*/ gExitLists_NoExit,
-    /*AREA_NULL_1F*/ gExitLists_NoExit,
+    /*AREA_NULL_1D*/ gExitLists_PalaceOfDarkness,
+    /*AREA_NULL_1E*/ gExitLists_SwampPalace,
+    /*AREA_NULL_1F*/ gExitLists_SkullWoods,
     /*AREA_MINISH_HOUSE_INTERIORS*/ gExitLists_MinishHouseInteriors,
     /*AREA_HOUSE_INTERIORS_1*/ gExitLists_HouseInteriors1,
     /*AREA_HOUSE_INTERIORS_2*/ gExitLists_HouseInteriors2,
@@ -3864,13 +3903,13 @@ const Transition* const* const gExitLists[] = {
     /*AREA_CASTLE_GARDEN_MINISH_HOLES*/ gExitLists_CastleGardenMinishHoles,
     /*AREA_37*/ gExitLists_37,
     /*AREA_EZLO_CUTSCENE*/ gExitLists_NoExit,
-    /*AREA_NULL_39*/ gExitLists_NoExit,
-    /*AREA_NULL_3A*/ gExitLists_NoExit,
-    /*AREA_NULL_3B*/ gExitLists_NoExit,
-    /*AREA_NULL_3C*/ gExitLists_NoExit,
-    /*AREA_NULL_3D*/ gExitLists_NoExit,
-    /*AREA_NULL_3E*/ gExitLists_NoExit,
-    /*AREA_NULL_3F*/ gExitLists_NoExit,
+    /*AREA_NULL_39*/ gExitLists_ThievesTown,
+    /*AREA_NULL_3A*/ gExitLists_IcePalace,
+    /*AREA_NULL_3B*/ gExitLists_MiseryMire,
+    /*AREA_NULL_3C*/ gExitLists_TurtleRock,
+    /*AREA_NULL_3D*/ gExitLists_GanonsTower,
+    /*AREA_NULL_3E*/ gExitLists_Pyramid,
+    /*AREA_NULL_3F*/ gExitLists_TempleOfBonds,
     /*AREA_40*/ gExitLists_40,
     /*AREA_HYRULE_TOWN_UNDERGROUND*/ gExitLists_HyruleTownUnderground,
     /*AREA_GARDEN_FOUNTAINS*/ gExitLists_GardenFountains,

@@ -1,4 +1,7 @@
+#include "blendCoop.h"
+#include "item.h"
 #include "scroll.h"
+#include "alttpBossCam.h"
 
 #include "asm.h"
 #include "beanstalkSubtask.h"
@@ -93,9 +96,15 @@ void Scroll1(RoomControls* controls) {
     s32 targetValue;
 
     if (controls->camera_target != NULL) {
+        s32 leanX = 0, leanY = 0;
+        if (controls->camera_target == &gPlayerEntity.base) {
+            AlttpBossCamUpdate(gPlayerEntity.base.x.HALF.HI, gPlayerEntity.base.y.HALF.HI);
+            leanX = gAlttpBossCam.biasX;
+            leanY = gAlttpBossCam.biasY;
+        }
         // Scroll in x direction.
         unused = controls->scroll_x;
-        targetValue = controls->camera_target->x.HALF.HI - 0x78;
+        targetValue = controls->camera_target->x.HALF.HI - 0x78 + leanX;
         diff = controls->scroll_x - targetValue;
         if (diff != 0) {
             uVar5 = controls->scroll_x & 7;
@@ -133,7 +142,7 @@ void Scroll1(RoomControls* controls) {
 
         // Scroll in y direction.
         unused = controls->scroll_y;
-        targetValue = controls->camera_target->y.HALF.HI - 0x50;
+        targetValue = controls->camera_target->y.HALF.HI - 0x50 + leanY;
         diff = controls->scroll_y - (targetValue);
         if (diff != 0) {
             uVar5 = controls->scroll_y & 7;
@@ -606,7 +615,7 @@ bool32 DoApplicableTransition(u32 x, u32 y, u32 direction, u32 warp_types) {
 
     const Transition* transition = gArea.pCurrentRoomInfo->exits;
     while (transition->warp_type != WARP_TYPE_END_OF_LIST) {
-        if (((1 << transition->warp_type) & warp_types) != 0 &&
+        if (((1 << transition->warp_type) & warp_types) != 0 && !Blend_IsTransitionClosed(transition) &&
             gUnk_0811E7AC[transition->warp_type](transition, x, y, direction)) {
             DoExitTransition(transition);
             return 1;
@@ -620,7 +629,8 @@ const Transition* FindApplicableAreaTransition(u32 pos_x, u32 pos_y) {
     const Transition* transition = gArea.pCurrentRoomInfo->exits;
     u32 warp_types = 0xa;
     while (transition->warp_type != WARP_TYPE_END_OF_LIST) {
-        if (((1 << transition->warp_type) & warp_types) != 0 && IsPosInTransitionRect(transition, pos_x, pos_y, 0)) {
+        if (((1 << transition->warp_type) & warp_types) != 0 && !Blend_IsTransitionClosed(transition) &&
+            IsPosInTransitionRect(transition, pos_x, pos_y, 0)) {
             return transition;
         }
         transition++;
@@ -933,7 +943,7 @@ void sub_08080CB4(Entity* this) {
     u32 tmp2;
     u32 tmp3;
     u32 mask;
-    u32 anim = Blend_ItemSpriteAnim(this->type);
+    u32 anim = Blend_CoopItemAnim(this);
 
     if (anim != this->animIndex) {
         InitAnimationForceUpdate(this, anim);
@@ -967,6 +977,12 @@ void sub_08080CB4(Entity* this) {
                 case 0x5c:
                 case 0x62:
                     if ((gRoomTransition.frameCount & 0xf) == 0) {
+                        CreateSparkleFx(this);
+                    }
+                    break;
+                case 0:
+                    // the Revive Fairy's jar glimmers
+                    if (this->type == ITEM_REVIVE_FAIRY && (gRoomTransition.frameCount & 0x1f) == 0) {
                         CreateSparkleFx(this);
                     }
                     break;

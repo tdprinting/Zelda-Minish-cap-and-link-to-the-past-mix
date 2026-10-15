@@ -204,6 +204,54 @@ enum {
     /*0x7a*/ ALTTP_BARI,
     /*0x7b*/ ALTTP_HARDHAT,
     /*0x7c*/ ALTTP_BUMPER,
+    /*0x7d*/ ALTTP_DEBIRANDO_PIT,
+    /*0x7e*/ ALTTP_DEBIRANDO,
+    /*0x7f*/ ALTTP_FIREBALL,
+    /*0x80*/ ALTTP_KODONGO,
+    /*0x81*/ MINI_MOLDORM,
+    /*0x82*/ MINI_MOLDORM_SEGMENT,
+    /*0x83*/ HELMASAUR_KING,
+    /*0x84*/ BOSS_PART,
+    /*0x85*/ HELMASAUR_FIREBALL,
+    /*0x86*/ ARRGHUS,
+    /*0x87*/ ARRGHI,
+    /*0x88*/ MOTHULA,
+    /*0x89*/ MOTHULA_BEAM,
+    /*0x8a*/ ALTTP_SPIKE_BLOCK,
+    /*0x8b*/ MINI_HELMASAUR,
+    /*0x8c*/ TERRORPIN,
+    /*0x8d*/ HOVER,
+    /*0x8e*/ KYAMERON,
+    /*0x8f*/ ZOL,
+    /*0x90*/ FIRESNAKE,
+    /*0x91*/ ALTTP_SHOOTER,
+    /*0x92*/ BLIND,
+    /*0x93*/ KHOLDSTARE,
+    /*0x94*/ KHOLDSTARE_SHELL,
+    /*0x95*/ VITREOUS,
+    /*0x96*/ VITREOUS_EYE,
+    /*0x97*/ TRINEXX,
+    /*0x98*/ TRINEXX_HEAD,
+    /*0x99*/ BOSS_PIECE,
+    /*0x9a*/ ALTTP_BOLT,
+    /*0x9b*/ FREEZOR,
+    /*0x9c*/ PENGATOR,
+    /*0x9d*/ STALFOS_KNIGHT,
+    /*0x9e*/ WIZZROBE,
+    /*0x9f*/ LASER_EYE,
+    /*0xa0*/ CHAIN_CHOMP,
+    /*0xa1*/ ZAZAK,
+    /*0xa2*/ GIBO,
+    /*0xa3*/ FIRE_BAR,
+    /*0xa4*/ STALFOS_HEAD,
+    /*0xa5*/ AGAHNIM,
+    /*0xa6*/ AGAHNIM_BALL,
+    /*0xa7*/ GANON,
+    /*0xa8*/ GANON_PART,
+    /*0xa9*/ ALTTP_SOLDIER,
+    /*0xaa*/ WALL_CANNON,
+    /*0xab*/ FLYING_TILE,
+    /*0xac*/ ALTTP_SPARK,
 };
 
 void Octorok();
@@ -330,6 +378,54 @@ void MoldormSegment();
 void AlttpBari();
 void AlttpHardhat();
 void AlttpBumper();
+void AlttpDebirandoPit();
+void AlttpDebirando();
+void AlttpFireball();
+void AlttpKodongo();
+void MiniMoldorm();
+void MiniMoldormSegment();
+void HelmasaurKing();
+void BossPart();
+void HelmasaurFireball();
+void Arrghus();
+void Arrghi();
+void Mothula();
+void MothulaBeam();
+void AlttpSpikeBlock();
+void MiniHelmasaur();
+void Terrorpin();
+void Hover();
+void Kyameron();
+void Zol();
+void Firesnake();
+void AlttpShooter();
+void Blind();
+void Kholdstare();
+void KholdstareShell();
+void Vitreous();
+void VitreousEye();
+void Trinexx();
+void TrinexxHead();
+void BossPiece();
+void AlttpBolt();
+void Freezor();
+void Pengator();
+void StalfosKnight();
+void Wizzrobe();
+void LaserEye();
+void ChainChomp();
+void Zazak();
+void Gibo();
+void FireBar();
+void StalfosHead();
+void Agahnim();
+void AgahnimBall();
+void Ganon();
+void GanonPart();
+void AlttpSoldier();
+void WallCannon();
+void FlyingTile();
+void AlttpSpark();
 
 extern void (*const gUnk_080012C8[])(Entity*);
 

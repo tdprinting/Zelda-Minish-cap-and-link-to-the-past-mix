@@ -29,9 +29,11 @@ void DeathFx(Entity* this) {
 }
 
 void DeathFx_Action0(DeathFxObject* this) {
-    static const u8 gUnk_0811EC08[] = {
+    // Four 2-bit death animations per byte, by enemy id. blend: sized for every
+    // possible id; A Link to the Past's enemies (0x67 and up, past 0x7f too) use
+    // animation 0. A short table read whatever data followed it for ids 0x80+.
+    static const u8 gUnk_0811EC08[0x100 / 4] = {
         0, 64, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, // A Link to the Past's enemies (ids 0x67 and up)
     };
     static const u8 gUnk_0811EC20[] = {
         26,

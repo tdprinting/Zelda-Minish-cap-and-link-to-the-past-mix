@@ -39,9 +39,9 @@ const AreaHeader gAreaMetadata[] = {
     { OVERWORLD_FLAGS, 12, LOCAL_BANK_1, BGM_HYRULE_FIELD },
     { AR_HAS_KEYS | AR_IS_DUNGEON, 32, LOCAL_BANK_11, BGM_CAVE_OF_FLAMES }, // Desert Palace (flags 0x40-0x7e)
     { AR_HAS_KEYS | AR_IS_DUNGEON, 33, LOCAL_BANK_11, BGM_PALACE_OF_WINDS }, // Tower of Hera (flags 0x80-0xbf)
-    { 0, 0, 0, 0 },
-    { 0, 0, 0, 0 },
-    { 0, 0, 0, 0 },
+    { AR_HAS_KEYS | AR_IS_DUNGEON, 34, LOCAL_BANK_13, BGM_DARK_HYRULE_CASTLE }, // Palace of Darkness
+    { AR_HAS_KEYS | AR_IS_DUNGEON, 35, LOCAL_BANK_14, BGM_TEMPLE_OF_DROPLETS }, // Swamp Palace
+    { AR_HAS_KEYS | AR_IS_DUNGEON, 36, LOCAL_BANK_15, BGM_DEEPWOOD_SHRINE }, // Skull Woods
     { 0, 0, LOCAL_BANK_2, BGM_HOUSE },
     { AR_HAS_ENEMIES, 0, LOCAL_BANK_2, BGM_HOUSE },
     { AR_HAS_ENEMIES, 0, LOCAL_BANK_2, BGM_HOUSE },
@@ -67,13 +67,13 @@ const AreaHeader gAreaMetadata[] = {
     { AR_HAS_NO_ENEMIES, 0, LOCAL_BANK_4, BGM_DUNGEON },
     { AR_HAS_NO_ENEMIES, 0, LOCAL_BANK_4, BGM_DUNGEON },
     { AR_HAS_NO_ENEMIES, 0, LOCAL_BANK_2, BGM_HOUSE },
-    { 0, 0, 0, 0 },
-    { 0, 0, 0, 0 },
-    { 0, 0, 0, 0 },
-    { 0, 0, 0, 0 },
-    { 0, 0, 0, 0 },
-    { 0, 0, 0, 0 },
-    { 0, 0, 0, 0 },
+    { AR_HAS_KEYS | AR_IS_DUNGEON, 37, LOCAL_BANK_16, BGM_ROYAL_CRYPT }, // Thieves' Town
+    { AR_HAS_KEYS | AR_IS_DUNGEON, 38, LOCAL_BANK_17, BGM_TEMPLE_OF_DROPLETS }, // Ice Palace
+    { AR_HAS_KEYS | AR_IS_DUNGEON, 39, LOCAL_BANK_18, BGM_CAVE_OF_FLAMES }, // Misery Mire
+    { AR_HAS_KEYS | AR_IS_DUNGEON, 40, LOCAL_BANK_19, BGM_PALACE_OF_WINDS }, // Turtle Rock
+    { AR_HAS_KEYS | AR_IS_DUNGEON, 41, LOCAL_BANK_20, BGM_DARK_HYRULE_CASTLE }, // Ganon's Tower
+    { AR_HAS_KEYS | AR_IS_DUNGEON, 43, LOCAL_BANK_22, BGM_VAATI_WRATH }, // the Pyramid of Power
+    { AR_HAS_KEYS | AR_IS_DUNGEON, 42, LOCAL_BANK_21, BGM_FORTRESS_OF_WINDS }, // the Temple of Bonds (co-op only)
     { 0, 0, 0, 0 },
     { AR_IS_DUNGEON, 0, LOCAL_BANK_3, BGM_DUNGEON },
     { AR_IS_DUNGEON, 0, LOCAL_BANK_3, BGM_DUNGEON },

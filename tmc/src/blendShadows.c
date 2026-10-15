@@ -24,6 +24,7 @@
 #include "screen.h"
 #include "vram.h"
 #include "main.h"
+#include "save.h"
 
 typedef struct {
     u8 row;   /**< palette row of the shadow colors */
@@ -37,7 +38,7 @@ typedef struct {
     u8 area;
     u8 room;
     u8 set;
-    u8 pad;
+    u8 world; /**< 0 both worlds, 1 the Light World, 2 the Dark World (a room with a dungeon front) */
     u16 width;  /**< in 8x8 cells */
     u16 height; /**< in 8x8 cells */
     const u8* cells; /**< bits 0-5 character number, bit 6 h-flip, bit 7 v-flip */
@@ -66,8 +67,9 @@ extern BlendShadowState gBlendShadow;
 
 static const BlendShadowRoom* FindRoom(u32 area, u32 room) {
     const BlendShadowRoom* r;
+    u32 world = BLEND_DARK_WORLD ? 2 : 1;
     for (r = gBlendShadowRooms; r->area != 0xff; r++) {
-        if (r->area == area && r->room == room) {
+        if (r->area == area && r->room == room && (r->world == 0 || r->world == world)) {
             return r;
         }
     }
@@ -134,12 +136,29 @@ static void Draw(const BlendShadowRoom* r, const BlendShadowSet* set, s32 x0, s3
     gScreen.bg3.updated = 1;
 }
 
+/**
+ * A menu (the pause menu, the map) puts back the screen settings it found, the shadow
+ * layer's among them, but not the characters and map it drew over in video memory; the
+ * room fades in before gameplay (and Blend_ShadowUpdate) runs again, so redraw them now.
+ */
+void Blend_ShadowRestore(void) {
+    const BlendShadowRoom* r = gBlendShadow.room;
+    const BlendShadowSet* set = gBlendShadow.loaded;
+    if (!gBlendShadow.active || r == NULL || set == NULL || gScreen.bg3.control != SHADOW_BG3_CONTROL) {
+        return;
+    }
+    LoadChars(set);
+    Draw(r, set, gBlendShadow.cellX, gBlendShadow.cellY);
+    gScreen.bg3.subTileMap = gBG3Buffer;
+}
+
 /** Runs every gameplay frame, after the camera and the room's managers have moved. */
 void Blend_ShadowUpdate(void) {
     const BlendShadowRoom* r;
     const BlendShadowSet* set;
     s32 sx, sy, cx, cy;
-    u32 key = (gRoomControls.area << 8) | gRoomControls.room;
+    // the world is part of the key: a room with a dungeon front has a shadow map per world
+    u32 key = (gRoomControls.area << 8) | gRoomControls.room | (BLEND_DARK_WORLD ? 0x8000 : 0);
 
     if (key != gBlendShadow.key) {
         gBlendShadow.key = key;

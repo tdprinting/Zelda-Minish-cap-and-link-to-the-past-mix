@@ -11,9 +11,11 @@ landings, idle wobbles) are made from the same pixels and added onto the sheet.
 Writes, under tmc/custom/gen/ (git-ignored, since it holds graphics from the ROM):
   alttp_enemies.4bpp     sprite 155's tiles (Eastern Palace, Dark World), frame after frame
   alttp_enemies2.4bpp    sprite 329's tiles (Desert Palace, Tower of Hera, Hinox)
-  alttp_enemies.inc      both sprites' frames and one-frame animations, and the palettes
+  alttp_enemies3-5.4bpp  sprites 330-332 (Debirandos and Kodongos; the Dark World
+                         dungeons' enemies; their bosses)
+  alttp_enemies.inc      every sprite's frames and one-frame animations, and the palettes
   alttp_enemies.h        frame and palette numbers for src/enemy/alttpEnemies.c
-  objlists/155.s, 329.s  the frames' OAM layouts for gFrameObjLists
+  objlists/<sprite>.s    the frames' OAM layouts for gFrameObjLists
 
   ./alttp_enemies.py path/to/alttp-usa.sfc [--preview out.png]
 
@@ -35,6 +37,18 @@ import blendstyle  # noqa: E402
 
 SPRITE_INDEX = 155    # the Eastern Palace and Dark World set
 SPRITE_INDEX_2 = 329  # the Desert Palace, Tower of Hera and Hinox set (a new gSpritePtrs entry)
+SPRITE_INDEX_3 = 330  # Debirandos, Kodongos, mini Moldorms, the crystal switch, shared fireballs
+SPRITE_INDEX_4 = 331  # the Dark World dungeons' enemies
+SPRITE_INDEX_5 = 332  # the Dark World dungeons' bosses
+SPRITE_INDEX_6 = 333  # Thieves' Town, Ice Palace, Misery Mire and Turtle Rock enemies
+SPRITE_INDEX_7 = 334  # Blind and Kholdstare
+SPRITE_INDEX_8 = 335  # Vitreous and Trinexx
+SPRITE_INDEX_9 = 336  # Agahnim
+SPRITE_INDEX_10 = 337  # Ganon
+SPRITE_INDEX_11 = 340  # Ganon's Tower's soldiers, wall cannons, flying floor tiles and Sparks
+SUFFIXES = {SPRITE_INDEX: '', SPRITE_INDEX_2: '2', SPRITE_INDEX_3: '3', SPRITE_INDEX_4: '4', SPRITE_INDEX_5: '5',
+            SPRITE_INDEX_6: '6', SPRITE_INDEX_7: '7', SPRITE_INDEX_8: '8', SPRITE_INDEX_9: '9',
+            SPRITE_INDEX_10: '10', SPRITE_INDEX_11: '11'}
 DUNGEON_PALSET = 11  # the Eastern Palace's sprite colors
 
 # ---------------------------------------------------------------------------
@@ -151,7 +165,7 @@ def compose(sheets, pieces, origin):
                     continue
                 dx = size - 1 - px if flags & 0x40 else px
                 dy = size - 1 - py if flags & 0x80 else py
-                pix[(x + dx - origin[0], y + dy - origin[1])] = v + add
+                pix[(x + dx - origin[0], y + dy - origin[1])] = v + add if v < 8 else v
     return pix
 
 
@@ -387,13 +401,21 @@ BUMPER_DMD = [[(-8, -8, 0x00ec, 2), (8, -8, 0x40ec, 2), (-8, 8, 0x80ec, 2), (8, 
 PREVIEW_PALETTES = {'LMDIRT': 'LANMOLA_DIRT', 'BEAMLASER': 'BEAMOS_LASER', 'MOLDTAIL': 'MOLDORM_TAIL',
                     'BARI': 'BARI_BLUE', 'HINOX': 'HINOX', 'LANMOLA': 'LANMOLA', 'LEEVER': 'LEEVER',
                     'BEAMOS': 'BEAMOS', 'POKEY': 'POKEY', 'GIBDO': 'GIBDO', 'MOLDORM': 'MOLDORM',
-                    'HARDHAT': 'HARDHAT', 'BUMPER': 'BUMPER', 'BOMB': 'BOMB'}
+                    'HARDHAT': 'HARDHAT', 'BUMPER': 'BUMPER', 'BOMB': 'BOMB',
+                    'DEBPIT': 'DEBPIT', 'DEBIRANDO': 'DEBIRANDO_FIRE', 'FIREBALL': 'FIREBALL',
+                    'KODONGO': 'KODONGO', 'KFIRE': 'KFIRE', 'KFLAME': 'KFIRE', 'MINIMOLD': 'MINIMOLD',
+                    'MINIHELM': 'MINIHELM', 'TERRORPIN': 'TERRORPIN', 'HOVER': 'HOVER', 'KYAM': 'KYAM',
+                    'ZOL': 'ZOL', 'FIRESNAKE': 'FIRESNAKE', 'SPIKEBLOCK': 'SPIKEBLOCK',
+                    'HKUP': 'HK', 'HKLOW': 'HK', 'HKLEG': 'HK', 'HKFACE': 'HKFACE',
+                    'HKTAIL': 'HK', 'HKFIRE': 'HKFIRE', 'HKBIT': 'HKMASK', 'ARRGHUS': 'ARRGHUS',
+                    'ARRGHI': 'ARRGHUS', 'MOTHULA': 'MOTHULA', 'MBEAM': 'MBEAM'}
 
 # ---------------------------------------------------------------------------
 # the enemies
 
 PALETTES = []      # (name, 16 RGB colors)
-SPRITES = {SPRITE_INDEX: [], SPRITE_INDEX_2: []}   # sprite slot -> its frames
+EXTRA_DEFINES = []  # more lines for alttp_enemies.h (tables the C code reads)
+SPRITES = {n: [] for n in SUFFIXES}   # sprite slot -> its frames
 FRAMES = SPRITES[SPRITE_INDEX]
 
 
@@ -650,6 +672,361 @@ def build_frames_2():
     palette('HARDHAT', mc_palette(4, palset=6))
     palette('BUMPER', mc_palette(2, palset=6))
 
+    build_frames_3()
+
+
+# ---------------------------------------------------------------------------
+# both of A Link to the Past's OAM name tables
+
+class Vram:
+    """A dungeon sprite set as ALttP's OAM sees it: chars 0x140-0x1ff... are the set's
+    four sheets (name table 1), chars 0x40-0xff the shared sheets (name table 0: misc
+    sprites, then sheets 6 and 7 with fire, sparks and sand). Chars are 9-bit."""
+
+    def __init__(self, dset, overworld=False):
+        util, tables, S = z3()
+        self.nt1 = Sheets(dset, overworld)
+        self.nt0 = {1: S.decode_3bit_tileset(10), 2: S.decode_3bit_tileset(6), 3: S.decode_3bit_tileset(7)}
+
+    def pixel(self, char, x, y):
+        if char & 0x100:
+            return self.nt1.pixel(char & 0xff, x, y)
+        src = self.nt0.get((char >> 6) & 3)
+        if src is None:
+            return 0
+        c = char & 63
+        return src[((c >> 4) * 8 + y) * 128 + (c & 15) * 8 + x]
+
+
+def pieces9(table, own=1, add_for=None):
+    """zelda3 DrawMultipleData entries (x, y, char_flags, ext) as 9-bit-char pieces; own
+    is the sprite's own OAM flags, which the entries' flags are XORed with. add_for maps
+    an ALttP palette number to the color offset (0 or 8) it is drawn with."""
+    out = []
+    for e in table:
+        x, y, cf, ext = e[:4]
+        flags = (cf >> 8) ^ own
+        char = (cf & 0xff) | (flags & 1) << 8
+        add = (add_for or {}).get((flags >> 1) & 7, 0)
+        out.append((x, y, char, flags & 0xc0, ext, add))
+    return out
+
+
+def snes_flags_piece(x, y, char, flags, big, own=1, add=0):
+    """One piece in SetOamHelper style: flags XOR the sprite's own picks the name table."""
+    f = flags ^ own
+    return (x, y, (char & 0xff) | (f & 1) << 8, f & 0xc0, big, add)
+
+
+# Debirando pit (DebirandoPit_Draw): six poses of four mirrored quarters
+_DBP_X = [-8, 8, -8, 8, -8, 8, -8, 8, -8, 8, -8, 8, 0, 8, 0, 8, 0, 8, 0, 8, -8, 8, -8, 8]
+_DBP_Y = [-8, -8, 8, 8, -8, -8, 8, 8, -8, -8, 8, 8, 0, 0, 8, 8, 0, 0, 8, 8, -8, -8, 8, 8]
+_DBP_C = [4, 4, 4, 4, 0x22, 0x22, 0x22, 0x22, 2, 2, 2, 2, 0x29, 0x29, 0x29, 0x29,
+          0x39, 0x39, 0x39, 0x39, 0x2a, 0x2a, 0x2a, 0x2a]
+_DBP_F = [0, 0x40, 0x80, 0xc0] * 6
+_DBP_B = [2, 2, 2, 0, 0, 2]
+# Debirando (Debirando_Draw): peeking, half out, out, and jaws open
+_DB_X = [0, 8, 0, 8, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0, 0, 0]
+_DB_Y = [2, 2, 6, 6, -2, -2, 6, 6, -4, -4, -4, -4, -4, -4, -4, -4]
+_DB_C = [0, 0, 0xd8, 0xd8, 0, 0, 0xd9, 0xd9, 0, 0, 0, 0, 0x20, 0x20, 0x20, 0x20]
+_DB_F = [1, 0x41, 0, 0x40, 1, 1, 0, 0x40, 1, 1, 1, 1, 1, 1, 1, 1]
+_DB_B = [0, 0, 0, 0, 2, 2, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2]
+
+# Kodongo: SpriteDraw_SingleLarge chars by pose (kSprite_PrepAndDrawSingleLarge_Tab2)
+KODONGO_CHARS = [0xa0, 0xaa, 0xa4, 0xa6, 0xac, 0xa2, 0xa8]
+# its flame on the floor (Flame_Draw), name table 0 (the fire sheet)
+_FLAME = [(0, 0, 0x018e, 2), (0, 0, 0x018e, 2), (0, 0, 0x01a0, 2), (0, 0, 0x01a0, 2),
+          (0, 0, 0x418e, 2), (0, 0, 0x418e, 2), (0, 0, 0x41a0, 2), (0, 0, 0x41a0, 2),
+          (0, 0, 0x01a2, 2), (0, 0, 0x01a2, 2), (0, -6, 0x01a4, 0), (8, -6, 0x01a5, 0)]
+FLAME_DMD = [_FLAME[g * 2:g * 2 + 2] for g in range(6)]
+
+# mini Moldorm (Moldorm_Draw): eyes either side of the heading, head, segment, tail
+MINIMOLD_EYE_X = [11, 10, 9, 6, 3, 0, -2, -3, -4, -3, -2, 1, 4, 7, 9, 10]
+MINIMOLD_EYE_Y = [4, 6, 9, 10, 11, 10, 9, 6, 3, 0, -2, -3, -4, -3, -2, 1]
+
+
+def build_frames_3():
+    use_sprite(SPRITE_INDEX_3)
+
+    # --- Debirando and its pit (Desert Palace): the pit's six poses, the monster's
+    # four, and added frames: a gulp as it ducks back under, and a jaw snap
+    desert = Vram(10)
+    org = (8, 8)
+    for g in range(6):
+        pieces = [(_DBP_X[g * 4 + i], _DBP_Y[g * 4 + i], 0x100 | _DBP_C[g * 4 + i], _DBP_F[g * 4 + i], _DBP_B[g])
+                  for i in range(4)]
+        frame('DEBPIT_%d' % g, compose(desert, pieces, (0, 0)))
+    for g in range(4):
+        pieces = []
+        for i in range(4):
+            j = g * 4 + i
+            f = _DB_F[j]
+            if f & 0xf:   # the monster: its own name table and colors
+                pieces.append((_DB_X[j], _DB_Y[j], 0x100 | _DB_C[j], f & 0xc0, _DB_B[j], 0))
+            else:         # the sand around it: the shared sheet, colors + 8
+                pieces.append((_DB_X[j], _DB_Y[j], _DB_C[j], f & 0xc0, _DB_B[j], 8))
+        frame('DEBIRANDO_%d' % g, compose(desert, pieces, org))
+    frame('DEBIRANDO_GULP', scaled(compose(desert, [(0, -2, 0x100, 0, 2)], org), 1.15, 0.8))
+    frame('DEBIRANDO_SNAP', scaled(compose(desert, [(0, -4, 0x120, 0, 2)], org), 1.1, 1.1, dy=-1))
+
+    # --- fireballs: the small one Debirandos and Medusas spit (char 0x8d of the fire
+    # sheet), spinning, and an added flare as it leaves the mouth
+    org = (4, 4)
+    ball = compose(desert, [(0, 0, 0x8d, 0, 0)], org)
+    frame('FIREBALL_0', ball)
+    frame('FIREBALL_1', mirrored(ball))
+    frame('FIREBALL_FLARE', scaled(ball, 1.5, 1.5, dy=2))
+
+    # --- Kodongo (Tower of Hera, Palace of Darkness): seven poses and their mirrors,
+    # plus a puffed-up chest before it breathes fire
+    hera = Vram(25)
+    org = (8, 12)
+    for g, c in enumerate(KODONGO_CHARS):
+        p = compose(hera, [(0, 0, 0x100 | c, 0, 2)], org)
+        frame('KODONGO_%d' % g, p)
+        frame('KODONGO_%d_FLIP' % g, mirrored(p))
+    for g, flip in ((4, False), (1, False), (6, False)):
+        p = compose(hera, [(0, 0, 0x100 | KODONGO_CHARS[g], 0, 2)], org)
+        frame('KODONGO_PUFF_%d' % g, scaled(p, 1.12, 1.06))
+    # its fire: the moving fireball, spinning four ways, and the flame it leaves
+    # burning where it lands (A Link to the Past's lamp fire)
+    org = (8, 8)
+    spin = compose(hera, [(0, 0, 0x18c, 0, 2)], org)
+    frame('KFIRE_0', spin)
+    frame('KFIRE_1', mirrored(spin))
+    frame('KFIRE_2', {(-1 - x, -1 - y): c for (x, y), c in spin.items()})
+    frame('KFIRE_3', {(x, -1 - y): c for (x, y), c in spin.items()})
+    org = (8, 12)
+    for g in range(6):
+        frame('KFLAME_%d' % g, compose(hera, pieces9(FLAME_DMD[g], own=1), org))
+
+    # --- mini Moldorm: the head with its two eyes for 16 headings, a segment, the
+    # tail, and an added squash for the bounce off a wall
+    org = (8, 8)
+    for d in range(16):
+        pieces = []
+        b = (d - 1) & 15
+        for i in range(2):
+            e = (b + i * 2) & 15
+            pieces.append((MINIMOLD_EYE_X[e], MINIMOLD_EYE_Y[e], 0x14d, 0, 0))
+        pieces.append((0, 0, 0x160, 0, 2))
+        frame('MINIMOLD_HEAD_%d' % d, compose(hera, pieces, org))
+    frame('MINIMOLD_BODY', compose(hera, [(0, 0, 0x162, 0, 2)], org))
+    frame('MINIMOLD_TAIL', compose(hera, [(4, 4, 0x15d, 0, 0)], org))
+    frame('MINIMOLD_SQUASH', scaled(compose(hera, [(0, 0, 0x160, 0, 2)], org), 1.2, 0.8, dy=2))
+
+    palette('DEBPIT', mc_palette(0, palset=9))
+    palette('DEBIRANDO', two_palettes(mc_palette(4, palset=9), mc_palette(0, palset=9)))
+    palette('DEBIRANDO_FIRE', two_palettes(mc_palette(3, palset=9), mc_palette(0, palset=9)))
+    palette('FIREBALL', mc_palette(3, palset=9))
+    palette('KODONGO', mc_palette(6, palset=6))
+    palette('KFIRE', mc_palette(1, palset=6))
+    palette('MINIMOLD', mc_palette(3, palset=6))
+
+    build_frames_4()
+    build_frames_5()
+    import alttp_enemies_late
+    alttp_enemies_late.build(globals())
+    import alttp_enemies_ganon
+    alttp_enemies_ganon.build(globals())
+    import alttp_enemies_gt
+    alttp_enemies_gt.build(globals())
+
+
+# ---------------------------------------------------------------------------
+# the Dark World dungeons' enemies (sprite 331)
+
+# Kyameron (Kyameron_Draw): poses 0-11 are single 16x16 chars with these flips,
+# 12-18 small pieces: the drop forming, the splash as it bursts
+KYAM_CHARS = [0x8a, 0xa8, 0x8a, 0xa8, 0x88, 0xa0, 0xa4, 0xa2, 0xa6, 0xa6, 0xa6, 0xa6]
+KYAM_FLAGS = [0x40, 0, 0, 0, 0, 0, 0, 0, 0, 0x40, 0xc0, 0x80]
+_KYAM_DMD = [
+    (1, 8, 0x00b4, 0), (7, 8, 0x00b5, 0), (4, -3, 0x0086, 0), (0, -13, 0x80a2, 2),
+    (2, 8, 0x00b4, 0), (6, 8, 0x00b5, 0), (4, -6, 0x0096, 0), (0, -20, 0x00a2, 2),
+    (4, -1, 0x0096, 0), (0, -27, 0x00a2, 2), (0, -27, 0x00a2, 2), (0, -27, 0x00a2, 2),
+    (-6, -6, 0x01df, 0), (14, -6, 0x41df, 0), (-6, 14, 0x81df, 0), (14, 14, 0xc1df, 0),
+    (-6, -6, 0x0096, 0), (14, -6, 0x4096, 0), (-6, 14, 0x8096, 0), (14, 14, 0xc096, 0),
+    (-4, -4, 0x018d, 0), (12, -4, 0x418d, 0), (-4, 12, 0x818d, 0), (12, 12, 0xc18d, 0),
+    (0, 0, 0x018d, 0), (8, 0, 0x418d, 0), (0, 8, 0x818d, 0), (8, 8, 0xc18d, 0),
+]
+KYAM_DMD = [_KYAM_DMD[g * 4:g * 4 + 4] for g in range(7)]
+# Zol (Zol_Draw): poses 4-7, rising out of the floor
+_ZOL_DMD = [(0, 8, 0x036c, 0), (8, 8, 0x036d, 0), (0, 8, 0x0060, 0), (8, 8, 0x0070, 0),
+            (0, 8, 0x4070, 0), (8, 8, 0x4060, 0), (0, 0, 0x0040, 2), (0, 0, 0x0040, 2)]
+ZOL_DMD = [_ZOL_DMD[g * 2:g * 2 + 2] for g in range(4)]
+
+
+def build_frames_4():
+    use_sprite(SPRITE_INDEX_4)
+    pod = Vram(25)
+    swamp = Vram(17)
+    skull = Vram(19)
+
+    # --- mini Helmasaur (Palace of Darkness, Skull Woods): poses 2-5 of chars
+    # 0x160-0x16a, each also mirrored, and a squash for a knock on its mask
+    org = (8, 12)
+    for g in range(2, 6):
+        p = compose(pod, [(0, 0, 0x160 + g * 2, 0, 2)], org)
+        frame('MINIHELM_%d' % g, p)
+        frame('MINIHELM_%d_FLIP' % g, mirrored(p))
+    frame('MINIHELM_SQUASH', scaled(compose(pod, [(0, 0, 0x164, 0, 2)], org), 1.2, 0.8))
+
+    # --- Terrorpin: two walking poses, overturned (rocking both ways), and a
+    # stretched hop as the hammer flips it
+    for g, c in enumerate((0x18e, 0x1ae, 0x18a)):
+        p = compose(pod, [(0, 0, c, 0, 2)], org)
+        frame('TERRORPIN_%d' % g, p)
+    frame('TERRORPIN_2_FLIP', mirrored(compose(pod, [(0, 0, 0x18a, 0, 2)], org)))
+    frame('TERRORPIN_HOP', scaled(compose(pod, [(0, 0, 0x18e, 0, 2)], org), 0.85, 1.2))
+
+    # --- Hover, the Swamp Palace's water strider: three poses, each mirrored
+    for g, c in enumerate((0x184, 0x182, 0x180)):
+        p = compose(swamp, [(0, 0, c, 0, 2)], org)
+        frame('HOVER_%d' % g, p)
+        frame('HOVER_%d_FLIP' % g, mirrored(p))
+
+    # --- Kyameron: the bouncing water drop, its puddle, forming and bursting
+    org = (8, 8)
+    for g in range(12):
+        frame('KYAM_%d' % g, compose(swamp, [(0, 0, 0x100 | KYAM_CHARS[g], KYAM_FLAGS[g], 2)], org))
+    for g in range(7):
+        frame('KYAM_%d' % (12 + g), compose(swamp, pieces9(KYAM_DMD[g], own=0x05), org))
+
+    # --- Zol: two hopping poses each way, and four rising out of the floor
+    org = (8, 12)
+    for g, c in enumerate((0x142, 0x144)):
+        p = compose(swamp, [(0, 0, c, 0, 2)], org)
+        frame('ZOL_%d' % g, p)
+        frame('ZOL_%d_FLIP' % g, mirrored(p))
+    for g in range(4):
+        frame('ZOL_%d' % (4 + g), compose(swamp, pieces9(ZOL_DMD[g], own=0x1b, add_for={4: 8}), org))
+    frame('ZOL_LAND', scaled(compose(swamp, [(0, 0, 0x142, 0, 2)], org), 1.2, 0.8))
+
+    # --- Firesnake (Skull Woods): a fireball spun a quarter turn every 4 frames;
+    # its trail is the same ball
+    org = (8, 8)
+    for g, f in enumerate((0, 0x40, 0x80, 0xc0)):
+        frame('FIRESNAKE_%d' % g, compose(skull, [(0, 0, 0x128, f, 2)], org))
+
+    # --- spike block (blade trap)
+    frame('SPIKEBLOCK', compose(pod, [(0, 0, 0x1e6, 0, 2)], org))
+
+    palette('MINIHELM', mc_palette(0, palset=15))
+    palette('TERRORPIN', mc_palette(5, palset=15))
+    palette('HOVER', mc_palette(5, palset=10))
+    palette('KYAM', mc_palette(2, palset=10))
+    palette('ZOL', two_palettes(mc_palette(5, palset=10), mc_palette(4, palset=10)))
+    palette('FIRESNAKE', mc_palette(1, palset=13))
+    palette('SPIKEBLOCK', mc_palette(6, palset=15))
+
+
+# ---------------------------------------------------------------------------
+# the Dark World dungeons' bosses (sprite 332)
+
+# the Helmasaur King (HelmasaurKing_Draw): the body, 19 pieces drawn in two halves
+_HK_BODY = [(-24, -32, 0x0b80, 2), (-8, -32, 0x0b82, 2), (8, -32, 0x4b82, 2), (24, -32, 0x4b80, 2),
+            (-24, -16, 0x0b84, 2), (-8, -16, 0x0b86, 2), (8, -16, 0x4b86, 2), (24, -16, 0x4b84, 2),
+            (-24, 0, 0x0b88, 2), (-8, 0, 0x0b8a, 2), (8, 0, 0x4b8a, 2), (24, 0, 0x4b88, 2),
+            (-24, 16, 0x0b8c, 2), (-8, 16, 0x0b8e, 2), (8, 16, 0x4b8e, 2), (24, 16, 0x4b8c, 2),
+            (-8, 32, 0x0ba0, 2), (8, 32, 0x4ba0, 2), (0, -40, 0x0bac, 2)]
+HK_UPPER = [_HK_BODY[18]] + _HK_BODY[:8]
+HK_LOWER = _HK_BODY[8:18]
+# the mask, whole and chipped twice
+_HK_MASK = [(-16, -5, 0x0dae, 2), (0, -5, 0x0dc0, 2), (16, -5, 0x4dae, 2), (-16, 11, 0x0dc2, 2),
+            (0, 11, 0x0dc4, 2), (16, 11, 0x4dc2, 2), (-8, 27, 0x0dc6, 2), (8, 27, 0x4dc6, 2),
+            (-16, -5, 0x0dae, 2), (0, -5, 0x0dc0, 2), (16, -5, 0x4dae, 2), (-16, 11, 0x0dc8, 2),
+            (0, 11, 0x0dc4, 2), (16, 11, 0x4dc2, 2), (-8, 27, 0x0dc6, 2), (8, 27, 0x4dc6, 2),
+            (-16, -5, 0x0dae, 2), (0, -5, 0x0dc0, 2), (16, -5, 0x4dae, 2), (-16, 11, 0x0dc8, 2),
+            (0, 11, 0x0dc4, 2), (16, 11, 0x4dc8, 2), (-8, 27, 0x0dc6, 2), (8, 27, 0x4dc6, 2)]
+HK_MASK = [_HK_MASK[m * 8:m * 8 + 8] for m in range(3)]
+HK_EYE_CHARS = (0xce, 0xcf, 0xde)
+# mask debris (SpawnMaskDebris: kSprite_PrepAndDrawSingleLarge chars of sprite 0x92)
+HK_DEBRIS = (0xae, 0xc0, 0xc8, 0xc4, 0xc6, 0xe2)
+
+# Arrghus (Arrghus_Draw): the body's four pieces (+2 chars a pose) and the tail
+ARRGHUS_DMD = [(-8, -4, 0x0080, 2), (8, -4, 0x4080, 2), (-8, 12, 0x00a0, 2), (8, 12, 0x40a0, 2),
+               (0, 24, 0x00a8, 2)]
+# Mothula (Mothula_Draw): three wing beats of eight pieces
+_MOTHULA = [(-24, -8, 0x0080, 2), (-8, -8, 0x0082, 2), (8, -8, 0x4082, 2), (24, -8, 0x4080, 2),
+            (-24, 8, 0x00a0, 2), (-8, 8, 0x00a2, 2), (8, 8, 0x40a2, 2), (24, 8, 0x40a0, 2),
+            (-24, -8, 0x0084, 2), (-8, -8, 0x0086, 2), (8, -8, 0x4086, 2), (24, -8, 0x4084, 2),
+            (-24, 8, 0x00a4, 2), (-8, 8, 0x00a6, 2), (8, 8, 0x40a6, 2), (24, 8, 0x40a4, 2),
+            (-8, -8, 0x0088, 2), (-8, -8, 0x0088, 2), (8, -8, 0x4088, 2), (8, -8, 0x4088, 2),
+            (-8, 8, 0x00a8, 2), (-8, 8, 0x00a8, 2), (8, 8, 0x40a8, 2), (8, 8, 0x40a8, 2)]
+MOTHULA_DMD = [_MOTHULA[g * 8:g * 8 + 8] for g in range(3)]
+
+
+def build_frames_5():
+    use_sprite(SPRITE_INDEX_5)
+
+    # --- the Helmasaur King. Its position is A Link to the Past's sprite position
+    # plus 8: the body's middle. Parts that move on their own are frames of their own.
+    hk = Vram(21)
+    org = (8, 8)
+    frame('HKUP', compose(hk, pieces9(HK_UPPER, own=0), org))
+    # the lower body, with the mouth opening under the mask as it spits fire
+    # (SpriteDraw_KingHelmasaur_Mouth: 1-10 pixels down)
+    low = pieces9(HK_LOWER, own=0)
+    frame('HKLOW_0', compose(hk, low, org))
+    for yd in range(1, 11):
+        frame('HKLOW_%d' % yd, compose(hk, [(0, 19 + yd, 0x1aa, 0, 2)] + low, org))
+    # the legs: front and back, each side (SpriteDraw_KingHelmasaur_Legs)
+    for name, c in (('A', 0xa2), ('B', 0xa6)):
+        p = compose(hk, [(0, 0, 0x100 | c, 0, 2), (0, 16, 0x100 | (c + 2), 0, 2)], org)
+        frame('HKLEG_%s' % name, p)
+        frame('HKLEG_%s_FLIP' % name, mirrored(p))
+    # the face: mask (whole, chipped, more chipped, gone) with the eyes in front,
+    # which roll through three looks; mask colors are the upper half
+    for m in range(4):
+        for e, ec in enumerate(HK_EYE_CHARS):
+            pieces = [(-3, 20, 0x100 | ec, 0, 0, 0), (11, 20, 0x100 | ec, 0x40, 0, 0)]
+            if m < 3:
+                pieces += pieces9(HK_MASK[m], own=0, add_for={6: 8})
+            frame('HKFACE_%d_%d' % (m, e), compose(hk, pieces, org))
+    # the tail: its balls and the spiked mace on the end
+    frame('HKTAIL_BALL', compose(hk, [(0, 0, 0x1ac, 0, 2)], org))
+    frame('HKTAIL_MACE', compose(hk, [(0, 0, 0x1e4, 0, 2)], org))
+    # its fireball, full and forming, each way round
+    for name, c in (('BIG', 0x1cc), ('SMALL', 0x1ca)):
+        p = compose(hk, [(0, 0, c, 0, 2)], org)
+        frame('HKFIRE_%s' % name, p)
+        frame('HKFIRE_%s_FLIP' % name, mirrored(p))
+    # pieces of the mask breaking off
+    for g, c in enumerate(HK_DEBRIS):
+        p = compose(hk, [(0, 0, 0x100 | c, 0, 2)], org)
+        frame('HKBIT_%d' % g, p)
+        frame('HKBIT_%d_FLIP' % g, mirrored(p))
+
+    # --- Arrghus: three poses with the tail either way, swimming (no tail), and
+    # the Arrghi puffs around it
+    ar = Vram(20)
+    org = (8, 8)
+    for g in range(3):
+        body = [(x, y, cf + g * 2 if i < 4 else cf, ext) for i, (x, y, cf, ext) in enumerate(ARRGHUS_DMD)]
+        frame('ARRGHUS_%d' % g, compose(ar, pieces9(body, own=0x0d), org))
+        tail = body[:4] + [(0, 24, 0x40a8, 2)]
+        frame('ARRGHUS_%d_FLIP' % g, compose(ar, pieces9(tail, own=0x0d), org))
+        frame('ARRGHUS_SWIM_%d' % g, compose(ar, pieces9(body[:4], own=0x0d), org))
+    frame('ARRGHUS_SQUASH', scaled(compose(ar, pieces9(ARRGHUS_DMD, own=0x0d), org), 1.25, 0.75))
+    for g, c in enumerate((0x1a6, 0x188, 0x186)):
+        frame('ARRGHI_%d' % g, compose(ar, [(0, 0, c, 0, 2)], org))
+
+    # --- Mothula: three wing beats, and its beam ring each way up
+    mo = Vram(26)
+    for g in range(3):
+        frame('MOTHULA_%d' % g, compose(mo, pieces9(MOTHULA_DMD[g], own=0x0d), org))
+    p = compose(mo, [(0, 0, 0x1aa, 0, 2)], org)
+    frame('MBEAM_0', p)
+    frame('MBEAM_1', {(x, -1 - y): c for (x, y), c in p.items()})
+
+    palette('HK', mc_palette(5, palset=16))
+    palette('HKFACE', two_palettes(mc_palette(5, palset=16), mc_palette(6, palset=16)))
+    palette('HKMASK', mc_palette(6, palset=16))
+    palette('HKFIRE', mc_palette(1, palset=16))
+    palette('ARRGHUS', mc_palette(6, palset=8))
+    palette('MOTHULA', mc_palette(6, palset=14))
+    palette('MBEAM', mc_palette(1, palset=14))
+
 
 # ---------------------------------------------------------------------------
 # Minish Cap sprite data
@@ -722,6 +1099,7 @@ def write_sprite(index, frames, suffix):
             gfx += b''.join(ts)
             ntiles += len(ts)
         assert ntiles <= 64, f.name
+        assert max(f.pix.values()) < 16, f.name
         max_tiles = max(max_tiles, ntiles)
         f.ntiles = ntiles
         frames_asm.append('\tsprite_frame first_tile_index=0x%x, num_tiles=%d @ %s' % (first, ntiles, f.name))
@@ -754,8 +1132,8 @@ def write_sprite(index, frames, suffix):
 def write(preview=None):
     os.makedirs(os.path.join(OUT, 'objlists'), exist_ok=True)
     inc = ['@ generated by blend/enemies/alttp_enemies.py from your own cartridge; do not commit']
-    inc += write_sprite(SPRITE_INDEX, SPRITES[SPRITE_INDEX], '')
-    inc += write_sprite(SPRITE_INDEX_2, SPRITES[SPRITE_INDEX_2], '2')
+    for n, suffix in SUFFIXES.items():
+        inc += write_sprite(n, SPRITES[n], suffix)
     inc += ['\t.align 2', 'gAlttpEnemyPalettes::']
     for name, cols in PALETTES:
         inc.append('\t.2byte ' + ', '.join('0x%04x' % gba_color(c) for c in cols) + ' @ ' + name)
@@ -765,7 +1143,17 @@ def write(preview=None):
     h = ['/* generated by blend/enemies/alttp_enemies.py; frame and palette numbers */',
          '#ifndef ALTTP_ENEMIES_GEN_H', '#define ALTTP_ENEMIES_GEN_H',
          '#define ALTTP_ENEMY_SPRITE %d' % SPRITE_INDEX,
-         '#define ALTTP_ENEMY_SPRITE_2 %d' % SPRITE_INDEX_2]
+         '#define ALTTP_ENEMY_SPRITE_2 %d' % SPRITE_INDEX_2,
+         '#define ALTTP_ENEMY_SPRITE_3 %d' % SPRITE_INDEX_3,
+         '#define ALTTP_ENEMY_SPRITE_4 %d' % SPRITE_INDEX_4,
+         '#define ALTTP_ENEMY_SPRITE_5 %d' % SPRITE_INDEX_5,
+         '#define ALTTP_ENEMY_SPRITE_6 %d' % SPRITE_INDEX_6,
+         '#define ALTTP_ENEMY_SPRITE_7 %d' % SPRITE_INDEX_7,
+         '#define ALTTP_ENEMY_SPRITE_8 %d' % SPRITE_INDEX_8,
+         '#define ALTTP_ENEMY_SPRITE_9 %d' % SPRITE_INDEX_9,
+         '#define ALTTP_ENEMY_SPRITE_10 %d' % SPRITE_INDEX_10,
+         '#define ALTTP_ENEMY_SPRITE_11 %d' % SPRITE_INDEX_11]
+    h += EXTRA_DEFINES
     slots = {}
     for index, frames in SPRITES.items():
         h.append('/* sprite %d */' % index)
@@ -795,7 +1183,7 @@ def draw_preview(path):
                'SPEAR': 'MOBLIN'}
     pal_for.update(PREVIEW_PALETTES)
     pals = dict(PALETTES)
-    frames = SPRITES[SPRITE_INDEX] + SPRITES[SPRITE_INDEX_2]
+    frames = [f for n in SUFFIXES for f in SPRITES[n]]
     cols = 12
     rows = (len(frames) + cols - 1) // cols
     im = Image.new('RGB', (cols * 48, rows * 56), (40, 48, 40))

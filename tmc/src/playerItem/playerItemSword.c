@@ -4,6 +4,7 @@
  *
  * @brief Sword Player Item
  */
+#include "blend.h"
 #include "asm.h"
 #include "effects.h"
 #include "entity.h"
@@ -63,6 +64,7 @@ void PlayerItemSword_Init(PlayerItemSwordEntity* this) {
         DeleteThisEntity();
     }
     LoadSwapGFX(super, 1, 3);
+    Blend_GoldenSwordGild(super); // blend: gold from its first frame
     super->collisionFlags = (gPlayerEntity.base.collisionFlags + 1) | 0x20;
     super->collisionMask = gPlayerEntity.base.collisionMask;
     super->updatePriority = 6;
@@ -77,7 +79,7 @@ void PlayerItemSword_Init(PlayerItemSwordEntity* this) {
             super->flags &= ~ENT_COLLIDE;
             super->type2 = 2;
             super->damage = gPlayerState.swordDamage * 2 + 8;
-            switch (this->unk_68) {
+            switch (Blend_SwordLevel(this->unk_68)) {
                 case 6:
                     super->hurtType = 0x1a;
                     break;
@@ -175,7 +177,7 @@ void PlayerItemSword_Action1(PlayerItemSwordEntity* this) {
         if (gPlayerState.sword_state != 0) {
             super->hurtType = 0xd;
             if ((gPlayerState.sword_state & 0x40) != 0) {
-                switch (this->unk_68) {
+                switch (Blend_SwordLevel(this->unk_68)) {
                     case 6:
                         super->hurtType = 0xa;
                         break;
@@ -193,7 +195,7 @@ void PlayerItemSword_Action1(PlayerItemSwordEntity* this) {
         } else {
 
             if ((gPlayerState.flags & PL_SWORD_THRUST) != 0) {
-                if (this->unk_68 == 6) {
+                if (Blend_SwordLevel(this->unk_68) == 6) {
                     super->hurtType = 0xc;
                 } else {
                     super->hurtType = 0xb;

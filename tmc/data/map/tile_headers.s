@@ -359,9 +359,9 @@ gAreaTiles:: @ 0810309C
 	.4byte gAreaTiles_MtCrenel                @ 0x1A
 	.4byte gAreaTiles_DesertPalace             @ 0x1B (A Link to the Past)
 	.4byte gAreaTiles_TowerOfHera              @ 0x1C (A Link to the Past)
-	.4byte gAreaTiles_HyruleField             @ 0x1D
-	.4byte gAreaTiles_MinishWoods             @ 0x1E
-	.4byte gAreaTiles_HyruleField             @ 0x1F
+	.4byte gAreaTiles_PalaceOfDarkness        @ 0x1D (A Link to the Past)
+	.4byte gAreaTiles_SwampPalace              @ 0x1E (A Link to the Past)
+	.4byte gAreaTiles_SkullWoods               @ 0x1F (A Link to the Past)
 	.4byte gAreaTiles_MinishHouseInteriors    @ 0x20
 	.4byte gAreaTiles_HouseInteriors1         @ 0x21
 	.4byte gAreaTiles_HouseInteriors2         @ 0x22
@@ -387,13 +387,13 @@ gAreaTiles:: @ 0810309C
 	.4byte gAreaTiles_CastleGardenMinishHoles @ 0x36
 	.4byte gAreaTiles_CastleGardenMinishHoles @ 0x37
 	.4byte gAreaTiles_EzloCutscene            @ 0x38
-	.4byte gAreaTiles_Unused                  @ 0x39
-	.4byte gAreaTiles_Unused                  @ 0x3A
-	.4byte gAreaTiles_Unused                  @ 0x3B
-	.4byte gAreaTiles_Unused                  @ 0x3C
-	.4byte gAreaTiles_Unused                  @ 0x3D
-	.4byte gAreaTiles_Unused                  @ 0x3E
-	.4byte gAreaTiles_Unused                  @ 0x3F
+	.4byte gAreaTiles_ThievesTown               @ 0x39 (A Link to the Past)
+	.4byte gAreaTiles_IcePalace               @ 0x3A (A Link to the Past)
+	.4byte gAreaTiles_MiseryMire               @ 0x3B (A Link to the Past)
+	.4byte gAreaTiles_TurtleRock               @ 0x3C (A Link to the Past)
+	.4byte gAreaTiles_GanonsTower               @ 0x3D (A Link to the Past)
+	.4byte gAreaTiles_Pyramid               @ 0x3E (A Link to the Past)
+	.4byte gAreaTiles_TempleOfBonds_R00               @ 0x3F (the blend's co-op temple; each room has its own, see Blend_RoomTiles)
 	.4byte gAreaTiles_HyruleTownUnderground   @ 0x40
 	.4byte gAreaTiles_HyruleTownUnderground   @ 0x41
 	.4byte gAreaTiles_HyruleTownUnderground   @ 0x42

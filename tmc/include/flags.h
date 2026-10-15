@@ -53,6 +53,16 @@ enum LocalBanks {
     LOCAL_BANK_10,
     LOCAL_BANK_11,
     LOCAL_BANK_12,
+    LOCAL_BANK_13, /**< blend: Palace of Darkness */
+    LOCAL_BANK_14, /**< blend: Swamp Palace */
+    LOCAL_BANK_15, /**< blend: Skull Woods */
+    LOCAL_BANK_16, /**< blend: Thieves' Town */
+    LOCAL_BANK_17, /**< blend: Ice Palace */
+    LOCAL_BANK_18, /**< blend: Misery Mire */
+    LOCAL_BANK_19, /**< blend: Turtle Rock */
+    LOCAL_BANK_20, /**< blend: Ganon's Tower */
+    LOCAL_BANK_21, /**< blend: the Temple of Bonds (co-op only) */
+    LOCAL_BANK_22, /**< blend: the Pyramid of Power */
 };
 
 enum LocalFlagOffsets {
@@ -70,6 +80,17 @@ enum LocalFlagOffsets {
     FLAG_BANK_10 = 0x8C0,
     FLAG_BANK_11 = 0x9C0,
     FLAG_BANK_12 = 0xA80,
+    // the blend's later A Link to the Past dungeons, in the save's unused flags
+    FLAG_BANK_13 = 0xB00,
+    FLAG_BANK_14 = 0xB80,
+    FLAG_BANK_15 = 0xC00,
+    FLAG_BANK_16 = 0xC80,
+    FLAG_BANK_17 = 0xD00,
+    FLAG_BANK_18 = 0xD80,
+    FLAG_BANK_19 = 0xE00,
+    FLAG_BANK_20 = 0xE80,
+    FLAG_BANK_21 = 0xF00,
+    FLAG_BANK_22 = 0xF80,
 };
 
 typedef enum {

@@ -373,7 +373,19 @@
         "Sword Beam\nWhen your hearts are full,\nswing your {Color:Red}sword{Color:White}!",
         "Great Spin Attack\nPerform a {Color:Red}Spin Attack{Color:White}...and\nhit the button repeatedly!",
         "Down Thrust\nEquip the {Color:Red}Roc's Cape{Color:White} and\nthe {Color:Red}sword{Color:White}!! Jump and swing!",
-        "Peril Beam\nWhen you have only one\nheart left, swing the {Color:Red}sword{Color:White}!"
+        "Peril Beam\nWhen you have only one\nheart left, swing the {Color:Red}sword{Color:White}!",
+        "Hookshot",
+        "Magic Hammer",
+        "Cane of Byrna",
+        "Magic Powder",
+        "Cane of Somaria",
+        "Revive Fairy",
+        "Book of Mudora",
+        "Magic Cape",
+        "Bug-Catching Net",
+        "Mushroom",
+        "Shovel",
+        "Titan's Mitt"
     ],
     [
         "...",
@@ -531,7 +543,15 @@
         "{04:10:0E}You got the {Color:Red}Magic Hammer{Color:White}!\nPound foes and smash\nrocks in your way.\nIt shares the {Color:Red}Mole Mitts{Color:White}'s slot:\n{Color:Red}L and its button{Color:White} switches.",
         "{04:10:0E}You got the {Color:Red}Cane of Byrna{Color:White}!\nA ring of magic guards\nyou and stings foes.\nIt shares the {Color:Red}shield{Color:White}'s slot:\n{Color:Red}L and its button{Color:White} switches.",
         "{04:10:0E}You got the {Color:Red}Magic Powder{Color:White}!\nSprinkle it on a weak foe\nand see what happens!\nIt shares the {Color:Red}lantern{Color:White}'s slot:\n{Color:Red}L and its button{Color:White} switches.",
-        "{04:10:0E}You got the {Color:Red}Cane of Somaria{Color:White}!\nIt conjures a block you\ncan push onto switches.\nIt shares the {Color:Red}bombs{Color:White}'s slot:\n{Color:Red}L and its button{Color:White} switches."
+        "{04:10:0E}You got the {Color:Red}Cane of Somaria{Color:White}!\nIt conjures a block you\ncan push onto switches.\nIt shares the {Color:Red}bombs{Color:White}'s slot:\n{Color:Red}L and its button{Color:White} switches.",
+        "{04:10:0E}You got a {Color:Red}Revive Fairy{Color:White}!\nIf your partner falls, stand by\nthem and press {Key:Right} to bring\nthem back. You can carry nine.",
+        "{04:10:0E}You got the {Color:Red}Golden Sword{Color:White}!\nThe legendary blade of heroes\nwho fight as one. It is the\nstrongest sword of all, and\nit shoots beams at full health!",
+        "{04:10:0E}You got the {Color:Red}Book of Mudora{Color:White}!\nNow you can read the old\nHylian words on tablets\nand at the desert's door.",
+        "{04:10:0E}You got the {Color:Red}Magic Cape{Color:White}!\nWear it to vanish for a while.\nNothing can touch you\nuntil it slips off.",
+        "{04:10:0E}You got the {Color:Red}Bug Net{Color:White}!\nSwing it at a fairy to catch\nit in an empty bottle.",
+        "{04:10:0E}You got a {Color:Red}Mushroom{Color:White}!\nIt smells strange... Syrup\nthe witch could brew\nsomething from it.",
+        "{04:10:0E}You got the {Color:Red}Shovel{Color:White}!\nDig soft ground with it.\nWho knows what's buried?",
+        "{04:10:0E}You got the {Color:Red}Titan's Mitt{Color:White}!\nNow you can lift the boulders\nthat block the dark marsh\nof Misery Mire."
     ],
     [
         "",
@@ -680,7 +700,17 @@
         "Biggoron's Dungeon",
         "Eastern Palace",
         "Desert Palace",
-        "Tower of Hera"
+        "Tower of Hera",
+        "Palace of Darkness",
+        "Swamp Palace",
+        "Skull Woods",
+        "Thieves' Town",
+        "Ice Palace",
+        "Misery Mire",
+        "Turtle Rock",
+        "Ganon's Tower",
+        "Temple of Bonds",
+        "Pyramid of Power"
     ],
     [
         "{04:15}{Var:1}{04:14}:{07:08:00}",
@@ -1099,7 +1129,21 @@
         "{Sound:00:8E}If I recall correctly, and I guarantee\nthat I do, my boy...\nI think Syrup said to stand in front of\na sleeping person and press {Key:Right}.",
         "{Sound:00:8E}Now there's a puzzler...{01:0A}\n\n{01:01}I suspect there's not much more we can\ndo here right now. Let's press on.\nPerhaps we can work this from another\nangle later on.",
         "{Sound:00:8E}That hand is a real pain, {Player}.\n\nPerhaps one of those gizmos you carry\naround can do something to it!",
-        "{Sound:00:8D}Ugh... So this is the {Color:Green}Dark World{Color:White}!\nThe thief of shadow, {Color:Green}Ganon{Color:White},\nwas sealed here long ago.\nNow {Color:Green}Vaati{Color:White} and his servant\n{Color:Green}Agahnim{Color:White} feed on his power!\n{Sound:00:92}The seven sages' maidens\nhold the seal. If we free them,\nwe can break their hold on\nboth worlds, {Player}!"
+        "{Sound:00:8D}Ugh... So this is the {Color:Green}Dark World{Color:White}!\nThe thief of shadow, {Color:Green}Ganon{Color:White},\nwas sealed here long ago.\nNow {Color:Green}Vaati{Color:White} and his servant\n{Color:Green}Agahnim{Color:White} feed on his power!\n{Sound:00:92}The seven sages' maidens\nhold the seal. If we free them,\nwe can break their hold on\nboth worlds, {Player}!",
+        "Halt! Beyond lies the {Color:Green}Temple of\nBonds{Color:White}. Its gates answer only to\ntwo heroes standing as one.\nCome back with a partner, and I'll\nlet you through.",
+        "Two heroes, side by side! The\n{Color:Green}Temple of Bonds{Color:White} is open to you.\nHold its plates for each other and\nstrike its twin seals as one.\nGood luck in there!",
+        "{Sound:00:8E}Look at those stone guardians!\nThis is the {Color:Green}Eastern Palace{Color:White},\nwhere the knights of old kept watch.\nIts seal answers only to one who\ncarries the {Color:Red}Earth Element{Color:White}, {Player}!",
+        "{Sound:00:8E}A great face carved in the cliff...\nThe {Color:Green}Desert Palace{Color:White}! Its seal gives\nway to whoever carries the\n{Color:Red}Fire Element{Color:White}. Old Hylian secrets\nsleep under that sand.",
+        "{Sound:00:91}The {Color:Green}Tower of Hera{Color:White}, way up here!\nUgh, heights again...\nThe {Color:Red}Ocarina{Color:White}'s song should break its\nseal. They say a great worm\ncoils at the very top.",
+        "{Sound:00:8D}Where the Eastern Palace stood,\nthe {Color:Green}Palace of Darkness{Color:White}...\nOne of the seven maidens is held\ninside. Only the {Color:Red}Moon Pearl{Color:White} lets\nus walk in there, {Player}.",
+        "{Sound:00:90}A palace sunk into the wilds...\nThe {Color:Green}Swamp Palace{Color:White}! We'll need\nthe {Color:Red}Flippers{Color:White} for what's inside.\nAnother maiden is waiting there.",
+        "{Sound:00:92}A skull in the woods. How cheerful.\nThis is {Color:Green}Skull Woods{Color:White}. Something in\nthere hates fire, {Player}.\nThe {Color:Red}Fire Rod{Color:White} should do nicely!",
+        "{Sound:00:90}Brrr! The {Color:Green}Ice Palace{Color:White}...\nNothing but ice and a cold heart.\nWe'll need the {Color:Red}Flippers{Color:White} and the\n{Color:Red}Fire Rod{Color:White} to melt our way in.",
+        "{Sound:00:8E}{Color:Green}Misery Mire{Color:White}! Its door is shut\nby an old spell of the sky.\nThe {Color:Red}Ether Medallion{Color:White} might stir up\nenough storm to open it...",
+        "{Sound:00:91}A turtle of stone on the summit!\n{Color:Green}Turtle Rock{Color:White} sleeps until the\nground shakes. Try the {Color:Red}Quake\nMedallion{Color:White} here, and bring the\n{Color:Red}Cane of Somaria{Color:White} inside.",
+        "{Sound:00:8D}{Color:Green}Ganon's Tower{Color:White}... Agahnim waits\nat the very top. Its seal breaks\nonly for the {Color:Red}seven crystals{Color:White},\nonce every maiden is free.",
+        "{Sound:00:8E}That gargoyle gives me the creeps...\nThis is {Color:Green}Thieves' Town{Color:White}.\nIts way in is under that statue.\nA good {Color:Red}Hammer{Color:White} swing should\nshake it loose, {Player}.",
+        "{Sound:00:8D}The {Color:Green}Pyramid of Power{Color:White}...\nGanon's hall lies beneath it.\nIt won't open while {Color:Green}Agahnim{Color:White}\nstill stands atop {Color:Green}Ganon's Tower{Color:White}."
     ],
     [
         "{Sound:00:8D}What!? I haven't even had time to\nsettle in, and you're bothering me?\n{Color:Green}Deepwood Shrine{Color:White} lies, obviously enough,\ndeep in the heart of these woods!\nSo says my superior intuitive sense.\n{01:05}Now, get a move on!",
@@ -2445,7 +2489,8 @@
         "I believe there should be a {Color:Blue}doggie\ndish{Color:White} for my dog back at my house.\nJust face the {Color:Blue}dish{Color:White} and press {Key:Right} to\ndump the food into little Fifi's bowl.",
         "{Sound:00:D1}My master, {Color:Green}Stockwell{Color:White}, has been coming\nhome far too late to play with me...\nI'm so lonely.",
         "That {Color:Red}boomerang{Color:White} is a real bargain\nat {Var:1} Rupees.\n{07:2C:14}",
-        "That {Color:Red}big bomb bag{Color:White} is a real bargain\nat {Var:1} Rupees.\n{07:2C:14}"
+        "That {Color:Red}big bomb bag{Color:White} is a real bargain\nat {Var:1} Rupees.\n{07:2C:14}",
+        "Ah, a {Color:Red}Revive Fairy{Color:White}, {Var:1} Rupees!\nShould your companion fall, it\nbrings them right back. Two heroes!\n{07:2C:14}"
     ],
     [
         "{Choice:FF}Buy {Choice:2D:0A}Don't buy",

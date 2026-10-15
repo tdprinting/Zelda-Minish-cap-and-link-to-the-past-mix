@@ -62,8 +62,23 @@ int main(int argc, char** argv) {
 		if (!strcmp(cmd, "wait")) { core->setKeys(core, 0); for (int i = atoi(a); i > 0; i--) core->runFrame(core); }
 		else if (!strcmp(cmd, "hold")) { core->setKeys(core, keymask(a)); for (; n > 0; n--) core->runFrame(core); core->setKeys(core, 0); core->runFrame(core); }
 		else if (!strcmp(cmd, "shot")) shot(a);
-		else if (!strcmp(cmd, "save")) { struct VFile* vf = VFileOpen(a, O_CREAT | O_TRUNC | O_WRONLY); mCoreSaveStateNamed(core, vf, SAVESTATE_ALL); vf->close(vf); }
-		else if (!strcmp(cmd, "load")) { struct VFile* vf = VFileOpen(a, O_RDONLY); mCoreLoadStateNamed(core, vf, SAVESTATE_ALL); vf->close(vf); }
+		else if (!strcmp(cmd, "save")) {
+			// raw core state (mCoreSaveStateNamed's container does not load back in a libmgba-only build)
+			size_t size = core->stateSize(core);
+			void* st = malloc(size);
+			FILE* f = fopen(a, "wb");
+			if (st && f && core->saveState(core, st)) fwrite(st, 1, size, f);
+			if (f) fclose(f);
+			free(st);
+		}
+		else if (!strcmp(cmd, "load")) {
+			size_t size = core->stateSize(core);
+			void* st = malloc(size);
+			FILE* f = fopen(a, "rb");
+			if (!st || !f || fread(st, 1, size, f) != size || !core->loadState(core, st)) fprintf(stderr, "load %s failed\n", a);
+			if (f) fclose(f);
+			free(st);
+		}
 		else if (!strcmp(cmd, "pos")) printf("pos %d %d\n", (int16_t) core->busRead16(core, 0x0300118E), (int16_t) core->busRead16(core, 0x03001192));
 		else if (!strcmp(cmd, "walkx") || !strcmp(cmd, "walky")) {
 			// walk along one axis until the player reaches coordinate a (max 600 frames)

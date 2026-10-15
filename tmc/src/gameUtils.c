@@ -4,6 +4,7 @@
  * @brief Game Utils
  */
 #include "area.h"
+#include "blend.h"
 #include "backgroundAnimations.h"
 #include "entity.h"
 #include "fade.h"
@@ -234,7 +235,7 @@ void ModRupees(s32 delta) {
 
 void ModDungeonKeys(s32 keys) {
     if (AreaHasKeys()) {
-        u8* p = &gSave.dungeonKeys[gArea.dungeon_idx];
+        u8* p = &DUNGEON_KEYS(gArea.dungeon_idx);
         if (*p + keys < 0)
             *p = 0;
         else
@@ -250,7 +251,7 @@ bool32 HasDungeonSmallKey(void) {
     u32 tmp;
 
     if (AreaHasKeys())
-        tmp = gSave.dungeonKeys[gArea.dungeon_idx];
+        tmp = DUNGEON_KEYS(gArea.dungeon_idx);
     return tmp ? 1 : 0;
 }
 
@@ -258,20 +259,20 @@ bool32 HasDungeonBigKey(void) {
     u32 tmp;
 
     if (AreaHasKeys())
-        tmp = gSave.dungeonItems[gArea.dungeon_idx] & 4;
+        tmp = DUNGEON_ITEMS(gArea.dungeon_idx) & 4;
     return tmp ? 1 : 0;
 }
 
 bool32 HasDungeonCompass(void) {
     if (!AreaHasKeys())
         return 0;
-    return (gSave.dungeonItems[gArea.dungeon_idx] >> 1) & 1;
+    return (DUNGEON_ITEMS(gArea.dungeon_idx) >> 1) & 1;
 }
 
 bool32 HasDungeonMap(void) {
     if (!AreaHasKeys())
         return 0;
-    return gSave.dungeonItems[gArea.dungeon_idx] & 1;
+    return DUNGEON_ITEMS(gArea.dungeon_idx) & 1;
 }
 
 extern u8 gPaletteBufferBackup[];
@@ -560,7 +561,7 @@ void InitRoomResInfo(RoomResInfo* info, RoomHeader* r_hdr, u32 area, u32 room) {
     info->pixel_height = r_hdr->pixel_height;
     info->tileSet = *(gAreaTileSets[area] + r_hdr->tileSet_id);
     info->map = *(gAreaRoomMaps[area] + room);
-    info->tiles = gAreaTiles[area];
+    info->tiles = Blend_RoomTiles(area, room);
     info->bg_anim = (void*)gUnk_080B755C[area];
     info->exits = gExitLists[area][room];
     if (gAreaTable[area] != NULL) {
@@ -664,7 +665,7 @@ void sub_08052FF4(u32 area, u32 room) {
     gArea.currentRoomInfo.pixel_height = r_hdr->pixel_height;
     gArea.currentRoomInfo.tileSet = *(gAreaTileSets[area] + r_hdr->tileSet_id);
     gArea.currentRoomInfo.map = *(gAreaRoomMaps[area] + room);
-    gArea.currentRoomInfo.tiles = gAreaTiles[area];
+    gArea.currentRoomInfo.tiles = Blend_RoomTiles(area, room);
     gArea.currentRoomInfo.bg_anim = (void*)gUnk_080B755C[area];
 }
 

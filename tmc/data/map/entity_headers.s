@@ -1243,9 +1243,9 @@ gAreaTable:: @ 080D50FC
 	.4byte Area_VeilFallsTop            @ 0x1A
 	.4byte Area_DesertPalace             @ 0x1B (A Link to the Past)
 	.4byte Area_TowerOfHera              @ 0x1C (A Link to the Past)
-	.4byte 0x0                                       @ 0x1D
-	.4byte 0x0                                       @ 0x1E
-	.4byte 0x0                                       @ 0x1F
+	.4byte Area_PalaceOfDarkness        @ 0x1D (A Link to the Past)
+	.4byte Area_SwampPalace              @ 0x1E (A Link to the Past)
+	.4byte Area_SkullWoods               @ 0x1F (A Link to the Past)
 	.4byte Area_MinishHouseInteriors    @ 0x20
 	.4byte Area_HouseInteriors1         @ 0x21
 	.4byte Area_HouseInteriors2         @ 0x22
@@ -1271,13 +1271,13 @@ gAreaTable:: @ 080D50FC
 	.4byte Area_CastleGardenMinishHoles @ 0x36
 	.4byte Area_37                      @ 0x37
 	.4byte Area_EzloCutscene            @ 0x38
-	.4byte 0x0                                       @ 0x39
-	.4byte 0x0                                       @ 0x3A
-	.4byte 0x0                                       @ 0x3B
-	.4byte 0x0                                       @ 0x3C
-	.4byte 0x0                                       @ 0x3D
-	.4byte 0x0                                       @ 0x3E
-	.4byte 0x0                                       @ 0x3F
+	.4byte Area_ThievesTown               @ 0x39 (A Link to the Past)
+	.4byte Area_IcePalace               @ 0x3A (A Link to the Past)
+	.4byte Area_MiseryMire               @ 0x3B (A Link to the Past)
+	.4byte Area_TurtleRock               @ 0x3C (A Link to the Past)
+	.4byte Area_GanonsTower               @ 0x3D (A Link to the Past)
+	.4byte Area_Pyramid               @ 0x3E (A Link to the Past)
+	.4byte Area_TempleOfBonds               @ 0x3F (the blend's co-op temple)
 	.4byte Area_40                      @ 0x40
 	.4byte Area_HyruleTownUnderground   @ 0x41
 	.4byte Area_GardenFountains         @ 0x42
@@ -18640,6 +18640,11 @@ gUnk_080F58A8:: @ 080F58A8
 	object_raw subtype=0x2, x=0x64, y=0x40, paramA=0x65
 	entity_list_end
 .endif
+
+@ blend co-op: the Revive Fairy (ITEM_REVIVE_FAIRY), on the crates right of the counter
+gBlendShopReviveFairy::
+	object_raw subtype=0x2, x=0xc8, y=0x84, paramA=0x7b @ ITEM_REVIVE_FAIRY
+	entity_list_end
 
 Entities_HouseInteriors3_StockwellShop_1:: @ 080F58C8
 	object_raw subtype=0x4f, x=0x78, y=0xc8, paramA=0x2, paramB=0x2

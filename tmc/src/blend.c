@@ -13,6 +13,7 @@
  * - Dev hooks used by the automated test harness.
  */
 #include "blend.h"
+#include "blendCoop.h"
 #include "area.h"
 #include "common.h"
 #include "entity.h"
@@ -77,14 +78,19 @@ static void BunnyTint(u16* pal) {
 /** Link's and the partner's OBJ palettes keep their colors in the Dark World. */
 static bool32 IsPaletteExempt(u32 palIdx) {
     u32 id;
+    // A Link to the Past's dungeon fronts in the Dark World already wear their own colors
+    if (Blend_ExteriorKeepsColors(palIdx)) {
+        return TRUE;
+    }
     if (palIdx == 16u + gPlayerEntity.base.palette.b.b0 ||
-        (gBlendLink.partnerPalette != 0 && palIdx == 16u + gBlendLink.partnerPalette)) {
+        (gBlendLink.partnerPalette != 0 && palIdx == 16u + gBlendLink.partnerPalette) || Blend_CoopKeepsPalette(palIdx)) {
         return TRUE;
     }
     // A Link to the Past's enemies already wear their own Dark World colors
     if (palIdx >= 16) {
         id = gPaletteList[palIdx - 16].objPaletteId;
-        return id >= 0x3d0 && id < 0x3f0;
+        // and the Golden Sword's gold (0x3f2-0x3f4) stays gold
+        return (id >= 0x3d0 && id < 0x3f0) || (id >= 0x3f2 && id <= 0x3f4);
     }
     return FALSE;
 }
@@ -179,14 +185,33 @@ static u32 DarkWorldEnemy(u32 id) {
             return SPINY_CHUCHU;
         case BEETLE:
             return SPIKED_BEETLE;
+        case PEAHAT:
+            // the Dark World's Eastern Hills and Death Mountain (Mt. Crenel) have Hinoxes
+            if (gRoomControls.area == AREA_HYRULE_FIELD || gRoomControls.area == AREA_MT_CRENEL) {
+                return ALTTP_HINOX;
+            }
+            return id;
         default:
             return id;
     }
 }
 
+/** Light World enemies that A Link to the Past's take the place of: its Leevers in Hyrule Field. */
+static u32 LightWorldEnemy(u32 id) {
+    if (id == LEEVER && gRoomControls.area == AREA_HYRULE_FIELD) {
+        return ALTTP_LEEVER;
+    }
+    return id;
+}
+
 void Blend_ApplyDarkWorldEnemy(Entity* entity) {
     u32 id;
     if (!Blend_IsDarkWorldActive()) {
+        id = LightWorldEnemy(entity->id);
+        if (id != entity->id) {
+            entity->id = id;
+            entity->type = 0;
+        }
         return;
     }
     id = DarkWorldEnemy(entity->id);
@@ -197,6 +222,7 @@ void Blend_ApplyDarkWorldEnemy(Entity* entity) {
 }
 
 static bool32 StartItemAction(u32 item);
+static void UpdateEquippedSpells(void);
 
 /** Called when Link holds the Mirror up high: he goes through to the other world. */
 static void UseMirror(void) {
@@ -224,33 +250,19 @@ static void UpdateMirror(void) {
 
 
 /**
- * The picture shown for an item on the ground or held up by Link. The new
- * items borrow Minish Cap pictures: the Mirror Shield for the Magic Mirror,
- * and the glowing Elements for the Moon Pearl and the medallions.
+ * The picture shown for an item on the ground, held up by Link, in the menus or on
+ * a button. The A Link to the Past items have their own icons in sprite 322
+ * (blend/menu/icons.py); only the co-op Revive Fairy loads as a bottled fairy, and
+ * blendCoop.c then gives it its own picture.
  */
-/** Pictures for the shared-slot items, in item id order from ITEM_HOOKSHOT. */
-static const u8 sSlotShareIcons[] = { ITEM_LIGHT_ARROW, ITEM_SMITH_SWORD, ITEM_PACCI_CANE, ITEM_BOTTLE_FAIRY, ITEM_FIRE_ROD };
-
 u32 Blend_ItemSpriteAnim(u32 item) {
-    switch (item) {
-        case ITEM_MAGIC_MIRROR:
-            return ITEM_MIRROR_SHIELD;
-        case ITEM_MOON_PEARL:
-            return ITEM_WATER_ELEMENT;
-        case ITEM_BOMBOS:
-            return ITEM_FIRE_ELEMENT;
-        case ITEM_ETHER:
-            return ITEM_WIND_ELEMENT;
-        case ITEM_QUAKE:
-            return ITEM_EARTH_ELEMENT;
-        case ITEM_ICE_ROD:
-            return ITEM_FIRE_ROD;
-        default:
-            if (item >= ITEM_HOOKSHOT && item <= ITEM_CANE_OF_SOMARIA) {
-                return sSlotShareIcons[item - ITEM_HOOKSHOT];
-            }
-            return item;
+    if (item == ITEM_REVIVE_FAIRY) {
+        return ITEM_BOTTLE_FAIRY;
     }
+    if (item == ITEM_GOLDEN_SWORD) {
+        return ITEM_FOURSWORD; // gilded by blendGoldenSword.c
+    }
+    return item;
 }
 
 /* ---- Fire Rod ---------------------------------------------------------- */
@@ -410,7 +422,7 @@ u32 Blend_HudIcon(u32 item) {
     }
     variant = Blend_ItemVariant(item);
     if (variant != ITEM_NONE) {
-        return sSlotShareIcons[variant - ITEM_HOOKSHOT];
+        return variant;
     }
     return item;
 }
@@ -787,7 +799,124 @@ static void UseSomaria(void) {
     }
 }
 
+
+/* ---- Bug Net, Shovel, Magic Cape --------------------------------------- */
+
+extern s32 DoItemTileInteraction(Entity*, u32, ItemBehavior*);
+
+/** The Bug Net catches the fairy in front of Link into an empty bottle, as in A Link to the Past. */
+static void UseBugNet(void) {
+    s32 x, y;
+    u32 i, bottle;
+    Entity* e;
+    PointInFront(14, &x, &y);
+    SoundReq(SFX_ITEM_SWORD_BEAM);
+    for (bottle = 0; bottle < ARRAY_COUNT(gSave.stats.bottles); bottle++) {
+        if (gSave.stats.bottles[bottle] == ITEM_BOTTLE_EMPTY) {
+            break;
+        }
+    }
+    for (i = 0; i < ARRAY_COUNT(gEntityLists); i++) {
+        LinkedList* list = &gEntityLists[i];
+        for (e = list->first; (u32)e != (u32)list; e = e->next) {
+            bool32 fairy = (e->kind == OBJECT && e->id == FAIRY) ||
+                           (e->kind == OBJECT && e->id == GROUND_ITEM && e->type == ITEM_FAIRY);
+            s32 dx = e->x.HALF.HI - x, dy = e->y.HALF.HI - y;
+            if (!fairy || dx < -14 || dx > 14 || dy < -18 || dy > 14) {
+                continue;
+            }
+            if (bottle < ARRAY_COUNT(gSave.stats.bottles)) {
+                gSave.stats.bottles[bottle] = ITEM_BOTTLE_FAIRY;
+                SoundReq(SFX_ITEM_GET);
+            } else {
+                ModHealth(32); // no empty bottle: the fairy heals Link instead
+                SoundReq(SFX_HEART_GET);
+            }
+            FxAt(FX_SPARKLE, e->x.HALF.HI, e->y.HALF.HI);
+            DeleteEntity(e);
+            return;
+        }
+    }
+}
+
+/**
+ * The Shovel digs the soft ground in front of Link, the way the Mole Mitts do (so it
+ * finds what is buried), and now and then turns up a rupee or a heart.
+ */
+static void UseShovel(void) {
+    ItemBehavior dig;
+    Entity* e;
+    MemClear(&dig, sizeof(dig));
+    if (!DoItemTileInteraction(&gPlayerEntity.base, 0xd, &dig)) {
+        SoundReq(SFX_ITEM_GLOVES_AIR);
+        return;
+    }
+    e = CreateObjectWithParent(&gPlayerEntity.base, OBJECT_1F, 0, dig.field_0x2[1]);
+    if (e != NULL) {
+        e->timer = dig.timer;
+        e->subtimer = dig.subtimer;
+        e->animationState = gPlayerEntity.base.animationState & 6;
+    }
+    SoundReq(SFX_108);
+    if ((Random() & 7) == 0) {
+        s32 x, y;
+        PointInFront(14, &x, &y);
+        e = CreateObject(GROUND_ITEM, (Random() & 1) ? ITEM_RUPEE5 : ITEM_HEART, 0);
+        if (e != NULL) {
+            e->x.HALF.HI = x;
+            e->y.HALF.HI = y;
+            e->collisionLayer = gPlayerEntity.base.collisionLayer;
+        }
+    }
+}
+
+#define CAPE_FRAMES 600
+
+/** The Magic Cape: Link vanishes and nothing can hurt him for a while. Again to take it off. */
+static void UseCape(void) {
+    Entity* p = &gPlayerEntity.base;
+    gBlendLink.capeTimer = gBlendLink.capeTimer ? 0 : CAPE_FRAMES;
+    FxAt(FX_BROWN_SMOKE_LARGE, p->x.HALF.HI, p->y.HALF.HI - 8);
+    SoundReq(SFX_SUMMON);
+    if (!gBlendLink.capeTimer) {
+        p->spriteSettings.draw = 1;
+    }
+}
+
+static void UpdateCape(void) {
+    Entity* p = &gPlayerEntity.base;
+    if (gBlendLink.capeTimer == 0) {
+        return;
+    }
+    if (--gBlendLink.capeTimer == 0 || gBlendLink.bunny) {
+        gBlendLink.capeTimer = 0;
+        p->spriteSettings.draw = 1;
+        FxAt(FX_BROWN_SMOKE_LARGE, p->x.HALF.HI, p->y.HALF.HI - 8);
+        return;
+    }
+    if (p->iframes < 2) {
+        p->iframes = 2;
+    }
+    // a faint shimmer is all that shows of him, and it flickers faster near the end
+    p->spriteSettings.draw = (gBlendLink.capeTimer & (gBlendLink.capeTimer < 120 ? 3 : 15)) == 0;
+}
+
+/**
+ * The Mushroom from the woods: Syrup the witch brews it into Magic Powder, as the
+ * witch near Kakariko does in A Link to the Past.
+ */
+static void UpdateMushroomTrade(void) {
+    if (gRoomControls.area != AREA_TREE_INTERIORS || gRoomControls.room != ROOM_TREE_INTERIORS_WITCH_HUT ||
+        !HasItem(ITEM_MUSHROOM) || HasItem(ITEM_MAGIC_POWDER) || !IsPlayerFree() || gBlendLink.awardCooldown) {
+        return;
+    }
+    SetInventoryValue(ITEM_MUSHROOM, 0);
+    InitItemGetSequence(ITEM_MAGIC_POWDER, 0, 0);
+    gBlendLink.awardCooldown = 120;
+}
+
 static void CastMedallion(u32 m);
+static void OpenMedallionGate(u32 medallion);
 static s32 MedallionIndex(u32 item);
 
 static void UseVariant(u32 item) {
@@ -814,6 +943,15 @@ static void UseVariant(u32 item) {
             break;
         case ITEM_MAGIC_MIRROR:
             UseMirror();
+            break;
+        case ITEM_BUG_NET:
+            UseBugNet();
+            break;
+        case ITEM_SHOVEL:
+            UseShovel();
+            break;
+        case ITEM_MAGIC_CAPE:
+            UseCape();
             break;
     }
 }
@@ -850,6 +988,12 @@ static u32 ItemAnim(u32 item) {
             return ANIM_BLEND_ETHER;
         case ITEM_QUAKE:
             return ANIM_BLEND_QUAKE;
+        case ITEM_BUG_NET:
+            return ANIM_BLEND_BUG_NET;
+        case ITEM_SHOVEL:
+            return ANIM_BLEND_SHOVEL;
+        case ITEM_MAGIC_CAPE:
+            return ANIM_BLEND_CAPE;
         default:
             return ANIM_BLEND_MIRROR;
     }
@@ -979,7 +1123,8 @@ static void CastMedallion(u32 m) {
             }
         }
     }
-    gBlendLink.medallionUsed = 1;
+    gBlendLink.medallionUsed = 1 + m; // which one: Kholdstare's shell melts from Bombos (1)
+    OpenMedallionGate(sMedallions[m]);
 }
 
 /**
@@ -1051,7 +1196,8 @@ typedef struct {
     u16 x; /**< room coordinates */
     u16 y;
     u8 needs; /**< item Link must have before this one shows up, or ITEM_NONE */
-    u8 kind;  /**< ground item kind: 4 lies in the open, 7 is buried (dig with the Mole Mitts) */
+    u8 kind;  /**< ground item kind: 4 lies in the open, 7 is buried (dig with the Mole Mitts or the Shovel) */
+    u8 needs2; /**< and this one too, or ITEM_NONE */
 } Treasure;
 
 #define TREASURE_OPEN 4
@@ -1065,9 +1211,10 @@ static const Treasure sTreasures[] = {
     // Skull Woods: the Fire Rod waits in the Dark World Minish Woods
     { AREA_MINISH_WOODS, 0, 1, ITEM_FIRE_ROD, 0x228, 0x160, ITEM_MOON_PEARL, TREASURE_OPEN },
     // the Bombos tablet stands in the ruins; its medallion is buried in the Dark World ruins
-    { AREA_RUINS, 0, 1, ITEM_BOMBOS, 200, 230, ITEM_MOON_PEARL, TREASURE_BURIED },
+    // (its tablet is in Hylian: only the Book of Mudora reads it, as with Ether's)
+    { AREA_RUINS, 0, 1, ITEM_BOMBOS, 200, 230, ITEM_MOON_PEARL, TREASURE_BURIED, ITEM_BOOK_OF_MUDORA },
     // Ether waits on the Dark World mountain, as on Death Mountain
-    { AREA_MT_CRENEL, 0, 1, ITEM_ETHER, 0xc8, 0x60, ITEM_MOON_PEARL, TREASURE_OPEN },
+    { AREA_MT_CRENEL, 0, 1, ITEM_ETHER, 0xc8, 0x60, ITEM_MOON_PEARL, TREASURE_OPEN, ITEM_BOOK_OF_MUDORA },
     // Quake is the gift of the Dark World lake, on the same island
     { AREA_LAKE_HYLIA, 0, 1, ITEM_QUAKE, 0x148, 0x108, ITEM_MOON_PEARL, TREASURE_OPEN },
     // the Ice Rod waits on Lake Hylia's stump island in the Light World, for swimmers
@@ -1078,8 +1225,20 @@ static const Treasure sTreasures[] = {
     { AREA_HYRULE_FIELD, 3, 1, ITEM_HAMMER, 0x12c, 0xb4, ITEM_MOON_PEARL, TREASURE_OPEN },
     // the Cane of Byrna is buried high on the Dark World mountain
     { AREA_MT_CRENEL, 3, 1, ITEM_CANE_OF_BYRNA, 0x240, 0xf0, ITEM_MOON_PEARL, TREASURE_BURIED },
-    // Magic Powder lies deep in the Light World woods, for whoever brings a light
-    { AREA_MINISH_WOODS, 0, 0, ITEM_MAGIC_POWDER, 0x150, 0x300, ITEM_LANTERN_OFF, TREASURE_OPEN },
+    // the Mushroom grows deep in the Light World woods, for whoever brings a light, like the
+    // Lost Woods' (Syrup brews it into Magic Powder: UpdateMushroomTrade)
+    { AREA_MINISH_WOODS, 0, 0, ITEM_MUSHROOM, 0x150, 0x300, ITEM_LANTERN_OFF, TREASURE_OPEN },
+    // the Book of Mudora on the floor of Hyrule Town's library, as in Kakariko's
+    { AREA_HOUSE_INTERIORS_1, ROOM_HOUSE_INTERIORS_1_LIBRARY_1F, 0, ITEM_BOOK_OF_MUDORA, 0x78, 0x50, ITEM_NONE,
+      TREASURE_OPEN },
+    // the Bug Net in the schoolroom, left by the children who catch bugs (for whoever has a bottle)
+    { AREA_HOUSE_INTERIORS_1, ROOM_HOUSE_INTERIORS_1_SCHOOL_EAST, 0, ITEM_BUG_NET, 0x30, 0x60, ITEM_BOTTLE1,
+      TREASURE_OPEN },
+    // the Magic Cape under the Royal Valley graves, as under Hyrule's graveyard
+    { AREA_ROYAL_VALLEY_GRAVES, ROOM_ROYAL_VALLEY_GRAVES_HEART_PIECE, 0, ITEM_MAGIC_CAPE, 0x40, 0x60, ITEM_NONE,
+      TREASURE_OPEN },
+    // the Shovel at Dampe's, the graveyard keeper's house
+    { AREA_HOUSE_INTERIORS_2, ROOM_HOUSE_INTERIORS_2_DAMPE, 0, ITEM_SHOVEL, 0x78, 0x60, ITEM_NONE, TREASURE_OPEN },
     // the Cane of Somaria waits past the dark falls, like Misery Mire
     { AREA_VEIL_FALLS, 0, 1, ITEM_CANE_OF_SOMARIA, 0x180, 0xf0, ITEM_MOON_PEARL, TREASURE_OPEN },
 };
@@ -1095,12 +1254,17 @@ static void SpawnTreasures(void) {
         if (HasItem(t->item) || (t->needs != ITEM_NONE && !HasItem(t->needs))) {
             continue;
         }
+        if ((t->needs2 != ITEM_NONE && !HasItem(t->needs2)) || (t->item == ITEM_MUSHROOM && HasItem(ITEM_MAGIC_POWDER))) {
+            continue;
+        }
         e = CreateObject(GROUND_ITEM, t->item, 0);
         if (e != NULL) {
             e->timer = t->kind;
             e->x.HALF.HI = gRoomControls.origin_x + t->x;
             e->y.HALF.HI = gRoomControls.origin_y + t->y;
-            e->collisionLayer = 1;
+            // indoors, on the floor Link stands on (some rooms' floors are the upper layer)
+            e->collisionLayer = (gArea.areaMetadata & AR_IS_OVERWORLD) ? 1 : gPlayerEntity.base.collisionLayer;
+            UpdateSpriteForCollisionLayer(e);
         }
     }
 }
@@ -1135,6 +1299,10 @@ static void UpdateMilestoneAwards(void) {
 #define TEXT_EZLO_DARK_WORLD TEXT_INDEX(TEXT_EZLO, 0x71)
 #define BLEND_STORY_FLAGS (gSave.fillerA[2])
 #define STORY_SAW_DARK_WORLD 0x1
+#define STORY_MIRE_OPEN 0x2   /**< Ether was cast at the Veil Falls cave */
+#define STORY_TURTLE_OPEN 0x4 /**< Quake was cast on Mt. Crenel's summit */
+#define GATE_CRYSTALS 0x80    /**< DarkDungeon gate: the seven crystals (no story bit) */
+#define GATE_AGAHNIM 0x40     /**< DarkDungeon gate: Agahnim beaten atop Ganon's Tower (no story bit) */
 
 // The cracked cave in the Eastern Hills leads to the Eastern Palace. It opens once
 // Link has the Earth Element, so A Link to the Past's first dungeon follows Minish Cap's.
@@ -1143,22 +1311,176 @@ static void UpdateMilestoneAwards(void) {
 // the Desert Palace in the Trilby Highlands after the Fire Element (when the Magic
 // Mirror comes), the Tower of Hera high on Mt. Crenel after the Ocarina (when the
 // Moon Pearl comes, as in A Link to the Past after the third dungeon).
+// The Desert Palace also needs the Book of Mudora, as in A Link to the Past, where Link
+// reads the Hylian words at its door (the Book lies in Hyrule Town's library).
 typedef struct {
     u8 item;     /**< the item that opens it */
     u8 flag;     /**< the cave's local flag in the overworld bank */
+    u8 item2;    /**< and this one too, or ITEM_NONE */
 } DungeonCave;
 
 static const DungeonCave sDungeonCaves[] = {
     { ITEM_EARTH_ELEMENT, 0x70 }, // Eastern Palace: Eastern Hills
-    { ITEM_FIRE_ELEMENT, 0x90 },  // Desert Palace: Trilby Highlands
+    { ITEM_FIRE_ELEMENT, 0x90, ITEM_BOOK_OF_MUDORA }, // Desert Palace: Trilby Highlands
     { ITEM_OCARINA, 0x44 },       // Tower of Hera: Mt. Crenel
 };
+
+// The Dark World's A Link to the Past dungeons open only in the Dark World, each
+// behind a cave in the Minish Cap area that matches its place in A Link to the Past:
+// the Palace of Darkness in the Eastern Hills (the Eastern Palace's cave, once Link
+// has the Moon Pearl), the Swamp Palace in the Castor Wilds swamp (with the Flippers)
+// and Skull Woods in the Minish Woods (with the Fire Rod that lies there, after the
+// Water Element). Their way in comes first in the cave's exit list, so elsewhere the
+// cave leads where it always did.
+// The later ones follow A Link to the Past too: Thieves' Town in the stranger's house in
+// Hyrule Town (A Link to the Past's Village of Outcasts, reached with the Hammer), the
+// Ice Palace in the Lake Hylia cave (with the Flippers, and the Fire Rod to melt its
+// ice), and Misery Mire at the Veil Falls cave and Turtle Rock at Mt. Crenel's summit,
+// which open as in A Link to the Past once Link casts Ether and Quake in front of them
+// (MedallionGate; they stay open after that).
+// Ganon's Tower stands where the Tower of Hera does, as in A Link to the Past: in the Dark
+// World, Hera's cracked cave on Mt. Crenel stays shut until Link has the seven crystals,
+// that is until he has beaten the seven Dark World dungeons' bosses (HasSevenCrystals).
+// The Pyramid of Power, Ganon's hall, lies where Hyrule Castle stands, as in A Link to the
+// Past: in the Dark World the Castle Garden's castle door leads down into it once Agahnim
+// has fallen atop Ganon's Tower (in A Link to the Past Ganon then smashes a hole in the
+// Pyramid's top for Link to fall through).
+typedef struct {
+    u8 area;  /**< the dungeon's area */
+    u8 item;  /**< what Link needs besides the Moon Pearl */
+    u8 item2; /**< and this too, or ITEM_NONE */
+    u8 gate;  /**< STORY_* bit a medallion sets to open it, or 0 */
+} DarkDungeon;
+
+static const DarkDungeon sDarkDungeons[] = {
+    { AREA_NULL_1D, ITEM_MOON_PEARL, ITEM_NONE }, // Palace of Darkness
+    { AREA_NULL_1E, ITEM_FLIPPERS, ITEM_NONE },   // Swamp Palace
+    { AREA_NULL_1F, ITEM_FIRE_ROD, ITEM_NONE },   // Skull Woods: the Fire Rod burns its way in
+    { AREA_NULL_39, ITEM_HAMMER, ITEM_NONE },     // Thieves' Town
+    { AREA_NULL_3A, ITEM_FLIPPERS, ITEM_FIRE_ROD }, // Ice Palace
+    // Misery Mire: as in A Link to the Past, the Titan's Mitt (from Thieves' Town's big chest)
+    // lifts the boulders on the way to it
+    { AREA_NULL_3B, ITEM_ETHER, ITEM_TITANS_MITT, STORY_MIRE_OPEN },
+    { AREA_NULL_3C, ITEM_QUAKE, ITEM_CANE_OF_SOMARIA, STORY_TURTLE_OPEN }, // Turtle Rock
+    { AREA_NULL_3D, ITEM_MOON_PEARL, ITEM_NONE, GATE_CRYSTALS },          // Ganon's Tower
+    { AREA_NULL_3E, ITEM_MOON_PEARL, ITEM_NONE, GATE_AGAHNIM },           // the Pyramid of Power
+};
+
+// where a medallion opens a dungeon: cast it in this overworld room, in the Dark World
+typedef struct {
+    u8 medallion;
+    u8 area;
+    u8 room;
+    u8 gate; /**< the STORY_* bit it sets */
+} MedallionGate;
+
+static const MedallionGate sMedallionGates[] = {
+    { ITEM_ETHER, AREA_VEIL_FALLS, ROOM_VEIL_FALLS_MAIN, STORY_MIRE_OPEN },
+    { ITEM_QUAKE, AREA_MT_CRENEL, ROOM_MT_CRENEL_TOP, STORY_TURTLE_OPEN },
+};
+
+static const DarkDungeon* FindDarkDungeon(u32 area) {
+    u32 i;
+    for (i = 0; i < ARRAY_COUNT(sDarkDungeons); i++) {
+        if (sDarkDungeons[i].area == area) {
+            return &sDarkDungeons[i];
+        }
+    }
+    return NULL;
+}
+
+/**
+ * Whether Link has the seven crystals: each Dark World dungeon's boss beaten, its Heart
+ * Container taken (local flag 0x7f in the dungeon's bank: banks 13 to 19, the Palace of
+ * Darkness to Turtle Rock; see sBossRooms).
+ */
+static bool32 HasSevenCrystals(void) {
+    u32 bank;
+    for (bank = FLAG_BANK_13; bank <= FLAG_BANK_19; bank += FLAG_BANK_14 - FLAG_BANK_13) {
+        if (!CheckLocalFlagByBank(bank, 0x7f)) {
+            return FALSE;
+        }
+    }
+    return TRUE;
+}
+
+static bool32 IsGateOpen(u32 gate) {
+    if (gate == GATE_CRYSTALS) {
+        return HasSevenCrystals();
+    }
+    if (gate == GATE_AGAHNIM) {
+        // Agahnim's hall atop Ganon's Tower: its Heart Container taken (see sBossRooms)
+        return CheckLocalFlagByBank(FLAG_BANK_20, 0x7f);
+    }
+    return gate == 0 || (BLEND_STORY_FLAGS & gate);
+}
+
+static bool32 CanEnterDarkDungeon(const DarkDungeon* d) {
+    return BLEND_DARK_WORLD && HasItem(ITEM_MOON_PEARL) && HasItem(d->item) &&
+           (d->item2 == ITEM_NONE || HasItem(d->item2)) && IsGateOpen(d->gate);
+}
+
+/** A medallion was cast: in front of a dungeon it opens, it opens that dungeon for good. */
+static void OpenMedallionGate(u32 medallion) {
+    u32 i;
+    for (i = 0; i < ARRAY_COUNT(sMedallionGates); i++) {
+        const MedallionGate* g = &sMedallionGates[i];
+        if (g->medallion == medallion && g->area == gRoomControls.area && g->room == gRoomControls.room &&
+            BLEND_DARK_WORLD && !(BLEND_STORY_FLAGS & g->gate)) {
+            BLEND_STORY_FLAGS |= g->gate;
+            SoundReq(SFX_SECRET_BIG);
+        }
+    }
+}
+
+/** Whether a way out of the current room is shut: a Dark World dungeon's, away from the Dark World. */
+bool32 Blend_IsTransitionClosed(const Transition* t) {
+    const DarkDungeon* d;
+    if (Blend_ShrineClosed(t)) {
+        return TRUE;
+    }
+    if (!(gArea.areaMetadata & AR_IS_OVERWORLD)) {
+        return FALSE;
+    }
+    d = FindDarkDungeon(t->area);
+    return d != NULL && !CanEnterDarkDungeon(d);
+}
+
+/**
+ * Whether a cracked wall stays shut: the Eastern Hills cave, which leads to the
+ * Palace of Darkness in the Dark World, stays shut there until Link has the Moon Pearl,
+ * and the Tower of Hera's cave on Mt. Crenel, Ganon's Tower in the Dark World, until he
+ * has the seven crystals.
+ */
+bool32 Blend_IsCaveSealed(u32 flag) {
+    // a dungeon front stands there now: its own door opens and shuts (blendOverworld.c)
+    if (Blend_ExteriorActive()) {
+        return TRUE;
+    }
+    if (!BLEND_DARK_WORLD) {
+        return FALSE;
+    }
+    if (gRoomControls.area == AREA_HYRULE_FIELD && flag == 0x70) {
+        return !CanEnterDarkDungeon(FindDarkDungeon(AREA_NULL_1D));
+    }
+    if (gRoomControls.area == AREA_MT_CRENEL && flag == 0x44) {
+        return !CanEnterDarkDungeon(FindDarkDungeon(AREA_NULL_3D));
+    }
+    return FALSE;
+}
+
+/** Whether Link can go into this dungeon area now (the Dark World ones need the Moon Pearl and more). */
+bool32 Blend_CanEnterDungeon(u32 area) {
+    const DarkDungeon* d = FindDarkDungeon(area);
+    return d == NULL || CanEnterDarkDungeon(d);
+}
 
 static void UpdateStory(void) {
     u32 i;
     for (i = 0; i < ARRAY_COUNT(sDungeonCaves); i++) {
         const DungeonCave* c = &sDungeonCaves[i];
-        if (HasItem(c->item) && !CheckLocalFlagByBank(FLAG_BANK_1, c->flag)) {
+        if (HasItem(c->item) && (c->item2 == ITEM_NONE || HasItem(c->item2)) &&
+            !CheckLocalFlagByBank(FLAG_BANK_1, c->flag)) {
             SetLocalFlagByBank(FLAG_BANK_1, c->flag);
         }
     }
@@ -1184,7 +1506,8 @@ static bool32 RoomHasEnemies(void) {
 }
 
 // A Link to the Past's boss rooms: when every enemy in the room is gone, a Heart
-// Container appears, and once Link takes it the boss stays beaten.
+// Container appears, and once Link takes it the boss stays beaten. Ganon's hall instead
+// ends the game: the victory tune, a fade to white, and Minish Cap's credits.
 typedef struct {
     u8 area;
     u8 room;
@@ -1199,7 +1522,56 @@ static const BossRoom sBossRooms[] = {
     { AREA_EMPTY, 8, 0x7f, 0x178, 0x170 }, // Eastern Palace: the Armos Knights
     { AREA_NULL_1B, 9, 0x7e, 0x78, 0x180 },  // Desert Palace: the Lanmolas
     { AREA_NULL_1C, 5, 0xbe, 0x118, 0x108 }, // Tower of Hera: Moldorm
+    { AREA_NULL_1D, 13, 0x7f, 0x178, 0x188 }, // Palace of Darkness: the Helmasaur King
+    { AREA_NULL_1E, 11, 0x7f, 0x78, 0x188 },  // Swamp Palace: Arrghus
+    { AREA_NULL_1F, 7, 0x7f, 0x188, 0x178 },  // Skull Woods: Mothula
+    { AREA_NULL_39, 7, 0x7f, 0x178, 0x188 },  // Thieves' Town: Blind
+    { AREA_NULL_3A, 20, 0x7f, 0x178, 0x98 },  // Ice Palace: Kholdstare
+    { AREA_NULL_3B, 13, 0x7f, 0x78, 0x188 },  // Misery Mire: Vitreous
+    { AREA_NULL_3C, 16, 0x7f, 0x88, 0x188 },  // Turtle Rock: Trinexx
+    { AREA_NULL_3D, 20, 0x7f, 0x78, 0x178 },  // Ganon's Tower: Agahnim
+    { AREA_NULL_3E, 0, 0x7f, 0x178, 0x88 },   // the Pyramid of Power: Ganon (the ending)
+    { AREA_NULL_3F, 9, 0x7f, 0x108, 0x108 },  // the Temple of Bonds: Ganon's Tower's arena, the Armos Knights and a Lanmola
 };
+
+#define ENDING_FADE_AT 150 /**< frames from Ganon's end to the fade to white */
+
+/** Ganon is beaten: the game's end, then the credits (Minish Cap's staff roll). */
+static void UpdateEnding(void) {
+    if (gBlendLink.bossState == BOSS_FIGHTING) {
+        SetLocalFlag(0x7f);
+        gBlendLink.bossState = BOSS_PRIZE_OUT;
+        gBlendLink.endingTimer = 0;
+        SoundReq(BGM_BEAT_VAATI);
+        return;
+    }
+    if (gBlendLink.endingTimer < ENDING_FADE_AT) {
+        if (++gBlendLink.endingTimer == ENDING_FADE_AT) {
+            SetPlayerControl(CONTROL_DISABLED);
+            SetFade(FADE_IN_OUT | FADE_BLACK_WHITE | FADE_INSTANT, 2);
+        }
+        return;
+    }
+    if (!gFadeControl.active) {
+        SetTask(TASK_STAFFROLL);
+    }
+}
+
+/** A big chest in one of the blend's A Link to the Past dungeons opens only with the
+ * dungeon's big key, as it did there (Minish Cap's own big chests open without one). */
+bool32 Blend_IsLockedBigChest(Entity* e) {
+    u32 i;
+    if (e->kind != OBJECT || e->id != CHEST_SPAWNER || e->type != 4 || HasDungeonBigKey()) {
+        return FALSE;
+    }
+    for (i = 0; i < ARRAY_COUNT(sBossRooms); i++) {
+        // the Temple of Bonds has no big key: its big chest opens to both players' teamwork
+        if (sBossRooms[i].area == gRoomControls.area && gRoomControls.area != AREA_NULL_3F) {
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
 
 static void UpdateBossRoom(void) {
     u32 i;
@@ -1208,6 +1580,12 @@ static void UpdateBossRoom(void) {
         Entity* e;
         if (b->area != gRoomControls.area || b->room != gRoomControls.room) {
             continue;
+        }
+        if (b->area == AREA_NULL_3E) {
+            if (gBlendLink.bossState == BOSS_PRIZE_OUT || (!CheckLocalFlag(b->flag) && !RoomHasEnemies())) {
+                UpdateEnding();
+            }
+            return;
         }
         if (gBlendLink.bossState == BOSS_DONE || CheckLocalFlag(b->flag)) {
             return;
@@ -1224,6 +1602,8 @@ static void UpdateBossRoom(void) {
         }
         e = CreateObject(GROUND_ITEM, ITEM_HEART_CONTAINER, 0);
         if (e != NULL) {
+            // lying in the open, so it waits for Link instead of fading like a dropped heart
+            e->timer = TREASURE_OPEN;
             e->x.HALF.HI = gRoomControls.origin_x + b->x;
             e->y.HALF.HI = gRoomControls.origin_y + b->y;
             e->collisionLayer = 1;
@@ -1272,9 +1652,17 @@ static void UpdateDevHooks(void) {
         gBlendLink.devItemGet = 0;
     }
     if (gBlendLink.devSpawnEnemy) {
-        Entity* e = CreateEnemy(gBlendLink.devSpawnEnemy - 1, 0);
+        // 0xff: a fairy instead, for the Bug Net
+        Entity* e = gBlendLink.devSpawnEnemy == 0xff ? CreateObject(FAIRY, 0x60, 0)
+                                                    : CreateEnemy(gBlendLink.devSpawnEnemy - 1, 0);
+        u32 fairy = gBlendLink.devSpawnEnemy == 0xff;
         gBlendLink.devSpawnEnemy = 0;
-        if (e != NULL) {
+        if (e != NULL && fairy) {
+            e->timer = 0;
+            e->x.HALF.HI = gPlayerEntity.base.x.HALF.HI + 18;
+            e->y.HALF.HI = gPlayerEntity.base.y.HALF.HI;
+            e->collisionLayer = gPlayerEntity.base.collisionLayer;
+        } else if (e != NULL) {
             Blend_ApplyDarkWorldEnemy(e);
             e->x.HALF.HI = gPlayerEntity.base.x.HALF.HI + 44;
             e->y.HALF.HI = gPlayerEntity.base.y.HALF.HI;
@@ -1445,6 +1833,14 @@ void LinkPartner(Entity* this) {
         LinkHook(this);
         return;
     }
+    if (this->type == 4) {
+        Blend_CoopReviveMarker(this);
+        return;
+    }
+    if (this->type == 5 || this->type == 6) {
+        Blend_CoopPuzzlePiece(this);
+        return;
+    }
     if (this->action == 0) {
         this->action = 1;
         this->spriteSettings.draw = 0;
@@ -1452,17 +1848,27 @@ void LinkPartner(Entity* this) {
     }
     if (!PartnerVisibleHere()) {
         this->spriteSettings.draw = 0;
+        if (this->action == 2) {
+            Blend_CoopPartnerCarry(this); // lets go
+        }
         return;
     }
     this->spriteSettings.draw = 1;
-    this->x.HALF.HI = p->x;
-    this->y.HALF.HI = p->y;
-    this->z.HALF.HI = p->z;
-    this->collisionLayer = p->collisionLayer;
+    if (!Blend_CoopPartnerCarry(this)) {
+        // walking about: where the partner's game has them (while carried, the carrying moves them)
+        this->x.HALF.HI = p->x;
+        this->y.HALF.HI = p->y;
+        this->z.HALF.HI = p->z;
+        this->collisionLayer = p->collisionLayer;
+    }
     ShowFrame(this, p->spriteIndex, p->frameIndex);
     this->frameSpriteSettings = p->frameSpriteSettings;
     this->animationState = p->animationState;
     this->spriteSettings.flipX = p->flipX;
+    if (Blend_CoopPartnerDowned() && (gRoomTransition.frameCount & 3) == 0) {
+        // a downed partner shows as a see-through ghost until revived
+        this->spriteSettings.draw = 0;
+    }
     UpdateSpriteForCollisionLayer(this);
 }
 
@@ -1481,11 +1887,122 @@ static void UpdatePartner(void) {
     if (!IsPartnerObject(gBlendLink.partnerItemEntity, 1)) {
         gBlendLink.partnerItemEntity = CreateObject(LINK_PARTNER, 1, 0);
     }
+    if (Blend_CoopPartnerDowned() && FindEntity(OBJECT, LINK_PARTNER, 6, 4, 0) == NULL) {
+        CreateObject(LINK_PARTNER, 4, 0);
+    }
+}
+
+// A Link to the Past's crystal switches (the Tower of Hera): a hit with the sword lowers
+// the raised pegs and raises the others, in every room of the dungeon. The blend draws
+// each room with both colors raised (custom/gen/pegs.h, from blend/dungeons/tileset.py)
+// and swaps the cells that differ; a local flag of the dungeon holds which are up.
+#include "../custom/gen/pegs.h"
+
+typedef struct {
+    u8 swinging; /**< Link was swinging the sword last frame */
+    u8 pad[3];
+    u8 pending[64]; /**< bits of swaps whose peg waits for Link to step off before rising */
+} BlendPegs;
+
+extern u8 gBlendPegsState[];
+extern u8 gBlendCoopDungeons[];
+#define gBlendPegs (*(BlendPegs*)gBlendPegsState)
+
+static const BlendPegRoom* FindPegRoom(void) {
+    const BlendPegRoom* r;
+    for (r = sBlendPegRooms; r->area != 0xff; r++) {
+        if (r->area == gRoomControls.area && r->room == gRoomControls.room) {
+            return r;
+        }
+    }
+    return NULL;
+}
+
+/** Whether Link stands (partly) on a cell, as a tile position. */
+static bool32 LinkOnCell(u32 pos) {
+    s32 x = gPlayerEntity.base.x.HALF.HI - gRoomControls.origin_x - (pos & 0x3f) * 16;
+    s32 y = gPlayerEntity.base.y.HALF.HI - gRoomControls.origin_y - (pos >> 6) * 16;
+    return x > -6 && x < 16 + 6 && y > -2 && y < 16 + 6;
+}
+
+static void ShowPeg(const u16* swap, u32 i, u32 state) {
+    // a peg rising (solid in this state, not the other) waits while Link stands on it
+    if (((swap[3] >> state) & 1) && !((swap[3] >> (state ^ 1)) & 1) && LinkOnCell(swap[0])) {
+        gBlendPegs.pending[i >> 3] |= 1 << (i & 7);
+        return;
+    }
+    gBlendPegs.pending[i >> 3] &= ~(1 << (i & 7));
+    SetTileByIndex(swap[1 + state], swap[0], LAYER_BOTTOM);
+}
+
+static void ShowPegs(const BlendPegRoom* r, u32 state) {
+    u32 i;
+    MemClear(gBlendPegs.pending, sizeof(gBlendPegs.pending));
+    for (i = 0; i < r->swapCount && i < 8 * sizeof(gBlendPegs.pending); i++) {
+        ShowPeg(r->swaps + i * 4, i, state);
+    }
+}
+
+static void UpdatePegs(void) {
+    const BlendPegRoom* r = FindPegRoom();
+    MapLayer* layer;
+    u32 state, i, swing;
+    const u16* mark;
+    if (r == NULL || (r->swapCount == 0 && r->switchCount == 0)) {
+        gBlendPegs.swinging = 0;
+        return;
+    }
+    state = CheckLocalFlag(r->flag) ? 1 : 0;
+    layer = GetLayerByIndex(LAYER_BOTTOM);
+    // a cell no peg rises on tells which look the room's map has: a room loads the way
+    // the blend drew it, the blue pegs up (a room may have a switch and no pegs)
+    mark = r->swaps;
+    for (i = 0; i < r->swapCount; i++) {
+        if ((r->swaps[i * 4 + 3] & 3) != 1 && (r->swaps[i * 4 + 3] & 3) != 2) {
+            mark = r->swaps + i * 4;
+            break;
+        }
+    }
+    if (r->swapCount == 0) {
+        // a switch and no pegs here (the Palace of Darkness's 0x2B): it flips the others
+    } else if (layer->mapData[mark[0]] != mark[1 + state]) {
+        ShowPegs(r, state);
+    } else {
+        for (i = 0; i < r->swapCount && i < 8 * sizeof(gBlendPegs.pending); i++) {
+            if (gBlendPegs.pending[i >> 3] & (1 << (i & 7))) {
+                ShowPeg(r->swaps + i * 4, i, state);
+            }
+        }
+    }
+    swing = gPlayerState.framestate == PL_STATE_SWORD;
+    if (swing && !gBlendPegs.swinging) {
+        s32 x, y;
+        PointInFront(12, &x, &y);
+        x -= gRoomControls.origin_x;
+        y -= gRoomControls.origin_y;
+        for (i = 0; i < r->switchCount; i++) {
+            s32 dx = x - ((r->switches[i] & 0x3f) * 16 + 8);
+            s32 dy = y - ((r->switches[i] >> 6) * 16 + 8);
+            if (dx > -14 && dx < 14 && dy > -14 && dy < 14) {
+                if (state) {
+                    ClearLocalFlag(r->flag);
+                } else {
+                    SetLocalFlag(r->flag);
+                }
+                SoundReq(SFX_METAL_CLINK);
+                ShowPegs(r, state ^ 1);
+                break;
+            }
+        }
+    }
+    gBlendPegs.swinging = swing;
 }
 
 void Blend_GameUpdate(void) {
     if (gBlendLink.magic != BLEND_MAGIC) {
         MemClear(&gBlendLink, sizeof(gBlendLink));
+        MemClear(gBlendPegsState, 0x100); // the pegs' and the Temple of Bonds' state
+        MemClear(gBlendCoopDungeons, 0x100);
         gBlendLink.magic = BLEND_MAGIC;
     }
     // the game's own record of pressed keys loses the keys the blend hides, so keep a true one
@@ -1493,14 +2010,201 @@ void Blend_GameUpdate(void) {
     gBlendLink.heldKeys = gInput.heldKeys;
     UpdateDevHooks();
     UpdateRoom();
+    UpdatePegs();
     UpdateBunny();
     UpdateMilestoneAwards();
     UpdateStory();
     UpdateRodSwap();
+    UpdateEquippedSpells();
     UpdateMedallions();
     UpdateByrna();
+    UpdateCape();
+    UpdateMushroomTrade();
     UpdateFrozen();
     UpdateMirror();
+    Blend_ShrineUpdate();
+    Blend_CoopDungeonsUpdate();
+    Blend_GoldenSwordUpdate();
     PublishSelf();
     UpdatePartner();
+    Blend_CoopUpdate();
+}
+
+/* ---- The pause menu's A Link to the Past page --------------------------- */
+
+/*
+ * Select on the pause menu's Items page switches to a second page with A Link to
+ * the Past's items, in the same 4 x 3 grid and the bottles' row. A or B puts the
+ * chosen item on that button, as on the first page.
+ */
+static const u8 sMenuPage[16] = {
+    ITEM_HOOKSHOT,      ITEM_HAMMER,     ITEM_FIRE_ROD,  ITEM_ICE_ROD,      //
+    ITEM_CANE_OF_BYRNA, ITEM_CANE_OF_SOMARIA, ITEM_MAGIC_POWDER, ITEM_MAGIC_MIRROR, //
+    ITEM_BOMBOS,        ITEM_ETHER,      ITEM_QUAKE,     ITEM_MOON_PEARL,   //
+    ITEM_BOOK_OF_MUDORA, ITEM_MAGIC_CAPE, ITEM_BUG_NET,  ITEM_SHOVEL,
+};
+
+/** Names for the menu's item box, for ids whose own text entry is a sword skill's (USA.json bank 4). */
+static const u8 sMenuText[] = {
+    [ITEM_HOOKSHOT - ITEM_HOOKSHOT] = 125, [ITEM_HAMMER - ITEM_HOOKSHOT] = 126,
+    [ITEM_CANE_OF_BYRNA - ITEM_HOOKSHOT] = 127, [ITEM_MAGIC_POWDER - ITEM_HOOKSHOT] = 128,
+    [ITEM_CANE_OF_SOMARIA - ITEM_HOOKSHOT] = 129, [ITEM_REVIVE_FAIRY - ITEM_HOOKSHOT] = 130,
+    [ITEM_BOOK_OF_MUDORA - ITEM_HOOKSHOT] = 131, [ITEM_MAGIC_CAPE - ITEM_HOOKSHOT] = 132,
+    [ITEM_BUG_NET - ITEM_HOOKSHOT] = 133, [ITEM_MUSHROOM - ITEM_HOOKSHOT] = 134,
+    [ITEM_SHOVEL - ITEM_HOOKSHOT] = 135, [ITEM_TITANS_MITT - ITEM_HOOKSHOT] = 136,
+};
+
+/** The item shown in a menu slot of the A Link to the Past page, or ITEM_NONE. */
+u32 Blend_MenuPageItem(u32 slot) {
+    u32 item;
+    if (slot >= ARRAY_COUNT(sMenuPage)) {
+        return ITEM_NONE;
+    }
+    item = sMenuPage[slot];
+    if (item == ITEM_MAGIC_POWDER && !HasItem(item)) {
+        item = ITEM_MUSHROOM; // as in A Link to the Past, the Mushroom becomes the Powder
+    }
+    return HasItem(item) ? item : ITEM_NONE;
+}
+
+/** TRUE for the items the A Link to the Past page shows. */
+bool32 Blend_MenuPageOf(u32 item) {
+    u32 i;
+    for (i = 0; i < ARRAY_COUNT(sMenuPage); i++) {
+        if (sMenuPage[i] == item) {
+            return TRUE;
+        }
+    }
+    return item == ITEM_MUSHROOM || item == ITEM_TITANS_MITT;
+}
+
+/** Text index of an item's name for the menu's item box. */
+u32 Blend_MenuItemText(u32 item) {
+    if (item >= ITEM_HOOKSHOT && item - ITEM_HOOKSHOT < ARRAY_COUNT(sMenuText)) {
+        return TEXT_INDEX(TEXT_ITEMS, sMenuText[item - ITEM_HOOKSHOT]);
+    }
+    return TEXT_INDEX(TEXT_ITEMS, 0) + item;
+}
+
+/** Puts an item on a button the way ForceEquipItem does, for ids it refuses (the Mirror). */
+static void EquipRaw(u32 item, u32 slot) {
+    u32 other = slot == EQUIP_SLOT_A;
+    u32 replaced = gSave.stats.equipped[slot];
+    if (gSave.stats.equipped[other] == item) {
+        gSave.stats.equipped[other] = replaced;
+    }
+    gSave.stats.equipped[slot] = item;
+    gHUD.unk_13 = 0x7f;
+    gHUD.unk_14 = 0x7f;
+}
+
+/** A or B on the A Link to the Past page. Returns FALSE for items that never go on a button. */
+bool32 Blend_MenuEquip(u32 item, u32 slot) {
+    u32 i;
+    for (i = 0; i < ARRAY_COUNT(sSlotShares); i++) {
+        if (sSlotShares[i].item == item) {
+            // the shared slot's button, switched to this item
+            ForceEquipItem(sSlotShares[i].partner, slot);
+            BLEND_VARIANTS_ON |= VariantBit(item);
+            return TRUE;
+        }
+    }
+    switch (item) {
+        case ITEM_FIRE_ROD:
+        case ITEM_ICE_ROD:
+        case ITEM_BOMBOS:
+        case ITEM_ETHER:
+        case ITEM_QUAKE:
+            ForceEquipItem(item, slot);
+            return TRUE;
+        case ITEM_MAGIC_MIRROR:
+        case ITEM_BUG_NET:
+        case ITEM_SHOVEL:
+        case ITEM_MAGIC_CAPE:
+            EquipRaw(item, slot);
+            return TRUE;
+        default:
+            return FALSE; // the Moon Pearl, the Book and the Mushroom work on their own
+    }
+}
+
+/** A or B on the first page: a Minish Cap item, so its slot switches back to it. */
+void Blend_MenuEquipMinishCap(u32 item) {
+    Blend_SetSlotShare(item, FALSE);
+}
+
+static bool32 IsButtonOnlyItem(u32 item) {
+    switch (item) {
+        case ITEM_MAGIC_MIRROR:
+        case ITEM_BOMBOS:
+        case ITEM_ETHER:
+        case ITEM_QUAKE:
+        case ITEM_BUG_NET:
+        case ITEM_SHOVEL:
+        case ITEM_MAGIC_CAPE:
+            return TRUE;
+    }
+    return FALSE;
+}
+
+/**
+ * The medallions, the Mirror, the Bug Net, the Shovel and the Magic Cape on A or B:
+ * pressing the button uses them (the medallions and the Mirror also answer
+ * R + Select and L + R). The game itself never sees the press.
+ */
+static void UpdateEquippedSpells(void) {
+    static const u16 sKeys[] = { A_BUTTON, B_BUTTON };
+    u32 slot;
+    for (slot = EQUIP_SLOT_A; slot <= EQUIP_SLOT_B; slot++) {
+        u32 item = gSave.stats.equipped[slot];
+        u32 key = sKeys[slot];
+        if (!IsButtonOnlyItem(item)) {
+            continue;
+        }
+        gInput.heldKeys &= ~key;
+        gInput.newKeys &= ~key;
+        if (!(gBlendLink.newKeys & key) || (gBlendLink.heldKeys & L_BUTTON) || !IsPlayerFree()) {
+            continue;
+        }
+        if (item == ITEM_MAGIC_MIRROR) {
+            if (CanUseMirror()) {
+                StartItemAction(ITEM_MAGIC_MIRROR);
+            } else {
+                SoundReq(SFX_MENU_ERROR);
+            }
+        } else if (item == ITEM_BUG_NET || item == ITEM_SHOVEL || item == ITEM_MAGIC_CAPE) {
+            if (!HasItem(item) || gBlendLink.bunny) {
+                SoundReq(SFX_MENU_ERROR);
+            } else {
+                StartItemAction(item);
+            }
+        } else if (!HasItem(item) || !HasSword() || gBlendLink.medallionUsed || gBlendLink.bunny) {
+            SoundReq(SFX_MENU_ERROR);
+        } else if (StartItemAction(item)) {
+            BLEND_MEDALLION = MedallionIndex(item);
+            gBlendLink.medallionUsed = 1;
+        }
+    }
+}
+
+/** The A Link to the Past item that shares this Minish Cap item's menu slot, if Link owns it. */
+u32 Blend_SlotShareItem(u32 item) {
+    const SlotShare* s = FindSlotShare(item);
+    if (s == NULL || !HasItem(s->item)) {
+        return ITEM_NONE;
+    }
+    return s->item;
+}
+
+/** Switches a shared slot to its A Link to the Past item, or back. */
+void Blend_SetSlotShare(u32 item, bool32 on) {
+    const SlotShare* s = FindSlotShare(item);
+    if (s == NULL) {
+        return;
+    }
+    if (on) {
+        BLEND_VARIANTS_ON |= VariantBit(s->item);
+    } else {
+        BLEND_VARIANTS_ON &= ~VariantBit(s->item);
+    }
 }

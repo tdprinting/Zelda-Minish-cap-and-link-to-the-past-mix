@@ -3484,9 +3484,9 @@ gAreaRoomMaps:: @ 08107988
 	.4byte gAreaRoomMaps_VeilFallsTop            @ 0x1A
 	.4byte gAreaRoomMaps_DesertPalace             @ 0x1B (A Link to the Past)
 	.4byte gAreaRoomMaps_TowerOfHera              @ 0x1C (A Link to the Past)
-	.4byte gAreaRoomMaps_Unused                  @ 0x1D
-	.4byte gAreaRoomMaps_Unused                  @ 0x1E
-	.4byte gAreaRoomMaps_Unused                  @ 0x1F
+	.4byte gAreaRoomMaps_PalaceOfDarkness        @ 0x1D (A Link to the Past)
+	.4byte gAreaRoomMaps_SwampPalace              @ 0x1E (A Link to the Past)
+	.4byte gAreaRoomMaps_SkullWoods               @ 0x1F (A Link to the Past)
 	.4byte gAreaRoomMaps_MinishHouseInteriors    @ 0x20
 	.4byte gAreaRoomMaps_HouseInteriors1         @ 0x21
 	.4byte gAreaRoomMaps_HouseInteriors2         @ 0x22
@@ -3512,13 +3512,13 @@ gAreaRoomMaps:: @ 08107988
 	.4byte gAreaRoomMaps_CastleGardenMinishHoles @ 0x36
 	.4byte gAreaRoomMaps_37                      @ 0x37
 	.4byte gAreaRoomMaps_EzloCutscene            @ 0x38
-	.4byte gAreaRoomMaps_Unused                  @ 0x39
-	.4byte gAreaRoomMaps_Unused                  @ 0x3A
-	.4byte gAreaRoomMaps_Unused                  @ 0x3B
-	.4byte gAreaRoomMaps_Unused                  @ 0x3C
-	.4byte gAreaRoomMaps_Unused                  @ 0x3D
-	.4byte gAreaRoomMaps_Unused                  @ 0x3E
-	.4byte gAreaRoomMaps_Unused                  @ 0x3F
+	.4byte gAreaRoomMaps_ThievesTown               @ 0x39 (A Link to the Past)
+	.4byte gAreaRoomMaps_IcePalace               @ 0x3A (A Link to the Past)
+	.4byte gAreaRoomMaps_MiseryMire               @ 0x3B (A Link to the Past)
+	.4byte gAreaRoomMaps_TurtleRock               @ 0x3C (A Link to the Past)
+	.4byte gAreaRoomMaps_GanonsTower               @ 0x3D (A Link to the Past)
+	.4byte gAreaRoomMaps_Pyramid               @ 0x3E (A Link to the Past)
+	.4byte gAreaRoomMaps_TempleOfBonds               @ 0x3F (the blend's co-op temple)
 	.4byte gAreaRoomMaps_40                      @ 0x40
 	.4byte gAreaRoomMaps_HyruleTownUnderground   @ 0x41
 	.4byte gAreaRoomMaps_GardenFountains         @ 0x42
