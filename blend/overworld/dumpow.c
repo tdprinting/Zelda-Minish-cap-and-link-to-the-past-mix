@@ -51,7 +51,8 @@ int main(int argc, char **argv) {
   fwrite(&n, 4, 1, f);
   fwrite(kMap8DataToTileAttr, 1, n, f);          // map8 character -> tile attribute
   fclose(f);
-  for (int sc = 0; sc < 0x80; sc++) {
+  // screens 0x00-0x7f, then the special areas 0x80 (the Master Sword's grove) and 0x81 (Zora's waterfall)
+  for (int sc = 0; sc < 0x82; sc++) {
     memset(g_ram, 0, 0x20000);
     memset(g_zenv.vram, 0, 0x10000);
     main_module_index = 8;
@@ -59,16 +60,24 @@ int main(int argc, char **argv) {
     sram_progress_indicator = 3;
     overworld_screen_index = overworld_area_index = sc;
     Overworld_LoadGFXAndScreenSize();
-    int t = sc & ~0x40;
+    int t = sc & ~0x40, special = sc >= 0x80;
+    if (special) {
+      savegame_is_darkworld = 0;
+      sprite_graphics_index = kSpExit_SprGfx[sc - 0x80];
+      aux_tile_theme_index = kSpExit_AuxGfx[sc - 0x80];
+    }
     DecompressAnimatedOverworldTiles((t == 3 || t == 5 || t == 7) ? 0x58 : 0x5a);
     InitializeTilesets();
     OverworldLoadScreensPaletteSet();
-    Overworld_LoadPalettes(GetOverworldBgPalette(sc), 0);
+    if (special)
+      Overworld_LoadPalettes(kSpExit_PalBg[sc - 0x80], kSpExit_PalSpr[sc - 0x80]);
+    else
+      Overworld_LoadPalettes(GetOverworldBgPalette(sc), 0);
     Overworld_CopyPalettesToCache();
     Overworld_DecompressAndDrawAllQuadrants();
     snprintf(name, sizeof(name), "%s/ow_%02x.bin", outdir, sc);
     f = fopen(name, "wb");
-    uint8 big = kOverworldMapIsSmall[sc & 0x3f] ? 0 : 1;
+    uint8 big = special || kOverworldMapIsSmall[sc & 0x3f] ? 0 : 1;
     fwrite(&big, 1, 1, f);
     fwrite(&g_ram[0x2000], 2, 64 * 64, f);       // map16 numbers, 64x64 (a small area uses the top-left 32x32)
     fwrite(g_zenv.vram, 2, 0x8000, f);           // video memory (background characters at word 0x2000)

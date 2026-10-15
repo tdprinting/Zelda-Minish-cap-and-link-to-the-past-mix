@@ -258,16 +258,16 @@ static void UpdateFrontStory(void) {
     }
     bit = 1 << i;
     // halves, since the filler bytes have no alignment
-    if ((gSave.fillerA[20] | (gSave.fillerA[21] << 8)) & bit) {
+    if ((gSave.fillerA[4] | (gSave.fillerA[5] << 8)) & bit) {
         return;
     }
     if (++gBlendExterior.seen < FRONT_STORY_DELAY) {
         return;
     }
     if (bit < 0x100) {
-        gSave.fillerA[20] |= bit;
+        gSave.fillerA[4] |= bit;
     } else {
-        gSave.fillerA[21] |= bit >> 8;
+        gSave.fillerA[5] |= bit >> 8;
     }
     MessageFromTarget(TEXT_INDEX(TEXT_EZLO, sFrontStories[i].text));
 }

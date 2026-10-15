@@ -129,13 +129,19 @@ SITES = [
     # a Kakariko house, in Hyrule Town (in the town's own colors)
     Site('KakarikoHouse', 0x02, 0, LIGHT, (0x200, 0x200), (0x18, 10, 19, 16, 26), (13, 25),
          landmark=True, place=(0, 0, 64, 64), use_rows='auto', min_char=384),
+    # Sahasrahla's hut, in the south of the Eastern Hills
+    Site('Sahasrahla', 0x03, 2, LIGHT, (0x200, 0x200), (0x1e, 13, 16, 18, 21), (15, 20),
+         landmark=True, place=(0, 0, 64, 64)),
+    # the Master Sword's grove (its pedestal stands empty), in the Royal Valley woods
+    Site('MasterSwordGrove', 0x09, 0, LIGHT, (0x200, 0x200), (0x80, 4, 7, 11, 13), (7, 12),
+         landmark=True, place=(0, 0, 64, 64)),
     # Dark World: its counterparts
     # the bomb shop, in South Hyrule Field
     Site('BombShop', 0x03, 1, DARK, (0x200, 0x200), (0x6c, 9, 11, 15, 18), (12, 17),
          landmark=True, place=(0, 0, 64, 64)),
-    # the Dark Chapel's domes, in the Royal Valley
-    Site('DarkChapel', 0x09, 0, DARK, (0x200, 0x200), (0x53, 16, 8, 26, 14), (21, 13),
-         landmark=True, place=(0, 0, 64, 64)),
+    # the Dark World's pair of great trees (where the Sanctuary's grove stands), in the Western Woods
+    Site('DarkTrees', 0x03, 9, DARK, (0x200, 0x200), (0x53, 17, 8, 27, 13), (22, 12),
+         landmark=True, place=(0, 0, 64, 64), see_through=True),
     # the Dark World fortune teller, by Lon Lon Ranch
     Site('DarkFortuneTeller', 0x03, 5, DARK, (0x200, 0x200), (0x51, 13, 13, 19, 20), (16, 19),
          landmark=True, place=(0, 0, 64, 64)),
@@ -147,6 +153,9 @@ SITES = [
          landmark=True, place=(0, 0, 64, 64)),
     # a Dark World shack, in the Trilby Highlands
     Site('DarkShack', 0x03, 7, DARK, (0x200, 0x200), (0x62, 11, 4, 17, 10), (14, 9),
+         landmark=True, place=(0, 0, 64, 64)),
+    # the Dark World's ring of flowers where Death Mountain's warp stands, on Mt. Crenel
+    Site('DarkStoneCircle', 0x06, 2, DARK, (0x200, 0x200), (0x43, 44, 19, 52, 27), (48, 26),
          landmark=True, place=(0, 0, 64, 64)),
     # the Dark World lake hut, on Lake Hylia
     Site('DarkLakeHut', 0x0b, 0, DARK, (0x200, 0x200), (0x75, 3, 10, 9, 15), (6, 14),
