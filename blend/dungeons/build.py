@@ -63,6 +63,15 @@ ITEMS = {
     # Skull Woods's Fire Rod already lies in the dark Minish Woods (and opens the way
     # in): its big chest holds a bigger wallet
     0x07: (0x64, 0),
+    # Thieves' Town's Titan's Mitt has no Minish Cap match (the Power Bracelets already do
+    # the lifting): its big chest holds the Magic Boomerang, which A Link to the Past has too
+    0x1c: (0x0c, 0),
+    # the Ice Palace's Blue Mail neither (Minish Cap has no armor): a bigger bomb bag
+    0x22: (0x65, 0),
+    # Misery Mire's Cane of Somaria already lies at the dark Veil Falls: a bigger wallet
+    0x15: (0x64, 0),
+    # Turtle Rock's Mirror Shield is the Tower of Hera's already: a bigger quiver
+    0x06: (0x66, 0),
 }
 
 # A Link to the Past enemies -> blend enemies: id, or (id, form). Ids 0x67 and up are
@@ -72,6 +81,8 @@ ALTTP_HINOX, LANMOLA, ALTTP_LEEVER, ALTTP_BEAMOS = 0x6f, 0x71, 0x73, 0x74
 ALTTP_POKEY, ALTTP_GIBDO, GIANT_MOLDORM, ALTTP_BARI, ALTTP_HARDHAT, ALTTP_BUMPER = 0x76, 0x77, 0x78, 0x7a, 0x7b, 0x7c
 # Minish Cap enemies used where A Link to the Past has a close relative
 MC_WALL_MASTER = 0x1a
+MC_CHUCHU, MC_DARK_NUT, MC_KEESE, MC_SLUGGULA, MC_WIZZROBE_FIRE, MC_WIZZROBE_ICE = 0x01, 0x05, 0x08, 0x10, 0x28, 0x29
+ALTTP_ROPE, ALTTP_MOBLIN = 0x6c, 0x6d
 ALTTP_DEBIRANDO_PIT, ALTTP_KODONGO, MINI_MOLDORM = 0x7d, 0x80, 0x81
 HELMASAUR_KING, ARRGHUS, MOTHULA, ALTTP_SPIKE_BLOCK = 0x83, 0x86, 0x88, 0x8a
 MINI_HELMASAUR, TERRORPIN, HOVER, KYAMERON, ZOL, FIRESNAKE, ALTTP_SHOOTER = 0x8b, 0x8c, 0x8d, 0x8e, 0x8f, 0x90, 0x91
@@ -120,6 +131,30 @@ ENEMIES = {
 ENEMY_CELLS = {
     'C5-Shooter': None, 'C6-4WayShooter': None,
     '81-WaterBug': ('~',), '9A-Splash': ('~',), '8C-Arrghus': ('~',),
+}
+
+# Thieves' Town, the Ice Palace, Misery Mire and Turtle Rock: until their own enemies
+# and bosses are in ENEMIES, Minish Cap and blend enemies of a like kind stand in (an
+# ENEMIES entry always wins over these)
+STAND_INS = {
+    '6F-Keese': MC_KEESE,
+    '116-MiniBats': MC_KEESE,
+    '6D-Rat': ALTTP_ROPE,                       # rats scurry like the Ropes
+    'A5-GreenLizard': ALTTP_MOBLIN,             # Zazaks, the lizard soldiers
+    'A6-RedLizard': ALTTP_MOBLIN,
+    '91-StalfosKnight': ALTTP_STALFOS,
+    '7C-StalfosHead': ALTTP_ANTIFAIRY,          # a skull drifting about the room
+    '7D-BigSpikeBlock': ALTTP_SPIKE_BLOCK,
+    'A1-IceMan': MC_WIZZROBE_ICE,               # Freezors: an ice spirit
+    '99-Penguin': (MC_CHUCHU, 2),               # Pengators: a blue Chuchu slides about
+    '9B-Wizzrobe': MC_WIZZROBE_FIRE,
+    '20-BombSlug': MC_SLUGGULA,                 # Minish Cap's own bomb-dropping slugs
+    'C7-FuzzyStack': ALTTP_POKEY,
+    # the bosses: a gold Darknut stands in until each is built
+    'CE-Blind': (MC_DARK_NUT, 2),
+    'A2-KholdStare': (MC_DARK_NUT, 2),
+    'BD-Viterous': (MC_DARK_NUT, 2),
+    'CB-TriNexx1': (MC_DARK_NUT, 2),
 }
 
 DOOR_SMALL_KEY = 0x1c
@@ -212,6 +247,74 @@ DUNGEONS = [
         flag_base=0x10,
         trim=True,
     ),
+    # Minish Cap has no empty areas left after 0x1F: the later dungeons fill 0x39-0x3C,
+    # a run of areas the game never used (no rooms, exits or tile animations; every area
+    # table holds an empty entry there). Their dungeon numbers (location - 23) run past the
+    # save's 16 per-dungeon key slots, so dungeons 16 and up keep their keys in spare save
+    # bytes (DUNGEON_KEYS and friends in save.h).
+    dict(
+        name='ThievesTown',
+        rooms=[0xdb, 0xdc, 0xcb, 0xcc, 0xbb, 0xbc, 0xab, 0xac, 0x64, 0x65, 0x44, 0x45],
+        entrance=0xdb,
+        area='AREA_NULL_39',
+        # Blind's door takes the big key, as A Link to the Past's boss doors do (the north
+        # wing's own big key door has an open door beside it)
+        locks={0xbc: {DIR_N: 'boss'}, 0xac: {DIR_S: 'boss'}},
+        # the hub's four quarters are joined by raised walkways Link climbs onto by stairs;
+        # the blend has one level, so a gap in the wall between quarters takes their place
+        opens={0xdb: [(22, 0, 24, 3)], 0xcb: [(22, 29, 24, 32)], 0xdc: [(9, 0, 11, 3)], 0xcc: [(9, 29, 11, 32)]},
+        # the stranger's house in the west of Hyrule Town, in the Dark World (the town is
+        # A Link to the Past's Village of Outcasts there)
+        exit=('AREA_HYRULE_TOWN', 'ROOM_HYRULE_TOWN_MAIN', 0x98, 0x17c),
+        flag_base=0x10,
+        trim=True,
+    ),
+    dict(
+        name='IcePalace',
+        # (the fairy fountain 0x4F is left out: its door has no partner in 0x4E)
+        rooms=[0x0e, 0x1e, 0x1f, 0x2e, 0x3e, 0x3f, 0x4e, 0x5e, 0x5f, 0x6e, 0x7e, 0x7f, 0x8e,
+               0x9e, 0x9f, 0xae, 0xaf, 0xbe, 0xbf, 0xce, 0xde],
+        entrance=0x0e,
+        area='AREA_NULL_3A',
+        # the cave on Lake Hylia's south shore, in the Dark World
+        exit=('AREA_LAKE_HYLIA', 'ROOM_LAKE_HYLIA_MAIN', 0x148, 0x358),
+        # the floor of the room below the big key door gives way to Kholdstare's lair; the
+        # floor Link bombs open in 0x1E's octagon drops him into 0x3E; 0x7E's hole drops into
+        # the big chest's room
+        drops={0xce: 0xde, 0x1e: (0x3e, (24, 4)), 0x7e: 0x9e},
+        locks={0xbe: {DIR_S: 'boss'}, 0xce: {DIR_N: 'boss'}},
+        flag_base=0x10,
+        trim=True,
+    ),
+    dict(
+        name='MiseryMire',
+        rooms=[0x98, 0xd2, 0xc2, 0xc3, 0xc1, 0xb2, 0xb3, 0xd1, 0xb1, 0xa2, 0xa3, 0x97, 0xa1,
+               0x90, 0x91, 0x92, 0x93, 0xa0],
+        entrance=0x98,
+        area='AREA_NULL_3B',
+        # the gap past the entrance that A Link to the Past crosses by Hookshot or Pegasus
+        # Boots gets a bridge (Minish Cap's Roc's Cape may not be Link's yet)
+        opens={0x98: [(18, 20, 21, 21)]},
+        # the four holes in 0x97's halls drop into 0xD1's west half, the way to its chest
+        drops={0x97: (0xd1, None, (7, 24))},
+        # the cave at the foot of the dark Veil Falls, opened with Ether
+        exit=('AREA_VEIL_FALLS', 'ROOM_VEIL_FALLS_MAIN', 0x38, 0x1f8),
+        flag_base=0x10,
+        trim=True,
+    ),
+    dict(
+        name='TurtleRock',
+        rooms=[0xd6, 0xc6, 0xb6, 0xc7, 0x15, 0xb7, 0x14, 0x24, 0x13, 0x04, 0x23, 0xb5, 0xc5,
+               0xc4, 0xd5, 0xb4, 0xa4],
+        entrance=0xd6,
+        area='AREA_NULL_3C',
+        # the cave on Mt. Crenel's summit, in the Dark World, opened with Quake
+        exit=('AREA_MT_CRENEL', 'ROOM_MT_CRENEL_TOP', 0x328, 0x18),
+        # doors to the rooms of the other entrances (0x33, 0xE5), left out, stay shut
+        sealed={0x23: (DIR_S,), 0xd5: (DIR_S,)},
+        flag_base=0x10,
+        trim=True,
+    ),
 ]
 
 
@@ -237,8 +340,9 @@ def read_room(room_id, lower=False):
 class Plan:
     """One room, at 16px cells, ready to draw."""
 
-    def __init__(self, room_id, sealed=(), outside=()):
+    def __init__(self, room_id, sealed=(), outside=(), locks=None):
         self.id = room_id
+        self.locks = locks or {}  # sides whose door the blend locks: {side: 'key' or 'boss'}
         self.sealed = sealed  # sides whose doors stay shut (to rooms the dungeon leaves out)
         self.outside = outside  # sides whose door leads outside instead (past a room left out)
         self.yaml = yaml.safe_load(open(os.path.join(YAML_DIR, 'dungeon-%d.yaml' % room_id)))
@@ -292,6 +396,8 @@ class Plan:
             kind = {DOOR_SMALL_KEY: 'key', DOOR_BIG_KEY: 'boss'}.get(d['type'], 'open')
             if d['type'] in DOOR_EXITS or dr in self.outside:
                 kind = 'exit'
+            elif dr in self.locks and kind == 'open' and not 12 < (y if dr in (DIR_N, DIR_S) else x) < 52:
+                kind = self.locks[dr]
             if d['type'] in DOOR_STAIR_KEY:
                 # a locked door in front of stairs: the stairs stay, a key door stands
                 # on the locked cell before them
@@ -521,7 +627,7 @@ class Plan:
 
     def _enemies(self):
         for s in self.yaml.get('Sprites') or []:
-            mc = ENEMIES.get(s[3])
+            mc = ENEMIES[s[3]] if s[3] in ENEMIES else STAND_INS.get(s[3])
             if mc is None:
                 continue
             x, y = s[0], s[1]
@@ -615,17 +721,21 @@ BORDER = {DIR_N: 'TRANSITION_SHAPE_BORDER_NORTH', DIR_S: 'TRANSITION_SHAPE_BORDE
           DIR_W: 'TRANSITION_SHAPE_BORDER_WEST', DIR_E: 'TRANSITION_SHAPE_BORDER_EAST'}
 
 
-def add_drop(p, q):
+def add_drop(p, q, at=None, land=None):
     """A hole in room p that A Link to the Past drops through into room q (Skull Woods's
     way down to Mothula). Minish Cap pits only hurt Link and set him back, so each cell
     of the hole becomes a step that takes him down, keeping the hole's art; he lands where
     the hole lies above, and a step up in q's far corner takes him back beside the hole."""
     hole = [(i % 32, i // 32) for i, c in enumerate(p.cells) if c == A.PIT]
-    assert hole, 'room %03x has no hole to drop through' % p.id
+    if not hole:
+        # a floor A Link to the Past breaks open (the Ice Palace's way down to Kholdstare):
+        # the blend draws a step down in the open middle of the room instead
+        hole = [p.free_floor(*(at or p.middle()))]
+        p.steps_up.append(hole[0])
     floor_q = [(i % 32, i // 32) for i, c in enumerate(q.cells) if c == A.FLOOR]
     hx = sum(x for x, _ in hole) // len(hole)
     hy = sum(y for _, y in hole) // len(hole)
-    land = min(floor_q, key=lambda c: abs(c[0] - hx) + abs(c[1] - hy))
+    land = land or min(floor_q, key=lambda c: abs(c[0] - hx) + abs(c[1] - hy))
     # a room with no door has only the floor he lands on: wall off the rest
     if not q.doors:
         q._reach([land])
@@ -675,16 +785,32 @@ def generate():
     os.makedirs(OUT, exist_ok=True)
     tiler = autotile.Tiler('043', [('088', 'FortressOfWinds'), ('043', 'CastorDarknut')])
     maps_inc, rooms_inc, ents_inc, exits_h, entries_h = [], [], [], [], []
+    # BLEND_ONLY=Name[,Name]: draw only those dungeons (a quick look; the .inc files then
+    # hold only them, so don't build the game from it)
+    only = [n for n in os.environ.get('BLEND_ONLY', '').split(',') if n]
     for dg in DUNGEONS:
         name = dg['name']
+        if only and name not in only:
+            continue
         ids = dg['rooms']
         assert ids[0] == dg['entrance'], '%s: the entrance must be the first room' % name
-        plans = {r: Plan(r, dg.get('sealed', {}).get(r, ()), dg.get('outside', {}).get(r, ())) for r in ids}
+        plans = {r: Plan(r, dg.get('sealed', {}).get(r, ()), dg.get('outside', {}).get(r, ()),
+                         dg.get('locks', {}).get(r)) for r in ids}
+        # cells the blend opens to the floor ({room: [(x0, y0, x1, y1), ...]}, exclusive):
+        # ways A Link to the Past takes by a level Minish Cap doesn't have
+        for r, rects in dg.get('opens', {}).items():
+            for x0, y0, x1, y1 in rects:
+                for y in range(y0, y1):
+                    for x in range(x0, x1):
+                        plans[r].put(x, y, A.FLOOR)
         edges = open_edges(plans)
         for r in ids:
             plans[r].finish(edges[r])
         for r, dest in dg.get('drops', {}).items():
-            add_drop(plans[r], plans[dest])
+            # (a room, or (room, the cell where the blend breaks the floor open, the cell
+            # Link lands on), either cell None to let the blend choose)
+            dest, at, land = (dest + (None, None))[:3] if isinstance(dest, tuple) else (dest, None, None)
+            add_drop(plans[r], plans[dest], at, land)
         index = {r: i for i, r in enumerate(ids)}
         place = layout(plans, edges)
         flag = dg['flag_base']

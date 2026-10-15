@@ -42,7 +42,9 @@ BACKDROP_ROOMS = {0x53, 0x29}
 # staircase corner under one. The room is all on the second layer; the cover is left out.
 # The Swamp Palace's room 0x54 has the swamp's water surface there, over a basin the
 # blend keeps drained like the others (its busy ripple would cover the whole floor)
-COVER_ROOMS = {0x1b, 0x54}
+# Kholdstare's ice shell (0xDE) and Trinexx's rock body (0xA4) sit alone on the first
+# layer: the bosses draw them as sprites that melt or move, so they are left out too
+COVER_ROOMS = {0x1b, 0x54, 0xde, 0xa4}
 
 
 def layer_mode(room_id):
