@@ -97,6 +97,23 @@ extern BlendLink gBlendLink;
 #define ITEM_BOMBOS ITEM_ORB_RED
 #define ITEM_ICE_ROD ITEM_UNUSED_SWORD
 
+/**
+ * Link's animations for the A Link to the Past items, in sprite 159 (made by
+ * blend/anim/build.py; keep the order of its GROUPS). Each is a group of four:
+ * up, right, down, left.
+ */
+#define ANIM_BLEND_HAMMER 0x9f00
+#define ANIM_BLEND_HOOKSHOT 0x9f04
+#define ANIM_BLEND_FIRE_ROD 0x9f08
+#define ANIM_BLEND_ICE_ROD 0x9f0c
+#define ANIM_BLEND_SOMARIA 0x9f10
+#define ANIM_BLEND_BYRNA 0x9f14
+#define ANIM_BLEND_POWDER 0x9f18
+#define ANIM_BLEND_BOMBOS 0x9f1c
+#define ANIM_BLEND_ETHER 0x9f20
+#define ANIM_BLEND_QUAKE 0x9f24
+#define ANIM_BLEND_MIRROR 0x9f28
+
 /** Which new items are switched in for their Minish Cap partner (one bit per item, from ITEM_HOOKSHOT). */
 #define BLEND_VARIANTS_ON (gSave.fillerA[3])
 

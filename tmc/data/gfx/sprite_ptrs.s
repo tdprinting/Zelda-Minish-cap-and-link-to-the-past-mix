@@ -800,9 +800,10 @@ gSpritePtrs:: @ 080029B4
 	.4byte 00000000
 	.4byte 00000000
 
-	.4byte 00000000
-	.4byte 00000000
-	.4byte 00000000
+	@ 159: blend, Link with the A Link to the Past items (blend/anim/build.py)
+	.4byte gSpriteAnimations_BlendLink
+	.4byte gSpriteFrames_BlendLink
+	.4byte gSprite_BlendLink
 	.4byte 00000000
 
 	.4byte gSpriteAnimations_CastorWildsStatue

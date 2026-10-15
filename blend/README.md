@@ -64,6 +64,7 @@ make -C blend/host                               # needs libsdl2-dev, libmgba-de
 | `tmc/src/fade.c` | Applies the Dark World palette as palettes are uploaded |
 | `tmc/src/game.c` | Calls the blend update every gameplay frame |
 | `blend/dungeons/` | Rebuilds A Link to the Past dungeons: `make-dungeons.sh` runs zelda3's room loader over your ROM, `build.py` turns each room into a Minish Cap room (`autotile.py` picks Minish Cap tile types, so collision works the Minish Cap way) and `tileset.py` draws the blended tileset from A Link to the Past's room graphics (`alttpgfx.py`) recolored by `blendstyle.py` and cel-shaded with soft shadows by `celshade.py`; `mcrender.py` renders rooms offline. Output goes to `tmc/custom/gen/` |
+| `blend/anim/` | Link's animations for the A Link to the Past items: `build.py` draws A Link to the Past's item art, recolored to Link's Minish Cap palette, into Minish Cap Link poses (Hammer lifted and slammed, rods and Somaria swung, Hookshot held out, Byrna raised, Powder shaken, medallions and Mirror held up) as sprite 159; `objlists.py` splices generated frame object lists into `gFrameObjLists`; `mcsprite.py` reads and draws Minish Cap sprites. Run by `make-dungeons.sh`; output goes to `tmc/custom/gen/` |
 | `blend/host/coop.c` | Split-screen co-op player (SDL2 + libmgba) |
 | `blend/harness/harness.c` | Headless test runner used to check builds |
 
