@@ -562,6 +562,119 @@ static void UseByrna(void) {
 }
 
 /** The Cane of Byrna's ring: Link can't be hurt, and the ring stings enemies it touches. */
+/* ---- Ice Rod: frozen enemies -------------------------------------------- */
+
+#define FREEZE_FRAMES 180
+
+/**
+ * The Ice Rod's bolt freezes the enemy it hits, as in A Link to the Past. A frozen
+ * enemy turns icy white and stops (Minish Cap skips the update of an enemy that is
+ * marked as held), but it can still be struck. Bosses shrug it off.
+ */
+/**
+ * Copies an OBJ palette into a free slot as ice: every shade becomes a pale,
+ * frosty blue of the same brightness. Returns the slot, or 0 if none is free.
+ */
+static u32 LoadIcePalette(u32 from) {
+    u32 slot = FindFreeObjPalette(1);
+    u16* src = &gPaletteBuffer[(16 + from) * 16];
+    u16* dst;
+    u32 i;
+    if (slot >= 16) {
+        return 0;
+    }
+    gPaletteList[slot].objPaletteId = 0x3f1;
+    gPaletteList[slot]._0_4 = 1;
+    gPaletteList[slot]._0_0 = 3;
+    gPaletteList[slot]._1 = 1;
+    dst = &gPaletteBuffer[(16 + slot) * 16];
+    for (i = 0; i < 16; i++) {
+        u32 c = src[i];
+        // brightness, weighted 3:6:1; times 205 / 2048 divides by ten without a division routine
+        u32 lum = (((c & 0x1F) * 3 + ((c >> 5) & 0x1F) * 6 + ((c >> 10) & 0x1F)) * 205) >> 11;
+        u32 r = (lum >> 1) + 10;
+        u32 g = ((lum * 3) >> 2) + 8;
+        u32 b = lum + 12;
+        if (b > 31) {
+            b = 31;
+        }
+        dst[i] = r | (g << 5) | (b << 10);
+    }
+    USE_PALETTE(16 + slot);
+    return slot;
+}
+
+void Blend_FreezeEnemy(Entity* enemy) {
+    u32 i, slot = 4;
+    if (enemy == NULL || enemy->kind != ENEMY || enemy->health == 0 ||
+        (((Enemy*)enemy)->enemyFlags & (EM_FLAG_BOSS | EM_FLAG_SUPPORT))) {
+        return;
+    }
+    for (i = 0; i < 4; i++) {
+        if (gBlendLink.frozen[i] == enemy) {
+            return;
+        }
+        if (gBlendLink.frozen[i] == NULL && slot == 4) {
+            slot = i;
+        }
+    }
+    if (slot == 4) {
+        return;
+    }
+    gBlendLink.frozen[slot] = enemy;
+    gBlendLink.freezeTimer[slot] = FREEZE_FRAMES;
+    gBlendLink.freezePalette[slot] = enemy->palette.b.b0;
+    gBlendLink.icePalette[slot] = LoadIcePalette(enemy->palette.b.b0);
+    ((Enemy*)enemy)->enemyFlags |= EM_FLAG_SUPPORT;
+    SoundReq(SFX_ICE_BLOCK_SLIDE);
+}
+
+static void SetFrozenLook(Entity* e, u32 i, bool32 icy) {
+    u32 pal = icy && gBlendLink.icePalette[i] != 0 ? gBlendLink.icePalette[i] : gBlendLink.freezePalette[i];
+    e->palette.b.b0 = pal;
+}
+
+static void Thaw(u32 i) {
+    Entity* e = gBlendLink.frozen[i];
+    if (e->kind == ENEMY && e->next != NULL) {
+        ((Enemy*)e)->enemyFlags &= ~EM_FLAG_SUPPORT;
+        SetFrozenLook(e, i, FALSE);
+    }
+    if (gBlendLink.icePalette[i] != 0) {
+        sub_0801D244(gBlendLink.icePalette[i]);
+    }
+    gBlendLink.frozen[i] = NULL;
+    gBlendLink.freezeTimer[i] = 0;
+    gBlendLink.icePalette[i] = 0;
+}
+
+static void UpdateFrozen(void) {
+    u32 i;
+    for (i = 0; i < 4; i++) {
+        Entity* e = gBlendLink.frozen[i];
+        if (e == NULL) {
+            continue;
+        }
+        if (e->kind != ENEMY || e->next == NULL || e->health == 0 || --gBlendLink.freezeTimer[i] == 0) {
+            // gone, struck down (it shatters as it thaws), or melted
+            Thaw(i);
+        } else {
+            // flicker before thawing
+            SetFrozenLook(e, i, gBlendLink.freezeTimer[i] >= 40 || !(gBlendLink.freezeTimer[i] & 4));
+        }
+    }
+}
+
+static void ForgetFrozen(void) {
+    u32 i;
+    for (i = 0; i < 4; i++) {
+        // the room's palettes were reset with the room, so nothing is left to release
+        gBlendLink.frozen[i] = NULL;
+        gBlendLink.freezeTimer[i] = 0;
+        gBlendLink.icePalette[i] = 0;
+    }
+}
+
 static void UpdateByrna(void) {
     static const s8 sRingX[] = { 0, 14, 20, 14, 0, -14, -20, -14 };
     static const s8 sRingY[] = { -20, -14, 0, 14, 20, 14, 0, -14 };
@@ -938,6 +1051,7 @@ static void UpdateRoom(void) {
         gBlendLink.roomKey = key;
         gBlendLink.medallionUsed = 0;
         gBlendLink.somariaUsed = 0;
+        ForgetFrozen();
         gBlendLink.treasureSpawned = 0;
     }
     // wait for the room to settle (scrolling between rooms, or a warp's fade) before
@@ -1192,6 +1306,7 @@ void Blend_GameUpdate(void) {
     UpdateRodSwap();
     UpdateMedallions();
     UpdateByrna();
+    UpdateFrozen();
     UpdateMirror();
     PublishSelf();
     UpdatePartner();

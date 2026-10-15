@@ -71,6 +71,11 @@ typedef struct {
     /*0x71*/ u8 devHudIcon;   /**< test hook: show this item's icon on the B button */
     /*0x72*/ u16 heldKeys;    /**< the real buttons this frame, before the blend hides any from the game */
     /*0x74*/ u16 newKeys;     /**< buttons newly pressed this frame, by the same measure */
+    /*0x76*/ u8 freezeTimer[4];   /**< frames each Ice Rod-frozen enemy stays frozen */
+    /*0x7a*/ u8 freezePalette[4]; /**< the palette each frozen enemy had */
+    /*0x7e*/ u16 pad7e;
+    /*0x80*/ struct Entity_* frozen[4];
+    /*0x90*/ u8 icePalette[4];    /**< OBJ palette slot holding each frozen enemy's icy colors */
 } BlendLink;
 
 #define BLEND_MAGIC 0x444E4C42 /* "BLND" */
@@ -101,5 +106,6 @@ void LinkPartner(struct Entity_* this);
 u32 Blend_ItemSpriteAnim(u32 item);
 /** The item whose button icon the HUD shows for this equipped item. */
 u32 Blend_HudIcon(u32 item);
+void Blend_FreezeEnemy(struct Entity_* enemy);
 
 #endif // BLEND_H

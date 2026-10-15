@@ -14,6 +14,7 @@
 #include "room.h"
 #include "player.h"
 #include "item.h"
+#include "blend.h"
 
 typedef struct {
     /*0x00*/ Entity base;
@@ -86,6 +87,9 @@ void PlayerItemFireRodProjectile_Action1(PlayerItemFireRodProjectileEntity* this
                 DeleteThisEntity();
             }
             if (super->contactFlags != 0) {
+                if (this->unk_68 == ITEM_UNUSED_SWORD) {
+                    Blend_FreezeEnemy(super->contactedEntity);
+                }
                 CreateFx(super, this->unk_68 == ITEM_UNUSED_SWORD ? FX_ICE : FX_SWORD_MAGIC, 0);
                 DeleteThisEntity();
             }
