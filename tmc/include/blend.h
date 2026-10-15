@@ -135,5 +135,7 @@ void Blend_ShadowUpdate(void);
 void Blend_ShadowRestore(void);
 /** The current room has a shadow layer, so the game's own background 3 overlays stay off. */
 bool32 Blend_RoomHasShadows(void);
+/** A blend dungeon's big chest while Link has no big key (blend.c). */
+bool32 Blend_IsLockedBigChest(struct Entity_* e);
 
 #endif // BLEND_H
