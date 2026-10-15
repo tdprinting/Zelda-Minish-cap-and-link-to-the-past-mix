@@ -6,11 +6,13 @@
  * behavior. The Eastern Palace: Stalfos, Eyegores, Popos, Antifairies and the Armos
  * Knights. The Dark World: Ropes, Moblins and Hinox. The Desert Palace: Leevers,
  * Beamos, Pokeys, Gibdos and the Lanmolas. The Tower of Hera: Baris, Hardhat
- * Beetles, Bumpers and Moldorm.
+ * Beetles, Bumpers and Moldorm; Debirandos, Kodongos and mini Moldorms. The Dark
+ * World dungeons: mini Helmasaurs, Terrorpins, Hovers, Kyamerons, Zols, Firesnakes,
+ * spike blocks, Medusa statues, and the Helmasaur King, Arrghus and Mothula.
  *
  * Their graphics are A Link to the Past's sprite sheets (plus the frames Minish Cap's
  * motion adds), made at build time from the player's cartridge by
- * blend/enemies/alttp_enemies.py into sprites 155 and 329. Every frame is a
+ * blend/enemies/alttp_enemies.py into sprites 155 and 329-332. Every frame is a
  * one-frame animation, and these enemies pick their frames themselves.
  */
 #include "enemy.h"
@@ -1117,6 +1119,14 @@ const Hitbox gHitbox_AlttpTall = { 0, -8, { 6, 4, 4, 6 }, 6, 13 };
 const Hitbox gHitbox_AlttpCentered = { 0, 0, { 6, 4, 4, 6 }, 7, 7 };
 const Hitbox gHitbox_AlttpLaser = { 0, 0, { 3, 2, 2, 3 }, 4, 4 };
 const Hitbox gHitbox_GiantMoldorm = { 0, 0, { 12, 10, 10, 12 }, 14, 14 };
+const Hitbox gHitbox_HelmasaurKing = { 0, -4, { 16, 16, 16, 16 }, 28, 26 };
+const Hitbox gHitbox_Arrghus = { 0, 4, { 8, 8, 8, 8 }, 12, 14 };
+const Hitbox gHitbox_Mothula = { 0, 0, { 12, 6, 6, 12 }, 22, 10 };
+/* A Link to the Past hits a flying boss where it is drawn: these reach up to it. */
+static const Hitbox3D sHitbox_ArrghusAir = { 0, -20, { 8, 8, 8, 8 }, 12, 14, 48, { 0, 0, 0 } };
+static const Hitbox3D sHitbox_MothulaAir = { 0, -24, { 12, 6, 6, 12 }, 22, 12, 56, { 0, 0, 0 } };
+static const Hitbox3D sHitbox_ArrghusGround = { 0, 4, { 8, 8, 8, 8 }, 12, 14, 8, { 0, 0, 0 } };
+static const Hitbox3D sHitbox_MothulaGround = { 0, 0, { 12, 6, 6, 12 }, 22, 10, 8, { 0, 0, 0 } };
 
 /** 0-255 angle (0 north, 64 east) from one point toward another. */
 static u32 AngleTo(s32 dx, s32 dy) {
@@ -2822,4 +2832,1852 @@ void MiniMoldormSegment(AlttpEnemy* this) {
     }
     super->collisionLayer = super->parent->collisionLayer;
     SetFrame(super, super->type == 1 ? AF_MINIMOLD_BODY : AF_MINIMOLD_TAIL);
+}
+
+/* =============================================================================
+ * The Dark World dungeons: the Palace of Darkness, the Swamp Palace and Skull
+ * Woods. Their enemies (sprite 331) and bosses (sprite 332).
+ * ========================================================================== */
+#include "blend.h"
+#include "playeritem.h"
+
+#define HOOK_NONE 0
+
+/** Moves by an A Link to the Past velocity (1/16 pixel a frame). */
+static void MoveVel(Entity* e, s32 vx, s32 vy) {
+    e->x.WORD += vx << 12;
+    e->y.WORD += vy << 12;
+}
+
+static bool32 WallAt(Entity* e, s32 dx, s32 dy) {
+    return GetCollisionDataAtWorldCoords(e->x.HALF.HI + dx, e->y.HALF.HI + dy, e->collisionLayer) != 0;
+}
+
+/** Moves by a velocity, stopping at walls (reach: how far the body sticks out).
+ * Returns 1 when blocked sideways, 2 when blocked up or down. */
+static u32 MoveVelWalls(Entity* e, s32 vx, s32 vy, s32 reach) {
+    u32 hit = 0;
+    if (vx != 0) {
+        if (WallAt(e, vx > 0 ? reach : -reach, 0)) {
+            hit |= 1;
+        } else {
+            e->x.WORD += vx << 12;
+        }
+    }
+    if (vy != 0) {
+        if (WallAt(e, 0, vy > 0 ? reach : -reach)) {
+            hit |= 2;
+        } else {
+            e->y.WORD += vy << 12;
+        }
+    }
+    return hit;
+}
+
+/** A velocity of the given speed toward a point (Sprite_ProjectSpeedTowardsLocation). */
+static void AimVel(Entity* e, s32 tx, s32 ty, s32 speed, s16* vx, s16* vy) {
+    u32 a = AngleTo(tx - e->x.HALF.HI, ty - e->y.HALF.HI);
+    *vx = (Sin256(a) * speed) >> 8;
+    *vy = -(Sin256(a + 64) * speed) >> 8;
+}
+
+/** sin of an angle where 0x200 is a full turn, times r (HelmasaurSin, ArrgiSin). */
+static s32 HalfSin(u32 a, s32 r) {
+    return (Sin256((a & 0x1ff) >> 1) * r) >> 8;
+}
+
+static void ApproachVel(s16* v, s32 target) {
+    if (*v < target) {
+        (*v)++;
+    } else if (*v > target) {
+        (*v)--;
+    }
+}
+
+static bool32 IsHook(Entity* e) {
+    return e != NULL && e->kind == OBJECT && e->id == LINK_PARTNER && e->type == 3;
+}
+
+/** A blow from the Hammer (or a medallion's strike) or a bomb blast. */
+static bool32 IsHeavy(Entity* e) {
+    return e != NULL && ((e->kind == OBJECT && e->id == LINK_PARTNER && e->type == 2) ||
+                         (e->kind == PLAYER_ITEM && e->id == PLAYER_ITEM_BOMB));
+}
+
+/** The Hammer coming down within range of a point. */
+static bool32 HammerNear(Entity* at, s32 range) {
+    LinkedList* list = &gEntityLists[6];
+    Entity* e;
+    u32 i;
+    for (i = 0; i < ARRAY_COUNT(gEntityLists); i++) {
+        list = &gEntityLists[i];
+        for (e = list->first; (u32)e != (u32)list; e = e->next) {
+            if (e->kind == OBJECT && e->id == LINK_PARTNER && e->type == 2 &&
+                Abs(e->x.HALF.HI - at->x.HALF.HI) < range && Abs(e->y.HALF.HI - at->y.HALF.HI) < range) {
+                return TRUE;
+            }
+        }
+    }
+    return FALSE;
+}
+
+static bool32 InRoom(Entity* e, s32 margin) {
+    s32 x = e->x.HALF.HI - gRoomControls.origin_x;
+    s32 y = e->y.HALF.HI - gRoomControls.origin_y;
+    return x > -margin && y > -margin && x < gRoomControls.width + margin && y < gRoomControls.height + margin;
+}
+
+/** A Link to the Past height (pixels up) as Minish Cap's z. */
+static void SetHeight(Entity* e, s32 z) {
+    e->z.WORD = -z << 16;
+}
+
+static Entity* SpawnAt(u32 id, u32 type, Entity* from, s32 dx, s32 dy) {
+    Entity* e = CreateEnemy(id, type);
+    if (e != NULL) {
+        CopyPosition(from, e);
+        e->x.HALF.HI += dx;
+        e->y.HALF.HI += dy;
+        e->parent = from;
+    }
+    return e;
+}
+
+/** Fades a beaten boss out in a string of blasts, then one big one. */
+static bool32 BossBurst(AlttpEnemy* this, s32 dx, s32 dy) {
+    if (this->burst == 0) {
+        COLLISION_OFF(super);
+        EnqueueSFX(SFX_BOSS_DIE);
+    }
+    if (this->burst < 96) {
+        this->burst++;
+        if ((this->burst & 7) == 0) {
+            Entity* fx = CreateFx(super, FX_GIANT_EXPLOSION4, 0);
+            if (fx != NULL) {
+                fx->x.HALF.HI += dx * ((this->burst >> 3) & 3) - dx * 2 + ((Random() & 15) - 8);
+                fx->y.HALF.HI += dy * ((this->burst >> 4) & 3) - dy + ((Random() & 15) - 8);
+            }
+            EnqueueSFX(SFX_ITEM_BOMB_EXPLODE);
+        }
+        super->spriteSettings.draw = (this->burst >> 1) & 1 ? 1 : this->burst < 64;
+        return FALSE;
+    }
+    CreateFx(super, FX_GIANT_EXPLOSION4, 0);
+    EnqueueSFX(SFX_BOSS_EXPLODE);
+    return TRUE;
+}
+
+/* ---- spike block ------------------------------------------------------------------
+ * Type 0: a blade trap sliding back and forth across a room, turning at walls.
+ * Type 1: one of Mothula's: it bursts out of the wall (parent: Mothula), rumbles,
+ * races across the room, and slides back into its wall. Spike blocks can't be hurt
+ * and never hold doors shut.
+ */
+enum { SB_INIT, SB_SLIDE, SB_RUMBLE, SB_CHARGE, SB_WAIT, SB_RETURN };
+
+void AlttpSpikeBlock(AlttpEnemy* this) {
+    static const s8 dirX[4] = { 1, -1, 0, 0 };
+    static const s8 dirY[4] = { 0, 0, 1, -1 };
+    u32 d = this->face;
+    switch (super->action) {
+        case SB_INIT:
+            AlttpInit(this, AP_SPIKEBLOCK, AF_SPIKEBLOCK);
+            super->health = 0;
+            super->spriteSettings.shadow = 0;
+            this->homeX = super->x.HALF.HI;
+            this->homeY = super->y.HALF.HI;
+            if (super->type == 0) {
+                super->action = SB_SLIDE;
+                this->targetX = 32;
+            } else {
+                super->action = SB_RUMBLE;
+                super->timer = 64;
+                this->targetX = this->targetY = 0;
+                EnqueueSFX(SFX_PLACE_OBJ);
+            }
+            break;
+        case SB_SLIDE:
+            if (super->timer) {
+                super->timer--;
+            }
+            if (MoveVelWalls(super, this->targetX, 0, 8) && super->timer == 0) {
+                this->targetX = -this->targetX;
+                super->timer = 4;
+                EnqueueSFX(SFX_METAL_CLINK);
+            }
+            break;
+        case SB_RUMBLE:
+            if (--super->timer == 0) {
+                super->x.HALF.HI = this->homeX;
+                super->y.HALF.HI = this->homeY;
+                super->action = SB_CHARGE;
+                super->timer = 40; // clear of its own wall first
+            } else {
+                super->x.HALF.HI = this->homeX + ((super->timer >> 1) & 1 ? -1 : 1);
+            }
+            break;
+        case SB_CHARGE:
+            if (this->targetX != dirX[d] * 32) {
+                this->targetX += dirX[d];
+            }
+            if (this->targetY != dirY[d] * 32) {
+                this->targetY += dirY[d];
+            }
+            if (super->timer) {
+                super->timer--;
+                MoveVel(super, this->targetX, this->targetY);
+            } else if (MoveVelWalls(super, this->targetX, this->targetY, 8) || !InRoom(super, -16) ||
+                       ++this->step > 200) {
+                super->action = SB_WAIT;
+                super->timer = 64;
+                EnqueueSFX(SFX_METAL_CLINK);
+            }
+            break;
+        case SB_WAIT:
+            if (--super->timer == 0) {
+                super->action = SB_RETURN;
+            }
+            break;
+        case SB_RETURN:
+            MoveVel(super, -dirX[d] * 16, -dirY[d] * 16);
+            if (Abs(super->x.HALF.HI - this->homeX) + Abs(super->y.HALF.HI - this->homeY) < 2) {
+                DeleteThisEntity();
+            }
+            break;
+    }
+    if (super->type == 1 && !ParentAlive(super)) {
+        CreateFx(super, FX_DEATH, 0);
+        DeleteThisEntity();
+    }
+    super->health = 0;
+    super->knockbackDuration = 0;
+}
+
+/* ---- mini Helmasaur ------------------------------------------------------------
+ * Skids after Link with a beetle's momentum, re-aiming twice a second. Its mask
+ * turns the sword from the front (a clink that knocks it back); from the side or
+ * behind it can be beaten.
+ */
+static void MiniHelmasaurTick(AlttpEnemy* this) {
+    static const u8 gfx[8] = { 3, 4, 3, 4, 2, 2, 5, 5 };
+    static const u8 flip[8] = { 1, 1, 0, 0, 0, 1, 1, 0 };
+    s16* vx = &this->targetX;
+    s16* vy = &this->targetY;
+    u32 j;
+    if (super->action == 0) {
+        AlttpInit(this, AP_MINIHELM, AF_MINIHELM_2);
+        *vx = *vy = 0;
+    }
+    if ((this->step++ & 31) == 0) {
+        AimVel(super, gPlayerEntity.base.x.HALF.HI, gPlayerEntity.base.y.HALF.HI, 0x100, &this->homeX, &this->homeY);
+    }
+    if ((this->step & 1) == 0) {
+        *vx += *vx < this->homeX ? 16 : -16;
+        *vy += *vy < this->homeY ? 16 : -16;
+    }
+    super->direction = (AngleTo(*vx, *vy) + 4) >> 3 & 0x1f;
+    super->speed = Distance(*vx, *vy);
+    if (*vx || *vy) {
+        ProcessMovement0(super);
+    }
+    if (super->collisions & (COL_EAST_ANY | COL_WEST_ANY)) {
+        *vx = 0;
+    }
+    if (super->collisions & (COL_NORTH_ANY | COL_SOUTH_ANY)) {
+        *vy = 0;
+    }
+    if ((this->step & 15) == 0) {
+        // which way it faces: 0 right, 1 left, 2 down, 3 up
+        this->face = Abs(*vx) >= Abs(*vy) ? (*vx < 0) : 2 + (*vy < 0);
+    }
+    if (this->pose) {
+        this->pose--;
+        SetFrame(super, AF_MINIHELM_SQUASH);
+    } else {
+        j = ((this->step >> 2) & 1) | this->face << 1;
+        SetFrame(super, AF_MINIHELM_2 + (gfx[j] - 2) * 2 + flip[j]);
+    }
+    AlttpEndTick(this);
+}
+
+static void MiniHelmasaurOnCollision(AlttpEnemy* this);
+static void MiniHelmasaurOnDeath(AlttpEnemy* this) {
+    AlttpDeath(this, BEETLE);
+}
+
+static void (*const MiniHelmasaur_Functions[])(AlttpEnemy*) = {
+    MiniHelmasaurTick, MiniHelmasaurOnCollision, (void (*)(AlttpEnemy*))GenericKnockback,
+    MiniHelmasaurOnDeath, (void (*)(AlttpEnemy*))GenericConfused, AlttpGrabbed,
+};
+
+static void MiniHelmasaurOnCollision(AlttpEnemy* this) {
+    if (super->health < this->savedHealth && !IsHeavy(super->contactedEntity) &&
+        sFaceToDir[this->face] == ((GetFacingDirection(super, &gPlayerEntity.base) + 4) & 0x18)) {
+        // the sword glances off the mask, and the blow sends it skidding back
+        super->health = this->savedHealth;
+        super->knockbackDuration = 12;
+        super->knockbackSpeed = 0x280;
+        this->targetX = this->targetY = 0;
+        this->pose = 8;
+        EnqueueSFX(SFX_METAL_CLINK);
+    } else if (super->health < this->savedHealth) {
+        EnqueueSFX(SFX_HIT);
+    }
+    EnemyFunctionHandlerAfterCollision(super, (void (*const*)())MiniHelmasaur_Functions);
+}
+
+void MiniHelmasaur(AlttpEnemy* this) {
+    EnemyFunctionHandler(super, (EntityActionArray)MiniHelmasaur_Functions);
+}
+
+/* ---- Terrorpin -------------------------------------------------------------------
+ * A turtle in a spiked shell, plodding toward Link; the sword only clinks off it.
+ * A blow of the Hammer close by flips it over, and then it can be beaten, until it
+ * rocks itself back onto its feet, quicker than before.
+ */
+static void TerrorpinFlip(AlttpEnemy* this) {
+    this->targetX = -this->targetX;
+    this->targetY = -this->targetY;
+    this->cooldown = 32;
+    this->turns = 4;    // faster from now on
+    this->coerced ^= 1; // overturned
+    this->homeY = 32;   // hop
+    super->timer = this->coerced ? 255 : 64;
+    this->shield = !this->coerced;
+    EnqueueSFX(SFX_14C);
+}
+
+static void TerrorpinTick(AlttpEnemy* this) {
+    static const s8 velX[8] = { 8, -8, 0, 0, 12, -12, 0, 0 };
+    static const s8 velY[8] = { 0, 0, 8, -8, 0, 0, 12, -12 };
+    s32 z;
+    if (super->action == 0) {
+        AlttpInit(this, AP_TERRORPIN, AF_TERRORPIN_0);
+        this->shield = 1;
+        this->homeX = 0;
+        this->homeY = 0;
+    }
+    this->step++;
+    if (this->cooldown) {
+        this->cooldown--;
+    } else if (this->homeX == 0 && !this->coerced && HammerNear(super, 24)) {
+        TerrorpinFlip(this);
+    }
+    // height (homeX, 1/16 pixels) and its speed up (homeY)
+    this->homeX += this->homeY;
+    this->homeY -= 2;
+    if (this->homeX <= 0) {
+        this->homeX = 0;
+        if (this->coerced) {
+            // overturned: it bounces to a stop
+            z = -this->homeY >> 1;
+            this->homeY = z < 9 ? 0 : z;
+            this->targetX >>= 1;
+            this->targetY >>= 1;
+        } else {
+            this->homeY = 0;
+        }
+    }
+    SetHeight(super, this->homeX >> 4);
+    if (!this->coerced) {
+        if (super->timer == 0) {
+            super->timer = (Random() & 31) + 32;
+            this->face = FaceTowardLink(super);
+        } else {
+            super->timer--;
+        }
+        this->targetX = velX[this->face + this->turns];
+        this->targetY = velY[this->face + this->turns];
+        SetFrame(super, AF_TERRORPIN_0 + ((this->step >> (this->turns ? 2 : 3)) & 1));
+    } else {
+        if (--super->timer == 0) {
+            // back on its feet
+            this->coerced = 0;
+            this->shield = 1;
+            this->homeY = 32;
+            super->timer = 64;
+            EnqueueSFX(SFX_14C);
+        } else if (super->timer < 64) {
+            this->targetX = (super->timer >> 1) & 1 ? -8 : 8;
+        }
+        SetFrame(super, this->homeX > 0 ? AF_TERRORPIN_HOP : AF_TERRORPIN_2 + ((this->step >> 3) & 1));
+    }
+    MoveVelWalls(super, this->targetX, this->targetY, 7);
+    AlttpEndTick(this);
+}
+
+static void TerrorpinOnCollision(AlttpEnemy* this);
+static void TerrorpinOnDeath(AlttpEnemy* this) {
+    AlttpDeath(this, SPINY_BEETLE);
+}
+
+static void (*const Terrorpin_Functions[])(AlttpEnemy*) = {
+    TerrorpinTick, TerrorpinOnCollision, (void (*)(AlttpEnemy*))GenericKnockback,
+    TerrorpinOnDeath, (void (*)(AlttpEnemy*))GenericConfused, AlttpGrabbed,
+};
+
+static void TerrorpinOnCollision(AlttpEnemy* this) {
+    if (IsHeavy(super->contactedEntity) && this->cooldown != 0) {
+        // the same blow that just flipped it
+        super->health = this->savedHealth;
+        super->knockbackDuration = 0;
+    } else if (IsHeavy(super->contactedEntity) && !this->coerced) {
+        super->health = this->savedHealth;
+        super->knockbackDuration = 0;
+        TerrorpinFlip(this);
+    } else if (this->shield) {
+        BlockHit(this);
+    } else if (super->health < this->savedHealth) {
+        EnqueueSFX(SFX_HIT);
+    }
+    EnemyFunctionHandlerAfterCollision(super, (void (*const*)())Terrorpin_Functions);
+}
+
+void Terrorpin(AlttpEnemy* this) {
+    EnemyFunctionHandler(super, (EntityActionArray)Terrorpin_Functions);
+}
+
+/* ---- Hover -----------------------------------------------------------------------
+ * The Swamp Palace's water strider. It rests, then darts toward Link's side of it,
+ * speeding up and then gliding to a stop.
+ */
+enum { HV_INIT, HV_REST, HV_DART };
+
+static void HoverTick(AlttpEnemy* this) {
+    static const s8 accX[4] = { 1, -1, 1, -1 };
+    static const s8 accY[4] = { 1, 1, -1, -1 };
+    u32 g;
+    u32 d = this->face;
+    this->step++;
+    switch (super->action) {
+        case HV_INIT:
+            AlttpInit(this, AP_HOVER, AF_HOVER_0);
+            super->action = HV_REST;
+            super->timer = 32;
+            this->targetX = this->targetY = 0;
+            break;
+        case HV_REST:
+            if (--super->timer == 0) {
+                super->action = HV_DART;
+                this->face = d = (super->x.HALF.HI > gPlayerEntity.base.x.HALF.HI) +
+                                 (super->y.HALF.HI > gPlayerEntity.base.y.HALF.HI) * 2;
+                super->timer = (Random() & 15) + 12;
+                this->targetX = this->targetY = 0;
+            }
+            break;
+        case HV_DART:
+            if (super->timer) {
+                super->timer--;
+                this->targetX += accX[d];
+                this->targetY += accY[d];
+            } else {
+                this->targetX -= accX[d];
+                this->targetY -= accY[d];
+                if (this->targetY == 0) {
+                    this->targetX = 0;
+                    super->action = HV_REST;
+                    super->timer = 64;
+                }
+            }
+            break;
+    }
+    if (MoveVelWalls(super, this->targetX, this->targetY, 7)) {
+        this->targetX = this->targetY = 0;
+        if (super->action == HV_DART) {
+            super->action = HV_REST;
+            super->timer = 64;
+        }
+    }
+    g = super->action == HV_DART && super->timer ? (this->step >> 3) & 1 : (this->step >> 3) & 2;
+    SetFrame(super, AF_HOVER_0 + g * 2 + !(this->face & 1));
+    AlttpEndTick(this);
+}
+
+static void HoverOnCollision(AlttpEnemy* this);
+static void HoverOnDeath(AlttpEnemy* this) {
+    AlttpDeath(this, TEKTITE);
+}
+
+static void (*const Hover_Functions[])(AlttpEnemy*) = {
+    HoverTick, HoverOnCollision, (void (*)(AlttpEnemy*))GenericKnockback,
+    HoverOnDeath, (void (*)(AlttpEnemy*))GenericConfused, AlttpGrabbed,
+};
+
+static void HoverOnCollision(AlttpEnemy* this) {
+    if (super->health < this->savedHealth) {
+        super->action = HV_REST;
+        super->timer = 32;
+        this->targetX = this->targetY = 0;
+    }
+    AlttpOnCollision(this, (void (*const*)())Hover_Functions);
+}
+
+void Hover(AlttpEnemy* this) {
+    EnemyFunctionHandler(super, (EntityActionArray)Hover_Functions);
+}
+
+/* ---- Kyameron ---------------------------------------------------------------------
+ * A drop of the swamp's water: a puddle wells up, gathers into a ball, and bounces
+ * off the walls toward Link, glittering, until it bursts on the third wall (or on
+ * Link) and the puddle forms again where it started.
+ */
+enum { KY_INIT, KY_RESET, KY_PUDDLE, KY_FORM, KY_BOUNCE, KY_BURST };
+
+static void KyameronShow(AlttpEnemy* this, bool32 on) {
+    super->spriteSettings.draw = on;
+}
+
+static void KyameronTick(AlttpEnemy* this) {
+    static const u8 form[8] = { 4, 7, 14, 13, 12, 6, 6, 5 };
+    static const u8 bounce[4] = { 3, 2, 1, 0 };
+    u32 hit;
+    switch (super->action) {
+        case KY_INIT:
+            AlttpInit(this, AP_KYAM, AF_KYAM_8);
+            super->spriteSettings.shadow = 0;
+            this->homeX = super->x.HALF.HI;
+            this->homeY = super->y.HALF.HI;
+            super->action = KY_RESET;
+            super->timer = 1;
+            COLLISION_OFF(super);
+            KyameronShow(this, FALSE);
+            break;
+        case KY_RESET:
+            if (--super->timer == 0) {
+                super->action = KY_PUDDLE;
+                super->timer = (Random() & 63) + 96;
+                super->x.HALF.HI = this->homeX;
+                super->y.HALF.HI = this->homeY;
+                this->step = 5;
+                this->head = 8;
+                KyameronShow(this, TRUE);
+            }
+            break;
+        case KY_PUDDLE:
+            if (--super->timer == 0) {
+                super->action = KY_FORM;
+                super->timer = 31;
+            }
+            if (this->step-- == 0) {
+                this->step = 5;
+                this->head = ((this->head + 1) & 3) + 8;
+            }
+            SetFrame(super, AF_KYAM_0 + this->head);
+            break;
+        case KY_FORM:
+            if (--super->timer == 0) {
+                u32 j = (super->y.HALF.HI > gPlayerEntity.base.y.HALF.HI) * 2 +
+                        (super->x.HALF.HI > gPlayerEntity.base.x.HALF.HI);
+                super->action = KY_BOUNCE;
+                this->targetX = j & 1 ? -32 : 32;
+                this->targetY = j & 2 ? -32 : 32;
+                this->turns = 0;
+                COLLISION_ON(super);
+            } else {
+                if (super->timer == 7) {
+                    super->y.HALF.HI -= 29;
+                }
+                SetFrame(super, AF_KYAM_0 + form[super->timer >> 2]);
+            }
+            break;
+        case KY_BOUNCE:
+            MoveVel(super, this->targetX, this->targetY);
+            hit = 0;
+            if (WallAt(super, this->targetX > 0 ? 7 : -7, 0)) {
+                this->targetX = -this->targetX;
+                hit = 1;
+            }
+            if (WallAt(super, 0, this->targetY > 0 ? 7 : -7)) {
+                this->targetY = -this->targetY;
+                hit = 1;
+            }
+            this->turns += hit;
+            if (this->turns >= 3 || (super->contactFlags & CONTACT_NOW)) {
+                super->action = KY_BURST;
+                super->timer = 15;
+                COLLISION_OFF(super);
+                EnqueueSFX(SFX_WATER_SPLASH);
+            }
+            SetFrame(super, AF_KYAM_0 + bounce[(++this->step >> 3) & 3]);
+            if ((super->timer++ & 7) == 0) {
+                Entity* fx = CreateFx(super, FX_SPARKLE, 0);
+                if (fx != NULL) {
+                    fx->x.HALF.HI += (Random() & 15) - 8;
+                    fx->y.HALF.HI += (Random() & 15) - 8;
+                }
+            }
+            break;
+        case KY_BURST:
+            if (--super->timer == 0) {
+                super->action = KY_RESET;
+                super->timer = 64;
+                KyameronShow(this, FALSE);
+            } else {
+                SetFrame(super, AF_KYAM_0 + 15 + (super->timer >> 2));
+            }
+            break;
+    }
+    AlttpEndTick(this);
+}
+
+static void KyameronOnCollision(AlttpEnemy* this);
+static void KyameronOnDeath(AlttpEnemy* this) {
+    AlttpDeath(this, CHUCHU);
+}
+
+static void (*const Kyameron_Functions[])(AlttpEnemy*) = {
+    KyameronTick, KyameronOnCollision, (void (*)(AlttpEnemy*))GenericKnockback,
+    KyameronOnDeath, (void (*)(AlttpEnemy*))GenericConfused, AlttpGrabbed,
+};
+
+static void KyameronOnCollision(AlttpEnemy* this) {
+    super->knockbackDuration = 0;
+    AlttpOnCollision(this, (void (*const*)())Kyameron_Functions);
+}
+
+void Kyameron(AlttpEnemy* this) {
+    EnemyFunctionHandler(super, (EntityActionArray)Kyameron_Functions);
+}
+
+/* ---- Zol ----------------------------------------------------------------------------
+ * A blob hiding unseen in the floor. When Link walks over it, it wells up right
+ * under him, leaps at him, wobbles where it lands, and then hops after him in
+ * little bursts.
+ */
+enum { ZL_INIT, ZL_HIDE, ZL_RISE, ZL_LEAP, ZL_WOBBLE, ZL_HOP };
+
+static void ZolTick(AlttpEnemy* this) {
+    static const u8 rise[16] = { 0, 1, 7, 7, 6, 6, 5, 5, 6, 6, 5, 5, 4, 4, 4, 4 };
+    u32 g = 0;
+    s32 z;
+    switch (super->action) {
+        case ZL_INIT:
+            AlttpInit(this, AP_ZOL, AF_ZOL_4);
+            super->action = ZL_HIDE;
+            super->spriteSettings.draw = 0;
+            super->spriteSettings.shadow = 0;
+            COLLISION_OFF(super);
+            return;
+        case ZL_HIDE:
+            if (LinkNear(super, 12, 12)) {
+                super->action = ZL_RISE;
+                super->timer = 127;
+                super->x.HALF.HI = gPlayerEntity.base.x.HALF.HI;
+                super->y.HALF.HI = gPlayerEntity.base.y.HALF.HI + 8;
+                super->spriteSettings.draw = 1;
+            }
+            return;
+        case ZL_RISE: {
+            u32 r = rise[super->timer >> 3];
+            if (--super->timer == 0) {
+                super->action = ZL_LEAP;
+                this->homeX = 0;
+                this->homeY = 32;
+                AimVel(super, gPlayerEntity.base.x.HALF.HI, gPlayerEntity.base.y.HALF.HI, 16, &this->targetX,
+                       &this->targetY);
+                COLLISION_ON(super);
+                super->spriteSettings.shadow = 1;
+                EnqueueSFX(SFX_PLACE_OBJ);
+            }
+            SetFrame(super, r < 4 ? AF_ZOL_0 + r * 2 : AF_ZOL_4 + r - 4);
+            AlttpEndTick(this);
+            return;
+        }
+        case ZL_LEAP:
+            MoveVelWalls(super, this->targetX, this->targetY, 6);
+            this->homeX += this->homeY;
+            if (this->homeY > -64) {
+                this->homeY -= 2;
+            }
+            if (this->homeX <= 0) {
+                this->homeX = 0;
+                super->action = ZL_WOBBLE;
+                super->timer = 31;
+            }
+            g = 0;
+            break;
+        case ZL_WOBBLE:
+            if (--super->timer == 0) {
+                super->action = ZL_HOP;
+                super->timer = 1;
+                this->turns = 0;
+                this->head = 8;
+            }
+            super->x.HALF.HI += (super->timer >> 1) & 1 ? -1 : 1;
+            g = super->timer > 16;
+            if (super->timer > 24) {
+                SetFrame(super, AF_ZOL_LAND);
+                AlttpEndTick(this);
+                return;
+            }
+            break;
+        case ZL_HOP:
+            if (--super->timer == 0) {
+                AimVel(super, gPlayerEntity.base.x.HALF.HI, gPlayerEntity.base.y.HALF.HI, 48, &this->targetX,
+                       &this->targetY);
+                super->timer = (Random() & 63) | 96;
+            }
+            if (this->cooldown) {
+                // a pause between bursts
+                this->cooldown--;
+                g = (this->cooldown & 0x10) ? 1 : 0;
+            } else {
+                this->step++;
+                if ((this->step & 14) == 0) {
+                    MoveVelWalls(super, this->targetX, this->targetY, 6);
+                    if (++this->turns == this->head) {
+                        this->turns = 0;
+                        this->cooldown = (Random() & 31) + 64;
+                        this->head = (Random() & 31) | 16;
+                    }
+                }
+                g = (this->step & 8) >> 3;
+            }
+            break;
+    }
+    z = this->homeX >> 4;
+    SetHeight(super, z);
+    SetFrame(super, AF_ZOL_0 + g * 2 + (this->targetX < 0 ? 0 : 1));
+    AlttpEndTick(this);
+}
+
+static void ZolOnCollision(AlttpEnemy* this);
+static void ZolOnDeath(AlttpEnemy* this) {
+    AlttpDeath(this, CHUCHU);
+}
+
+static void (*const Zol_Functions[])(AlttpEnemy*) = {
+    ZolTick, ZolOnCollision, (void (*)(AlttpEnemy*))GenericKnockback,
+    ZolOnDeath, (void (*)(AlttpEnemy*))GenericConfused, AlttpGrabbed,
+};
+
+static void ZolOnCollision(AlttpEnemy* this) {
+    AlttpOnCollision(this, (void (*const*)())Zol_Functions);
+}
+
+void Zol(AlttpEnemy* this) {
+    EnemyFunctionHandler(super, (EntityActionArray)Zol_Functions);
+}
+
+/* ---- Firesnake ----------------------------------------------------------------------
+ * Skull Woods' living fireball. It runs straight until a wall turns it left or right,
+ * dropping a trail of fire behind it (type 1, which burns out). Nothing hurts it.
+ */
+void Firesnake(AlttpEnemy* this) {
+    static const s8 velX[4] = { 24, -24, 0, 0 };
+    static const s8 velY[4] = { 0, 0, 24, -24 };
+    static const u8 turn[8] = { 2, 3, 2, 3, 0, 1, 0, 1 };
+    if (super->action == 0) {
+        AlttpInit(this, AP_FIRESNAKE, AF_FIRESNAKE_0);
+        super->health = 0;
+        super->spriteSettings.shadow = 0;
+        if (super->type == 1) {
+            COLLISION_OFF(super);
+            super->timer = 32;
+            super->spritePriority.b1 = 2;
+        } else {
+            this->face = Random() & 3;
+        }
+    }
+    this->step++;
+    super->knockbackDuration = 0;
+    super->health = 0;
+    if (super->type == 1) {
+        if (--super->timer == 0) {
+            DeleteThisEntity();
+        }
+        super->spriteSettings.draw = super->timer > 8 || (super->timer & 1);
+        SetFrame(super, AF_FIRESNAKE_0 + ((this->step >> 2) & 3));
+        return;
+    }
+    if (MoveVelWalls(super, velX[this->face], velY[this->face], 7)) {
+        this->face = turn[this->face * 2 + (Random() & 1)];
+    }
+    if ((this->step & 7) == 0) {
+        SpawnAt(FIRESNAKE, 1, super, 0, 0);
+    }
+    SetFrame(super, AF_FIRESNAKE_0 + ((this->step >> 2) & 3));
+}
+
+/* ---- Medusa and the four-way shooter ------------------------------------------------
+ * Statues in the walls. Type 0 (Medusa) spits a fireball at Link every couple of
+ * seconds; type 1 (the four-way shooter) answers a swing of Link's sword with a
+ * fireball along whichever of its four sides faces him. Invisible: the statue is
+ * the wall's own tile.
+ */
+void AlttpShooter(AlttpEnemy* this) {
+    static const s8 offX[4] = { 0, 12, 0, -12 };
+    static const s8 offY[4] = { -12, 0, 12, 0 };
+    u32 dir, side;
+    Entity* fb;
+    if (super->action == 0) {
+        super->action = 1;
+        super->spriteSettings.draw = 0;
+        super->health = 0;
+        COLLISION_OFF(super);
+    }
+    this->step++;
+    if (super->type == 0) {
+        if ((this->step & 0x7f) != 0 || !InRoom(&gPlayerEntity.base, 0)) {
+            return;
+        }
+        dir = GetFacingDirection(super, &gPlayerEntity.base);
+        side = ((dir + 4) & 0x1f) >> 3;
+        fb = SpawnAt(ALTTP_FIREBALL, 0, super, offX[side], offY[side]);
+        if (fb != NULL) {
+            fb->direction = dir;
+            EnqueueSFX(SFX_ITEM_LANTERN_ON);
+        }
+        return;
+    }
+    if (super->timer) {
+        if (--super->timer == 8) {
+            side = ((GetFacingDirection(super, &gPlayerEntity.base) + 4) & 0x1f) >> 3;
+            fb = SpawnAt(ALTTP_FIREBALL, 0, super, offX[side], offY[side]);
+            if (fb != NULL) {
+                fb->direction = side << 3;
+                fb->speed = 0x280;
+                EnqueueSFX(SFX_ITEM_LANTERN_ON);
+            }
+        }
+    } else if (gPlayerState.sword_state != 0) {
+        super->timer = 32;
+    }
+}
+
+/* ---- the Helmasaur King --------------------------------------------------------------
+ * The Palace of Darkness's boss: a great armored beast lumbering back and forth,
+ * its spiked tail swaying over its back. Now and then it stops to spit a fireball
+ * that splits in three and then in four, or to whip its tail out at Link. Its mask
+ * turns the sword; the Hammer and bombs chip it away, and then it is soft. Without
+ * its mask it moves twice as fast.
+ *
+ * Its parts (BOSS_PART): type 0 the lower body (with the mouth), 1 a leg, 2 the face
+ * (mask and eyes), 3 a ball of the tail, 4 the mace, 5 a piece of the mask.
+ */
+#define HK_BALLS 6
+#define HK_MASK_HP 12
+
+typedef struct {
+    s16 x[HK_BALLS + 1], y[HK_BALLS + 1]; /**< the tail, mace last */
+    u8 bob[4];   /**< how far each leg is lifted */
+    u8 mask;     /**< 0 whole, 1 and 2 chipped, 3 gone */
+    u8 eye;
+    u8 mouth;    /**< 0 shut, 1-10 open */
+    u8 swiping;  /**< sprite_anim_clock: 0, 1 armed, 2 out, 3 back */
+    u16 angle;   /**< the tail's sway */
+    s16 swipe;   /**< added to the sway while it swipes */
+    s8 vel;
+    u8 swayDir;
+    u8 radius;
+    u8 swipeSide;
+    u8 swipeWait;
+    u8 eyeClock;
+    u8 dead;
+} HkState;
+#define gHk (*(HkState*)(gAlttpEnemyState + 0xa00))
+
+static const u8 sHkBob[32] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 8, 8, 8, 8, 8, 8, 8,
+                               8, 8, 8, 8, 8, 8, 8, 8, 8, 7, 6, 5, 4, 3, 2, 1 };
+
+enum { HKP_LOW, HKP_LEG, HKP_FACE, HKP_BALL, HKP_MACE, HKP_BIT };
+
+static void HkSpawnBit(AlttpEnemy* this, u32 i) {
+    static const s8 bx[10] = { -16, 0, 16, -16, 0, 16, -8, 8, -16, 16 };
+    static const s8 by[10] = { 24, 27, 24, 24, 27, 24, 27, 27, 24, 24 };
+    static const s8 bz[10] = { 29, 32, 29, 13, 16, 13, 0, 0, 13, 13 };
+    static const s8 bvx[10] = { -16, -4, 14, -12, 4, 18, -2, 2, -12, 18 };
+    static const s8 bvy[10] = { -8, -4, -6, 4, 2, 7, 6, 8, 4, 7 };
+    static const s8 bvz[10] = { 32, 40, 36, 37, 39, 34, 30, 33, 37, 34 };
+    static const u8 flip[10] = { 0, 0, 1, 0, 0, 1, 0, 1, 0, 1 };
+    static const u8 gfx[10] = { 0, 1, 0, 2, 3, 2, 4, 4, 5, 5 };
+    AlttpEnemy* bit = (AlttpEnemy*)SpawnAt(BOSS_PART, HKP_BIT, super, bx[i], by[i]);
+    if (bit != NULL) {
+        bit->head = gfx[i] * 2 + flip[i];
+        bit->targetX = bvx[i];
+        bit->targetY = bvy[i];
+        bit->homeX = bz[i] << 4; // height, 1/16 pixels
+        bit->homeY = bvz[i];
+    }
+}
+
+/** The tail swaying over its back, and the swipe (HelmasaurKing_SwingTail). */
+static void HkSwingTail(AlttpEnemy* this) {
+    static const u8 multA[32] = { 0xff, 0xf0, 0xe0, 0xd0, 0xc0, 0xb0, 0xa0, 0x90, 0x80, 0x70, 0x60,
+                                  0x50, 0x40, 0x30, 0x20, 0x10, 0xff, 0xf8, 0xf0, 0xe8, 0xe0, 0xd8,
+                                  0xd0, 0xc8, 0xbc, 0xb0, 0xa0, 0x90, 0x70, 0x40, 0x20, 0x10 };
+    // which of A Link to the Past's 16 tail balls are drawn: the mace, then six
+    static const u8 balls[HK_BALLS + 1] = { 13, 11, 9, 7, 5, 3, 0 };
+    u32 n;
+    if (!(gHk.swiping == 0 && (this->step & 1))) {
+        u32 j = gHk.swayDir & 1;
+        gHk.vel += j ? -1 : 1;
+        if (gHk.vel == (j ? -16 : 16)) {
+            gHk.swayDir++;
+        }
+        gHk.angle += gHk.vel;
+    }
+    if (gHk.swiping == 2) {
+        gHk.swipe += gHk.swipeSide ? -4 : 4;
+        if (gHk.swipe == (gHk.swipeSide ? -124 : 124)) {
+            gHk.swiping = 3;
+        }
+        gHk.radius += 3;
+    } else if (gHk.swiping == 3) {
+        gHk.swipe += gHk.swipeSide ? 4 : -4;
+        if (gHk.swipe == 0) {
+            gHk.swiping = 0;
+        }
+        gHk.radius -= 3;
+    } else if (gHk.swiping == 1) {
+        if (gHk.vel == 0 && gHk.swipeWait == 0) {
+            gHk.swipeSide = (gHk.angle >> 8) & 1;
+            // the tail is on Link's side: lash out
+            if ((u32)(gPlayerEntity.base.x.HALF.HI > super->x.HALF.HI) == gHk.swipeSide) {
+                gHk.swiping = 2;
+                EnqueueSFX(SFX_14C);
+            }
+        }
+    }
+    if (gHk.swipeWait) {
+        gHk.swipeWait--;
+    }
+    for (n = 0; n <= HK_BALLS; n++) {
+        u32 i = balls[n];
+        u32 rs = (u16)(gHk.angle + gHk.swipe);
+        bool32 neg = (rs >> 8) == 0;
+        u32 r6 = ((u8)(neg ? -rs : rs) * multA[i + (gHk.swiping >= 2 ? 16 : 0)]) >> 8;
+        u32 a = (rs & 0xff00) | (neg ? (r6 ^ 0xff) : r6);
+        s32 r = (gHk.radius * (i == 0 ? 0xff : 0x100 - i * 16)) >> 8;
+        gHk.x[n] = HalfSin(a, r);
+        gHk.y[n] = HalfSin(a + 0x80, r) - 40;
+    }
+}
+
+static void HkSpit(AlttpEnemy* this) {
+    Entity* fb = SpawnAt(HELMASAUR_FIREBALL, 0, super, 0, 28);
+    if (fb != NULL) {
+        fb->timer = 32;
+    }
+}
+
+/** Every fourth stop it either spits fire or pauses (and may swipe). */
+static bool32 HkMaybeAttack(AlttpEnemy* this) {
+    if (++this->turns != 4) {
+        return FALSE;
+    }
+    this->turns = 0;
+    if (Random() & 1) {
+        this->targetY = 127; // spitting
+        EnqueueSFX(SFX_14C);
+    } else {
+        this->targetX = 160; // pausing
+    }
+    return TRUE;
+}
+
+static void HkArmSwipe(void) {
+    if (gHk.swiping == 0) {
+        gHk.swiping = 1;
+        gHk.swipeWait = 32;
+    }
+}
+
+static void HelmasaurKingTick(AlttpEnemy* this) {
+    static const s8 velX[8] = { -12, -12, -4, 0, 4, 12, 12, 0 };
+    static const s8 velY[8] = { 0, 4, 12, 12, 12, 4, 0, 12 };
+    s16* pause = &this->targetX;
+    s16* spit = &this->targetY;
+    bool32 bare = gHk.mask >= 3;
+    u32 i, n;
+    if (super->action == 0) {
+        static const s8 legX[4] = { -28, -28, 28, 28 };
+        AlttpInit(this, AP_HK, AF_HKUP);
+        MemClear(&gHk, sizeof(gHk));
+        gHk.radius = 0x30;
+        gHk.angle = 0x80;
+        this->unused[0] = HK_MASK_HP;
+        this->shield = 1;
+        super->spriteSettings.shadow = 0;
+        super->spritePriority.b0 = 3;
+        super->timer = 64;
+        *pause = *spit = 0;
+        SpawnAt(BOSS_PART, HKP_LOW, super, 0, 0);
+        SpawnAt(BOSS_PART, HKP_FACE, super, 0, 0);
+        for (i = 0; i < 4; i++) {
+            Entity* leg = SpawnAt(BOSS_PART, HKP_LEG, super, legX[i], 0);
+            if (leg != NULL) {
+                leg->type2 = i;
+            }
+        }
+        for (i = 0; i <= HK_BALLS; i++) {
+            Entity* ball = SpawnAt(BOSS_PART, i == HK_BALLS ? HKP_MACE : HKP_BALL, super, 0, -40);
+            if (ball != NULL) {
+                ball->type2 = i;
+            }
+        }
+        super->action = 1;
+    }
+    this->step++;
+    {
+        // the eyes roll (kHelmasaurKing_DrawB_Char, by the tail's clock)
+        static const u8 eyes[8] = { 0, 1, 2, 2, 2, 2, 1, 0 };
+        gHk.eye = eyes[(++gHk.eyeClock >> 2) & 7];
+    }
+    HkSwingTail(this);
+    gHk.mouth = 0;
+    if (*pause) {
+        if (--*pause == 96) {
+            HkArmSwipe();
+        }
+        goto done;
+    }
+    if (*spit) {
+        static const u8 open[32] = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 10, 10, 10, 10, 10,
+                                     10, 10, 10, 10, 10, 10, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1 };
+        gHk.mouth = open[*spit >> 2];
+        if (--*spit == 0x40) {
+            HkSpit(this);
+            if (bare) {
+                HkArmSwipe();
+            }
+        }
+        goto done;
+    }
+    if (super->timer) {
+        super->timer--;
+    }
+    switch (super->action) {
+        case 1:
+            if ((super->iframes != 0 || super->timer == 0) && !HkMaybeAttack(this)) {
+                u32 j = Random() & 7;
+                this->homeX = velX[j];
+                this->homeY = velY[j];
+                super->timer = 64;
+                if (bare) {
+                    this->homeX <<= 1;
+                    this->homeY <<= 1;
+                    super->timer = 32;
+                }
+                super->action = 2;
+            }
+            break;
+        case 2:
+        case 4:
+            n = 1 + ((this->step & 3) == 0) + bare;
+            while (n--) {
+                if ((++this->cooldown & 15) == 0) {
+                    EnqueueSFX(SFX_THUD_HEAVY);
+                }
+            }
+            MoveVelWalls(super, this->homeX, this->homeY, 30);
+            if (super->timer == 0) {
+                if (super->action == 2) {
+                    super->timer = 32;
+                    super->action = 3;
+                } else {
+                    super->timer = 64;
+                    super->action = 1;
+                }
+            }
+            break;
+        case 3:
+            if ((super->iframes != 0 || super->timer == 0) && !HkMaybeAttack(this)) {
+                super->timer = bare ? 32 : 64;
+                this->homeX = -this->homeX;
+                this->homeY = -this->homeY;
+                super->action = 4;
+            }
+            break;
+    }
+done:
+    for (i = 0; i < 4; i++) {
+        gHk.bob[i] = sHkBob[(this->cooldown + i * 8) & 31];
+    }
+    AlttpEndTick(this);
+}
+
+static void HelmasaurKingOnCollision(AlttpEnemy* this);
+static void HelmasaurKingOnDeath(AlttpEnemy* this) {
+    gHk.dead = 1;
+    if (BossBurst(this, 16, 12)) {
+        DeleteThisEntity();
+    }
+}
+
+static void (*const HelmasaurKing_Functions[])(AlttpEnemy*) = {
+    HelmasaurKingTick, HelmasaurKingOnCollision, (void (*)(AlttpEnemy*))GenericKnockback,
+    HelmasaurKingOnDeath, (void (*)(AlttpEnemy*))GenericConfused, AlttpGrabbed,
+};
+
+static void HelmasaurKingOnCollision(AlttpEnemy* this) {
+    Entity* by = super->contactedEntity;
+    super->knockbackDuration = 0;
+    if (super->health < this->savedHealth) {
+        if (gHk.mask < 3) {
+            super->health = this->savedHealth;
+            if (IsHeavy(by)) {
+                // a chip off the mask
+                u32 hp = this->unused[0];
+                u32 m;
+                hp = hp > 2 ? hp - 2 : 0;
+                this->unused[0] = hp;
+                m = hp >= HK_MASK_HP ? 0 : hp >= 8 ? 1 : hp > 0 ? 2 : 3;
+                if (m != gHk.mask) {
+                    gHk.mask = m;
+                    if (m == 3) {
+                        for (m = 0; m < 8; m++) {
+                            HkSpawnBit(this, m);
+                        }
+                        this->shield = 0;
+                        EnqueueSFX(SFX_BOSS_HIT);
+                    } else {
+                        HkSpawnBit(this, gHk.mask + 7);
+                    }
+                }
+                super->iframes = 16;
+                EnqueueSFX(SFX_HAMMER3);
+                BounceLink(super, 8);
+            } else {
+                super->iframes = -12;
+                EnqueueSFX(SFX_METAL_CLINK);
+            }
+        } else {
+            if (this->savedHealth - super->health > 4) {
+                super->health = this->savedHealth - 4;
+            }
+            EnqueueSFX(SFX_BOSS_HIT);
+        }
+    }
+    EnemyFunctionHandlerAfterCollision(super, (void (*const*)())HelmasaurKing_Functions);
+}
+
+void HelmasaurKing(AlttpEnemy* this) {
+    EnemyFunctionHandler(super, (EntityActionArray)HelmasaurKing_Functions);
+}
+
+/** A Helmasaur King fireball. Type 0 is spat out, sinks and splits in three (type
+ * 1), each of which splits in four (type 2) that fly off. */
+void HelmasaurFireball(AlttpEnemy* this) {
+    static const s8 triX[3] = { 0, 28, -28 };
+    static const s8 triY[3] = { -32, 24, 24 };
+    static const u8 triDelay[6] = { 32, 80, 128, 32, 80, 128 };
+    static const s8 quadX[4] = { 32, 32, -32, -32 };
+    static const s8 quadY[4] = { -32, 32, -32, 32 };
+    u32 i, big = 1;
+    if (super->action == 0) {
+        AlttpInit(this, AP_HKFIRE, AF_HKFIRE_BIG);
+        super->spriteSettings.shadow = 0;
+        super->spritePriority.b0 = 2;
+        super->action = 1;
+        this->step = 0;
+        if (super->type == 0) {
+            this->targetX = this->targetY = 0;
+        }
+    }
+    this->step++;
+    super->health = 255;
+    switch (super->type) {
+        case 0:
+            if (super->action == 1) {
+                // a moment in the mouth, then it drops
+                if (--super->timer == 0) {
+                    super->action = 2;
+                    super->timer = 18;
+                    this->targetY = 36;
+                }
+            } else if (super->action == 2) {
+                this->targetY -= 2;
+                MoveVel(super, 0, this->targetY);
+                if (--super->timer == 0) {
+                    super->action = 3;
+                    super->timer = 31;
+                }
+            } else {
+                static const u8 grow[4] = { 0, 0, 1, 1 };
+                big = grow[super->timer >> 3];
+                if (--super->timer == 0) {
+                    u32 r = Random() & 3;
+                    EnqueueSFX(SFX_ITEM_BOMB_EXPLODE);
+                    for (i = 0; i < 3; i++) {
+                        AlttpEnemy* f = (AlttpEnemy*)SpawnAt(HELMASAUR_FIREBALL, 1, super, 0, 0);
+                        if (f != NULL) {
+                            f->targetX = triX[i];
+                            f->targetY = triY[i];
+                            f->base.timer = triDelay[r + i];
+                            f->base.parent = NULL;
+                        }
+                    }
+                    DeleteThisEntity();
+                }
+            }
+            break;
+        case 1:
+            if (this->step <= 20) {
+                MoveVel(super, this->targetX, this->targetY);
+            }
+            if (--super->timer == 0) {
+                EnqueueSFX(SFX_ITEM_BOMB_EXPLODE);
+                for (i = 0; i < 4; i++) {
+                    AlttpEnemy* f = (AlttpEnemy*)SpawnAt(HELMASAUR_FIREBALL, 2, super, 0, 0);
+                    if (f != NULL) {
+                        f->targetX = quadX[i];
+                        f->targetY = quadY[i];
+                        f->base.parent = NULL;
+                    }
+                }
+                DeleteThisEntity();
+            }
+            break;
+        default:
+            MoveVel(super, this->targetX, this->targetY);
+            if (!InRoom(super, 8) || this->step > 240) {
+                DeleteThisEntity();
+            }
+            break;
+    }
+    SetFrame(super, (big ? AF_HKFIRE_BIG : AF_HKFIRE_SMALL) + ((this->step >> 2) & 1));
+}
+
+/* ---- the bosses' parts ------------------------------------------------------------- */
+
+static const Hitbox sHkBallHitbox = { 0, 0, { 4, 4, 4, 4 }, 6, 6 };
+
+void BossPart(AlttpEnemy* this) {
+    static const s8 legX[4] = { -28, -28, 28, 28 };
+    static const s8 legY[4] = { -28, 4, -28, 4 };
+    Entity* boss = super->parent;
+    u32 i = super->type2;
+    if (super->type == HKP_BIT) {
+        // a piece of the mask flying off, bouncing once, and gone
+        if (super->action == 0) {
+            AlttpInit(this, AP_HKMASK, AF_HKBIT_0 + this->head);
+            COLLISION_OFF(super);
+            super->health = 0;
+            super->spritePriority.b0 = 2;
+            super->timer = 0;
+        }
+        MoveVel(super, this->targetX, this->targetY);
+        this->homeX += this->homeY;
+        this->homeY -= 2;
+        if (this->homeX < 0) {
+            this->homeX = 0;
+            if (super->timer == 0) {
+                super->timer = 12;
+                this->homeY = 24;
+            }
+        }
+        if (super->timer && --super->timer == 0) {
+            DeleteThisEntity();
+        }
+        SetHeight(super, this->homeX >> 4);
+        if ((this->step++ & 7) == 0) {
+            this->head ^= 1; // tumbling
+        }
+        SetFrame(super, AF_HKBIT_0 + this->head);
+        return;
+    }
+    if (!ParentAlive(super)) {
+        DeleteThisEntity();
+    }
+    if (super->action == 0) {
+        super->action = 1;
+        COLLISION_OFF(super);
+        super->health = 0;
+        super->spriteSettings.shadow = 0;
+        switch (super->type) {
+            case HKP_LOW:
+                AlttpInit(this, AP_HK, AF_HKLOW_0);
+                super->spritePriority.b0 = 3;
+                break;
+            case HKP_LEG:
+                AlttpInit(this, AP_HK, i < 2 ? AF_HKLEG_A : AF_HKLEG_A_FLIP);
+                super->spritePriority.b0 = 3;
+                break;
+            case HKP_FACE:
+                AlttpInit(this, AP_HKFACE, AF_HKFACE_0_0);
+                super->spritePriority.b0 = 2;
+                break;
+            default:
+                AlttpInit(this, AP_HK, super->type == HKP_MACE ? AF_HKTAIL_MACE : AF_HKTAIL_BALL);
+                super->spritePriority.b0 = 1;
+                super->hitbox = (Hitbox*)&sHkBallHitbox;
+                break;
+        }
+        super->action = 1;
+        super->health = 0;
+    }
+    super->x.HALF.HI = boss->x.HALF.HI;
+    super->y.HALF.HI = boss->y.HALF.HI;
+    super->collisionLayer = boss->collisionLayer;
+    super->spriteSettings.draw = boss->spriteSettings.draw;
+    switch (super->type) {
+        case HKP_LOW:
+            SetFrame(super, AF_HKLOW_0 + gHk.mouth);
+            break;
+        case HKP_LEG:
+            super->x.HALF.HI += legX[i];
+            super->y.HALF.HI += legY[i] + gHk.bob[i];
+            SetFrame(super, (i & 1 ? AF_HKLEG_B : AF_HKLEG_A) + (i >= 2));
+            break;
+        case HKP_FACE:
+            SetFrame(super, AF_HKFACE_0_0 + gHk.mask * 3 + gHk.eye);
+            break;
+        default:
+            super->x.HALF.HI += gHk.x[i];
+            super->y.HALF.HI += gHk.y[i];
+            // the tail only hurts while it lashes out
+            if (gHk.swiping >= 2 && !gHk.dead) {
+                COLLISION_ON(super);
+            } else {
+                COLLISION_OFF(super);
+            }
+            super->knockbackDuration = 0;
+            break;
+    }
+    super->health = 0;
+}
+
+/* ---- Arrghus ---------------------------------------------------------------------------
+ * The Swamp Palace's boss: a great eye floating in a ring of thirteen puffs (the
+ * Arrghi), which shield it. It drifts after Link, and every fourth stop spins its
+ * puffs out wide and draws them in again. The Hookshot pulls a puff free, and a
+ * loose puff can be beaten (it drifts back to the ring if left alone). With every
+ * puff gone Arrghus leaps out of sight, crashes down on Link, and skitters wildly
+ * over the water; now the sword hurts it, and each hit sends it up again.
+ */
+#define ARRGHI_COUNT 13
+
+typedef struct {
+    s16 x[ARRGHI_COUNT], y[ARRGHI_COUNT]; /**< each puff's place in the ring */
+    u16 angle;
+    u8 spin;
+    u8 spread;  /**< overlord_x_lo[2]: the ring opening wider */
+    u8 stops;
+    u8 wobbleA, wobbleB;
+    u8 puffs;   /**< puffs left */
+} ArrghusState;
+#define gArrghus (*(ArrghusState*)(gAlttpEnemyState + 0xb00))
+
+enum { AR_INIT, AR_APPROACH, AR_SLOW, AR_SPREAD, AR_LEAP, AR_DROP, AR_SKITTER };
+
+/** The ring of puffs (Arrghus_HandlePuffs). */
+static void ArrghusPuffs(AlttpEnemy* this, u32 frame) {
+    static const u16 base[ARRGHI_COUNT] = { 0, 0x40, 0x80, 0xc0, 0x100, 0x140, 0x180, 0x1c0, 0, 0x66, 0xcc, 0x132, 0x198 };
+    static const u8 rev[ARRGHI_COUNT] = { 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1 };
+    static const u8 ring[ARRGHI_COUNT] = { 0x14, 0x14, 0x14, 0x14, 0x14, 0x14, 0x14, 0x14, 0xc, 0xc, 0xc, 0xc, 0xc };
+    static const s8 wobble[52] = { 0, -1, -2, -3, -4, -5, -6, -6, -5, -4, -3, -2, -1, 0, -1, -2, -3, -4,
+                                   -5, -6, -6, -5, -4, -3, -2, -1, 0, -1, -2, -3, -4, -5, -6, -6, -5, -4,
+                                   -3, -2, -1, 0, -1, -2, -3, -4, -5, -6, -6, -5, -4, -3, -2, -1 };
+    u32 i;
+    gArrghus.angle += gArrghus.spin;
+    if ((frame & 3) == 0 && ++gArrghus.wobbleA == 13) {
+        gArrghus.wobbleA = 0;
+    }
+    if ((frame & 7) == 0 && ++gArrghus.wobbleB == 13) {
+        gArrghus.wobbleB = 0;
+    }
+    for (i = 0; i < ARRGHI_COUNT; i++) {
+        u32 a = (gArrghus.angle + base[i]) ^ (rev[i] ? 0x1ff : 0);
+        s32 r = gArrghus.spread + ring[i];
+        gArrghus.x[i] = super->x.HALF.HI + HalfSin(a, r + wobble[gArrghus.wobbleA + i]);
+        gArrghus.y[i] = super->y.HALF.HI + HalfSin(a + 0x80, r + wobble[gArrghus.wobbleB + i]) - 16;
+    }
+}
+
+static void ArrghusTick(AlttpEnemy* this) {
+    static const u8 gfx[9] = { 1, 1, 1, 2, 2, 1, 1, 0, 0 };
+    s16* vx = &this->targetX;
+    s16* vy = &this->targetY;
+    s32 z = -super->z.HALF.HI;
+    u32 i;
+    if (super->action == AR_INIT) {
+        AlttpInit(this, AP_ARRGHUS, AF_ARRGHUS_0);
+        MemClear(&gArrghus, sizeof(gArrghus));
+        this->shield = 1;
+        super->spritePriority.b0 = 3;
+        super->collisionFlags |= 0x10;
+        super->action = AR_APPROACH;
+        super->timer = 48;
+        *vx = *vy = this->homeX = this->homeY = 0;
+        z = 24;
+        ArrghusPuffs(this, 0);
+        for (i = 0; i < ARRGHI_COUNT; i++) {
+            Entity* puff = CreateEnemy(ARRGHI, i);
+            if (puff != NULL) {
+                puff->parent = super;
+                puff->x.HALF.HI = gArrghus.x[i];
+                puff->y.HALF.HI = gArrghus.y[i];
+                puff->collisionLayer = super->collisionLayer;
+                gArrghus.puffs++;
+            }
+        }
+    }
+    this->step++;
+    gArrghus.spin = 1;
+    if ((this->step & 3) == 0 && ++this->turns == 9) {
+        this->turns = 0;
+    }
+    switch (super->action) {
+        case AR_APPROACH:
+            if (--super->timer == 0) {
+                super->action = AR_SLOW;
+                super->timer = 48;
+            }
+            ApproachVel(vx, this->homeX);
+            ApproachVel(vy, this->homeY);
+            break;
+        case AR_SLOW:
+            if (--super->timer == 0) {
+                super->action = AR_APPROACH;
+                if (gArrghus.puffs == 0) {
+                    super->action = AR_LEAP;
+                    EnqueueSFX(SFX_14C);
+                } else if (++gArrghus.stops == 4) {
+                    gArrghus.stops = 0;
+                    super->action = AR_SPREAD;
+                    super->timer = 176;
+                } else {
+                    super->timer = (Random() & 63) + 48;
+                    AimVel(super, gPlayerEntity.base.x.HALF.HI, gPlayerEntity.base.y.HALF.HI,
+                           (super->timer & 3) + 8, &this->homeX, &this->homeY);
+                }
+            } else {
+                ApproachVel(vx, 0);
+                ApproachVel(vy, 0);
+            }
+            break;
+        case AR_SPREAD:
+            gArrghus.spin = 8;
+            *vx = *vy = 0;
+            if (super->timer < 32) {
+                if (gArrghus.spread == 0) {
+                    super->action = AR_SLOW;
+                    super->timer = 112;
+                } else {
+                    gArrghus.spread--;
+                }
+            } else if (super->timer < 96) {
+                gArrghus.spread++;
+            } else if (super->timer == 96 || (super->timer & 15) == 0) {
+                EnqueueSFX(SFX_14C);
+            }
+            super->timer--;
+            break;
+        case AR_LEAP:
+            COLLISION_OFF(super);
+            *vx = *vy = 0;
+            z += 7;
+            if (z >= 224) {
+                super->action = AR_DROP;
+                super->timer = 64;
+                super->x.HALF.HI = gPlayerEntity.base.x.HALF.HI;
+                super->y.HALF.HI = gPlayerEntity.base.y.HALF.HI;
+            }
+            break;
+        case AR_DROP:
+            if (super->timer) {
+                if (--super->timer == 1) {
+                    EnqueueSFX(SFX_FALL_HOLE);
+                }
+            } else {
+                z -= 7;
+                if (z <= 0) {
+                    z = 0;
+                    CreateFx(super, FX_WATER_SPLASH, 0);
+                    EnqueueSFX(SFX_THUD_HEAVY);
+                    InitScreenShake(16, 1);
+                    super->action = AR_SKITTER;
+                    super->timer = 32;
+                    *vx = *vy = 32;
+                    COLLISION_ON(super);
+                }
+            }
+            break;
+        case AR_SKITTER:
+            this->shield = 0;
+            if (super->timer) {
+                super->timer--;
+            } else {
+                u32 hit = MoveVelWalls(super, *vx, *vy, 12);
+                if (hit & 1) {
+                    *vx = -*vx;
+                }
+                if (hit & 2) {
+                    *vy = -*vy;
+                }
+                if ((this->step & 7) == 0) {
+                    EnqueueSFX(SFX_WATER_WALK);
+                    CreateFx(super, FX_WATER_SPLASH, 0);
+                }
+            }
+            break;
+    }
+    if (super->action <= AR_SPREAD) {
+        // floating, its feelers drifting
+        u32 hit;
+        z = 24;
+        hit = MoveVelWalls(super, *vx, *vy, 14);
+        if (hit & 1) {
+            *vx = 0;
+        }
+        if (hit & 2) {
+            *vy = 0;
+        }
+    }
+    SetHeight(super, z);
+    super->hitbox = (Hitbox*)(z > 8 ? &sHitbox_ArrghusAir : &sHitbox_ArrghusGround);
+    ArrghusPuffs(this, this->step);
+    if (super->action == AR_SKITTER) {
+        SetFrame(super, AF_ARRGHUS_SWIM_0 + gfx[this->turns] * 3);
+    } else {
+        SetFrame(super, AF_ARRGHUS_0 + gfx[this->turns] * 3 + ((this->step >> 3) & 1));
+    }
+    AlttpEndTick(this);
+}
+
+static void ArrghusOnCollision(AlttpEnemy* this);
+static void ArrghusOnDeath(AlttpEnemy* this) {
+    if (BossBurst(this, 8, 8)) {
+        DeleteThisEntity();
+    }
+}
+
+static void (*const Arrghus_Functions[])(AlttpEnemy*) = {
+    ArrghusTick, ArrghusOnCollision, (void (*)(AlttpEnemy*))GenericKnockback,
+    ArrghusOnDeath, (void (*)(AlttpEnemy*))GenericConfused, AlttpGrabbed,
+};
+
+static void ArrghusOnCollision(AlttpEnemy* this) {
+    super->knockbackDuration = 0;
+    if (!this->shield && super->health < this->savedHealth && super->health != 0) {
+        // stung, it leaps up to come crashing down again
+        super->action = AR_LEAP;
+        EnqueueSFX(SFX_BOSS_HIT);
+    }
+    AlttpOnCollision(this, (void (*const*)())Arrghus_Functions);
+}
+
+void Arrghus(AlttpEnemy* this) {
+    EnemyFunctionHandler(super, (EntityActionArray)Arrghus_Functions);
+}
+
+/** One of Arrghus's puffs (type: its place in the ring). */
+enum { AG_INIT, AG_RING, AG_HOOKED, AG_LOOSE };
+
+static void ArrghiTick(AlttpEnemy* this) {
+    static const u8 gfx[8] = { 0, 1, 2, 2, 2, 2, 2, 1 };
+    u32 i = super->type;
+    if (!ParentAlive(super)) {
+        DeleteThisEntity();
+    }
+    switch (super->action) {
+        case AG_INIT:
+            AlttpInit(this, AP_ARRGHUS, AF_ARRGHI_0);
+            super->action = AG_RING;
+            this->shield = 1;
+            this->step = Random();
+            super->spriteSettings.shadow = 0;
+            break;
+        case AG_RING:
+            this->shield = 1;
+            super->x.HALF.HI = gArrghus.x[i];
+            super->y.HALF.HI = gArrghus.y[i];
+            break;
+        case AG_HOOKED: {
+            Entity* hook = gBlendLink.hook;
+            if (hook != NULL && gBlendLink.hookState != HOOK_NONE) {
+                super->x.HALF.HI = hook->x.HALF.HI;
+                super->y.HALF.HI = hook->y.HALF.HI;
+            } else {
+                super->action = AG_LOOSE;
+                super->timer = 32;
+                this->shield = 0;
+            }
+            break;
+        }
+        case AG_LOOSE:
+            if (super->timer) {
+                super->timer--;
+            }
+            if (((i ^ this->step) & 3) == 0) {
+                AimVel(super, gArrghus.x[i], gArrghus.y[i], 4, &this->targetX, &this->targetY);
+                if (Abs(super->x.HALF.HI - gArrghus.x[i]) < 8 && Abs(super->y.HALF.HI - gArrghus.y[i]) < 8) {
+                    super->action = AG_RING;
+                }
+            }
+            MoveVel(super, this->targetX, this->targetY);
+            break;
+    }
+    SetFrame(super, AF_ARRGHI_0 + gfx[(++this->step >> 3) & 7]);
+    AlttpEndTick(this);
+}
+
+static void ArrghiOnCollision(AlttpEnemy* this);
+static void ArrghiOnDeath(AlttpEnemy* this) {
+    if (gArrghus.puffs) {
+        gArrghus.puffs--;
+    }
+    CreateFx(super, FX_DEATH, 0);
+    DeleteThisEntity();
+}
+
+static void (*const Arrghi_Functions[])(AlttpEnemy*) = {
+    ArrghiTick, ArrghiOnCollision, (void (*)(AlttpEnemy*))GenericKnockback,
+    ArrghiOnDeath, (void (*)(AlttpEnemy*))GenericConfused, AlttpGrabbed,
+};
+
+static void ArrghiOnCollision(AlttpEnemy* this) {
+    if (IsHook(super->contactedEntity) && super->action == AG_RING) {
+        // caught on the Hookshot: pulled out of the ring
+        super->health = this->savedHealth;
+        super->action = AG_HOOKED;
+        EnqueueSFX(SFX_14C);
+    }
+    super->knockbackDuration = 0;
+    AlttpOnCollision(this, (void (*const*)())Arrghi_Functions);
+}
+
+void Arrghi(AlttpEnemy* this) {
+    EnemyFunctionHandler(super, (EntityActionArray)Arrghi_Functions);
+}
+
+/* ---- Mothula ----------------------------------------------------------------------------
+ * Skull Woods' boss: a giant moth. It rises, flutters about the room bobbing up and
+ * down (every seventh flight straight at Link), and stops to fire three rings of
+ * light. Spike blocks keep bursting out of the walls. Hurt, it shrugs off blows for
+ * a moment and flies on.
+ */
+enum { MO_INIT, MO_WAIT, MO_RISE, MO_FLY, MO_FIRE };
+
+static void MothulaFlap(AlttpEnemy* this) {
+    static const u8 flap[4] = { 0, 1, 2, 1 };
+    u32 j = (++this->step >> 2) & 3;
+    if (j == 0 && (this->step & 3) == 0) {
+        EnqueueSFX(SFX_14C);
+    }
+    this->head = flap[j];
+}
+
+static u32 CountChildren(Entity* parent, u32 id) {
+    u32 i, n = 0;
+    Entity* e;
+    for (i = 0; i < ARRAY_COUNT(gEntityLists); i++) {
+        LinkedList* list = &gEntityLists[i];
+        for (e = list->first; (u32)e != (u32)list; e = e->next) {
+            if (e->kind == ENEMY && e->id == id && e->parent == parent) {
+                n++;
+            }
+        }
+    }
+    return n;
+}
+
+/** A spike block out of a wall: a random place along a random side of the room. */
+static void MothulaSpike(AlttpEnemy* this) {
+    static const s8 dirX[4] = { 1, -1, 0, 0 };
+    static const s8 dirY[4] = { 0, 0, 1, -1 };
+    u32 d = Random() & 3;
+    s32 x = this->homeX + ((s32)(Random() & 127) - 64);
+    s32 y = this->homeY + ((s32)(Random() & 127) - 64);
+    s32 n;
+    AlttpEnemy* sb;
+    if (CountChildren(super, ALTTP_SPIKE_BLOCK) >= 3) {
+        return;
+    }
+    if (d < 2) {
+        y = (y & ~15) + 8;
+        x = this->homeX;
+    } else {
+        x = (x & ~15) + 8;
+        y = this->homeY;
+    }
+    // walk away from the way it will charge, to the wall
+    for (n = 0; n < 16; n++) {
+        if (GetCollisionDataAtWorldCoords(x - dirX[d] * 16, y - dirY[d] * 16, super->collisionLayer) != 0) {
+            break;
+        }
+        x -= dirX[d] * 16;
+        y -= dirY[d] * 16;
+    }
+    if (n == 16 || GetCollisionDataAtWorldCoords(x, y, super->collisionLayer) != 0) {
+        return;
+    }
+    sb = (AlttpEnemy*)CreateEnemy(ALTTP_SPIKE_BLOCK, 1);
+    if (sb != NULL) {
+        sb->base.x.HALF.HI = x;
+        sb->base.y.HALF.HI = y;
+        sb->base.collisionLayer = super->collisionLayer;
+        sb->base.parent = super;
+        sb->face = d;
+    }
+}
+
+static void MothulaBeams(AlttpEnemy* this) {
+    static const s8 vx[3] = { -16, 0, 16 };
+    static const s8 vy[3] = { 24, 32, 24 };
+    u32 i;
+    EnqueueSFX(SFX_ITEM_SWORD_BEAM);
+    for (i = 0; i < 3; i++) {
+        AlttpEnemy* b = (AlttpEnemy*)SpawnAt(MOTHULA_BEAM, 0, super, vx[i], super->z.HALF.HI + 3);
+        if (b != NULL) {
+            b->targetX = vx[i];
+            b->targetY = vy[i];
+            b->base.timer = 16;
+            b->base.parent = NULL;
+        }
+    }
+}
+
+static void MothulaTick(AlttpEnemy* this) {
+    static const s8 vel[10] = { -16, -12, 0, 12, 16, 12, 0, -12, -16, -12 };
+    s32 z = -super->z.HALF.HI;
+    if (super->action == MO_INIT) {
+        AlttpInit(this, AP_MOTHULA, AF_MOTHULA_2);
+        super->action = MO_WAIT;
+        super->timer = 80;
+        this->head = 2;
+        this->homeX = super->x.HALF.HI;
+        this->homeY = super->y.HALF.HI;
+        this->burst = 0;
+        this->unused[0] = 112; // spike timer
+        this->unused[1] = 0;   // z speed
+        this->targetX = this->targetY = 0;
+        super->spritePriority.b0 = 3;
+        super->collisionFlags |= 0x10;
+    }
+    if (this->cooldown) {
+        this->cooldown--;
+    }
+    switch (super->action) {
+        case MO_WAIT:
+            if (--super->timer == 0) {
+                super->action = MO_RISE;
+            }
+            break;
+        case MO_RISE:
+            z += (this->step & 1);
+            MothulaFlap(this);
+            if (z >= 24) {
+                super->action = MO_FLY;
+                this->turns = 128; // flight time
+                super->timer = 64;
+            }
+            break;
+        case MO_FLY: {
+            s8* vz = (s8*)&this->unused[1];
+            if (this->turns == 0) {
+                super->action = MO_FIRE;
+                super->timer = 63;
+                break;
+            }
+            this->turns--;
+            MothulaFlap(this);
+            // bobbing up and down
+            *vz += (this->unused[2] & 1) ? -1 : 1;
+            if (*vz == ((this->unused[2] & 1) ? -16 : 16)) {
+                this->unused[2]++;
+            }
+            this->unused[3] += *vz;
+            z += (s8)this->unused[3] >> 4;
+            this->unused[3] &= 15;
+            if (z < 8) {
+                z = 8;
+            } else if (z > 40) {
+                z = 40;
+            }
+            if (super->timer == 0) {
+                if (++this->coerced == 7) {
+                    this->coerced = 0;
+                    AimVel(super, gPlayerEntity.base.x.HALF.HI, gPlayerEntity.base.y.HALF.HI, 32, &this->targetX,
+                           &this->targetY);
+                    super->timer = 128;
+                } else {
+                    u32 j = Random() & 7;
+                    this->targetX = vel[j + 2];
+                    this->targetY = vel[j];
+                    super->timer = (Random() & 31) + 64;
+                }
+            } else {
+                super->timer--;
+            }
+            if (MoveVelWalls(super, this->targetX, this->targetY, 16)) {
+                super->timer = 0;
+            }
+            break;
+        }
+        case MO_FIRE:
+            if (--super->timer == 0) {
+                super->action = MO_FLY;
+                this->turns = (Random() & 31) | 64;
+            } else {
+                if (super->timer == 0x20) {
+                    MothulaBeams(this);
+                }
+                MothulaFlap(this);
+            }
+            break;
+    }
+    if (super->action >= MO_RISE && --this->unused[0] == 0) {
+        this->unused[0] = 64;
+        MothulaSpike(this);
+    }
+    SetHeight(super, z);
+    super->hitbox = (Hitbox*)(z > 8 ? &sHitbox_MothulaAir : &sHitbox_MothulaGround);
+    // a wavering ripple of shadow under it in A Link to the Past; here its shadow
+    super->spriteSettings.shadow = 2;
+    SetFrame(super, AF_MOTHULA_0 + this->head);
+    AlttpEndTick(this);
+}
+
+static void MothulaOnCollision(AlttpEnemy* this);
+static void MothulaOnDeath(AlttpEnemy* this) {
+    if (BossBurst(this, 12, 6)) {
+        DeleteThisEntity();
+    }
+}
+
+static void (*const Mothula_Functions[])(AlttpEnemy*) = {
+    MothulaTick, MothulaOnCollision, (void (*)(AlttpEnemy*))GenericKnockback,
+    MothulaOnDeath, (void (*)(AlttpEnemy*))GenericConfused, AlttpGrabbed,
+};
+
+static void MothulaOnCollision(AlttpEnemy* this) {
+    super->knockbackDuration = 0;
+    if (super->health < this->savedHealth) {
+        if (this->cooldown) {
+            BlockHit(this);
+        } else {
+            // it reels, shrugs off blows for a moment, and flies on
+            this->cooldown = 32;
+            super->action = MO_FLY;
+            this->turns = 64;
+            super->timer = 0;
+            EnqueueSFX(SFX_BOSS_HIT);
+        }
+    }
+    EnemyFunctionHandlerAfterCollision(super, (void (*const*)())Mothula_Functions);
+}
+
+void Mothula(AlttpEnemy* this) {
+    EnemyFunctionHandler(super, (EntityActionArray)Mothula_Functions);
+}
+
+/** Mothula's beam: a ring of light flying out, flickering, gone at a wall. */
+void MothulaBeam(AlttpEnemy* this) {
+    if (super->action == 0) {
+        AlttpInit(this, AP_MBEAM, AF_MBEAM_0);
+        super->spriteSettings.shadow = 0;
+        super->spritePriority.b0 = 2;
+    }
+    super->health = 255;
+    this->step++;
+    MoveVel(super, this->targetX, this->targetY);
+    if (super->timer) {
+        super->timer--;
+    } else if (WallAt(super, 0, 0) || !InRoom(super, 0)) {
+        CreateFx(super, FX_SPARKLE, 0);
+        DeleteThisEntity();
+    }
+    SetFrame(super, AF_MBEAM_0 + (this->step & 1));
 }

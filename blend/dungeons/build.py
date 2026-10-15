@@ -62,6 +62,8 @@ ALTTP_STALFOS, ALTTP_EYEGORE, ALTTP_POPO, ALTTP_ANTIFAIRY, ARMOS_KNIGHT = 0x67, 
 ALTTP_HINOX, LANMOLA, ALTTP_LEEVER, ALTTP_BEAMOS = 0x6f, 0x71, 0x73, 0x74
 ALTTP_POKEY, ALTTP_GIBDO, GIANT_MOLDORM, ALTTP_BARI, ALTTP_HARDHAT, ALTTP_BUMPER = 0x76, 0x77, 0x78, 0x7a, 0x7b, 0x7c
 ALTTP_DEBIRANDO_PIT, ALTTP_KODONGO, MINI_MOLDORM = 0x7d, 0x80, 0x81
+HELMASAUR_KING, ARRGHUS, MOTHULA, ALTTP_SPIKE_BLOCK = 0x83, 0x86, 0x88, 0x8a
+MINI_HELMASAUR, TERRORPIN, HOVER, KYAMERON, ZOL, FIRESNAKE, ALTTP_SHOOTER = 0x8b, 0x8c, 0x8d, 0x8e, 0x8f, 0x90, 0x91
 ENEMIES = {
     'A7-Stalfos': ALTTP_STALFOS,
     '105-StalfosDrop': (ALTTP_STALFOS, 1),    # waits in the ceiling and drops on Link
@@ -84,6 +86,28 @@ ENEMIES = {
     '63-SandCrab1': (ALTTP_DEBIRANDO_PIT, 0),   # a Debirando in its sand pit
     '64-SandCrab2': (ALTTP_DEBIRANDO_PIT, 1),   # the red one that spits fireballs
     '86-Triceritops': ALTTP_KODONGO,            # Kodongos, the fire-breathing lizards
+    # the Dark World dungeons
+    '23-RedMiri': (ALTTP_BARI, 1),              # zelda3's name for the Baris
+    '24-BlueMiri': ALTTP_BARI,
+    '8B-Gibdo': ALTTP_GIBDO,
+    '13-MiniHelmasaur': MINI_HELMASAUR,
+    '8E-Shell': TERRORPIN,                      # Terrorpins: flip them with the Hammer
+    '81-WaterBug': HOVER,                       # Hovers, the water striders
+    '9A-Splash': KYAMERON,                      # Kyamerons, the bouncing water drops
+    '8F-Blob': ZOL,
+    '80-Lanmola': FIRESNAKE,                    # sprite 0x80 is the Firesnake
+    '8A-SpikeBlock': ALTTP_SPIKE_BLOCK,
+    'C5-Shooter': ALTTP_SHOOTER,                # Medusa statues
+    'C6-4WayShooter': (ALTTP_SHOOTER, 1),
+    '92-Helmasaur': HELMASAUR_KING,             # the Palace of Darkness's boss
+    '8C-Arrghus': ARRGHUS,                      # the Swamp Palace's boss
+    '8D-ArrghusFuzz': None,                     # Arrghus brings its own ring of puffs
+    '88-Mothula': MOTHULA,                      # Skull Woods' boss
+}
+# enemies that live in the walls (statues) or on the water, not on the floor
+ENEMY_CELLS = {
+    'C5-Shooter': None, 'C6-4WayShooter': None,
+    '81-WaterBug': ('~',), '9A-Splash': ('~',), '8C-Arrghus': ('~',),
 }
 
 DOOR_SMALL_KEY = 0x1c
@@ -418,7 +442,8 @@ class Plan:
             if mc is None:
                 continue
             x, y = s[0], s[1]
-            if self.at(x, y) != A.FLOOR:
+            cells = ENEMY_CELLS.get(s[3], ())
+            if self.at(x, y) != A.FLOOR and cells is not None and self.at(x, y) not in cells:
                 continue
             form = 0
             if isinstance(mc, tuple):

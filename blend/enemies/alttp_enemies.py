@@ -11,9 +11,11 @@ landings, idle wobbles) are made from the same pixels and added onto the sheet.
 Writes, under tmc/custom/gen/ (git-ignored, since it holds graphics from the ROM):
   alttp_enemies.4bpp     sprite 155's tiles (Eastern Palace, Dark World), frame after frame
   alttp_enemies2.4bpp    sprite 329's tiles (Desert Palace, Tower of Hera, Hinox)
-  alttp_enemies.inc      both sprites' frames and one-frame animations, and the palettes
+  alttp_enemies3-5.4bpp  sprites 330-332 (Debirandos and Kodongos; the Dark World
+                         dungeons' enemies; their bosses)
+  alttp_enemies.inc      every sprite's frames and one-frame animations, and the palettes
   alttp_enemies.h        frame and palette numbers for src/enemy/alttpEnemies.c
-  objlists/155.s, 329.s  the frames' OAM layouts for gFrameObjLists
+  objlists/<sprite>.s    the frames' OAM layouts for gFrameObjLists
 
   ./alttp_enemies.py path/to/alttp-usa.sfc [--preview out.png]
 
@@ -393,7 +395,12 @@ PREVIEW_PALETTES = {'LMDIRT': 'LANMOLA_DIRT', 'BEAMLASER': 'BEAMOS_LASER', 'MOLD
                     'BEAMOS': 'BEAMOS', 'POKEY': 'POKEY', 'GIBDO': 'GIBDO', 'MOLDORM': 'MOLDORM',
                     'HARDHAT': 'HARDHAT', 'BUMPER': 'BUMPER', 'BOMB': 'BOMB',
                     'DEBPIT': 'DEBPIT', 'DEBIRANDO': 'DEBIRANDO_FIRE', 'FIREBALL': 'FIREBALL',
-                    'KODONGO': 'KODONGO', 'KFIRE': 'KFIRE', 'KFLAME': 'KFIRE', 'MINIMOLD': 'MINIMOLD'}
+                    'KODONGO': 'KODONGO', 'KFIRE': 'KFIRE', 'KFLAME': 'KFIRE', 'MINIMOLD': 'MINIMOLD',
+                    'MINIHELM': 'MINIHELM', 'TERRORPIN': 'TERRORPIN', 'HOVER': 'HOVER', 'KYAM': 'KYAM',
+                    'ZOL': 'ZOL', 'FIRESNAKE': 'FIRESNAKE', 'SPIKEBLOCK': 'SPIKEBLOCK',
+                    'HKUP': 'HK', 'HKLOW': 'HK', 'HKLEG': 'HK', 'HKFACE': 'HKFACE',
+                    'HKTAIL': 'HK', 'HKFIRE': 'HKFIRE', 'HKBIT': 'HKMASK', 'ARRGHUS': 'ARRGHUS',
+                    'ARRGHI': 'ARRGHUS', 'MOTHULA': 'MOTHULA', 'MBEAM': 'MBEAM'}
 
 # ---------------------------------------------------------------------------
 # the enemies
@@ -806,6 +813,204 @@ def build_frames_3():
     palette('KODONGO', mc_palette(6, palset=6))
     palette('KFIRE', mc_palette(1, palset=6))
     palette('MINIMOLD', mc_palette(3, palset=6))
+
+    build_frames_4()
+    build_frames_5()
+
+
+# ---------------------------------------------------------------------------
+# the Dark World dungeons' enemies (sprite 331)
+
+# Kyameron (Kyameron_Draw): poses 0-11 are single 16x16 chars with these flips,
+# 12-18 small pieces: the drop forming, the splash as it bursts
+KYAM_CHARS = [0x8a, 0xa8, 0x8a, 0xa8, 0x88, 0xa0, 0xa4, 0xa2, 0xa6, 0xa6, 0xa6, 0xa6]
+KYAM_FLAGS = [0x40, 0, 0, 0, 0, 0, 0, 0, 0, 0x40, 0xc0, 0x80]
+_KYAM_DMD = [
+    (1, 8, 0x00b4, 0), (7, 8, 0x00b5, 0), (4, -3, 0x0086, 0), (0, -13, 0x80a2, 2),
+    (2, 8, 0x00b4, 0), (6, 8, 0x00b5, 0), (4, -6, 0x0096, 0), (0, -20, 0x00a2, 2),
+    (4, -1, 0x0096, 0), (0, -27, 0x00a2, 2), (0, -27, 0x00a2, 2), (0, -27, 0x00a2, 2),
+    (-6, -6, 0x01df, 0), (14, -6, 0x41df, 0), (-6, 14, 0x81df, 0), (14, 14, 0xc1df, 0),
+    (-6, -6, 0x0096, 0), (14, -6, 0x4096, 0), (-6, 14, 0x8096, 0), (14, 14, 0xc096, 0),
+    (-4, -4, 0x018d, 0), (12, -4, 0x418d, 0), (-4, 12, 0x818d, 0), (12, 12, 0xc18d, 0),
+    (0, 0, 0x018d, 0), (8, 0, 0x418d, 0), (0, 8, 0x818d, 0), (8, 8, 0xc18d, 0),
+]
+KYAM_DMD = [_KYAM_DMD[g * 4:g * 4 + 4] for g in range(7)]
+# Zol (Zol_Draw): poses 4-7, rising out of the floor
+_ZOL_DMD = [(0, 8, 0x036c, 0), (8, 8, 0x036d, 0), (0, 8, 0x0060, 0), (8, 8, 0x0070, 0),
+            (0, 8, 0x4070, 0), (8, 8, 0x4060, 0), (0, 0, 0x0040, 2), (0, 0, 0x0040, 2)]
+ZOL_DMD = [_ZOL_DMD[g * 2:g * 2 + 2] for g in range(4)]
+
+
+def build_frames_4():
+    use_sprite(SPRITE_INDEX_4)
+    pod = Vram(25)
+    swamp = Vram(17)
+    skull = Vram(19)
+
+    # --- mini Helmasaur (Palace of Darkness, Skull Woods): poses 2-5 of chars
+    # 0x160-0x16a, each also mirrored, and a squash for a knock on its mask
+    org = (8, 12)
+    for g in range(2, 6):
+        p = compose(pod, [(0, 0, 0x160 + g * 2, 0, 2)], org)
+        frame('MINIHELM_%d' % g, p)
+        frame('MINIHELM_%d_FLIP' % g, mirrored(p))
+    frame('MINIHELM_SQUASH', scaled(compose(pod, [(0, 0, 0x164, 0, 2)], org), 1.2, 0.8))
+
+    # --- Terrorpin: two walking poses, overturned (rocking both ways), and a
+    # stretched hop as the hammer flips it
+    for g, c in enumerate((0x18e, 0x1ae, 0x18a)):
+        p = compose(pod, [(0, 0, c, 0, 2)], org)
+        frame('TERRORPIN_%d' % g, p)
+    frame('TERRORPIN_2_FLIP', mirrored(compose(pod, [(0, 0, 0x18a, 0, 2)], org)))
+    frame('TERRORPIN_HOP', scaled(compose(pod, [(0, 0, 0x18e, 0, 2)], org), 0.85, 1.2))
+
+    # --- Hover, the Swamp Palace's water strider: three poses, each mirrored
+    for g, c in enumerate((0x184, 0x182, 0x180)):
+        p = compose(swamp, [(0, 0, c, 0, 2)], org)
+        frame('HOVER_%d' % g, p)
+        frame('HOVER_%d_FLIP' % g, mirrored(p))
+
+    # --- Kyameron: the bouncing water drop, its puddle, forming and bursting
+    org = (8, 8)
+    for g in range(12):
+        frame('KYAM_%d' % g, compose(swamp, [(0, 0, 0x100 | KYAM_CHARS[g], KYAM_FLAGS[g], 2)], org))
+    for g in range(7):
+        frame('KYAM_%d' % (12 + g), compose(swamp, pieces9(KYAM_DMD[g], own=0x05), org))
+
+    # --- Zol: two hopping poses each way, and four rising out of the floor
+    org = (8, 12)
+    for g, c in enumerate((0x142, 0x144)):
+        p = compose(swamp, [(0, 0, c, 0, 2)], org)
+        frame('ZOL_%d' % g, p)
+        frame('ZOL_%d_FLIP' % g, mirrored(p))
+    for g in range(4):
+        frame('ZOL_%d' % (4 + g), compose(swamp, pieces9(ZOL_DMD[g], own=0x1b, add_for={4: 8}), org))
+    frame('ZOL_LAND', scaled(compose(swamp, [(0, 0, 0x142, 0, 2)], org), 1.2, 0.8))
+
+    # --- Firesnake (Skull Woods): a fireball spun a quarter turn every 4 frames;
+    # its trail is the same ball
+    org = (8, 8)
+    for g, f in enumerate((0, 0x40, 0x80, 0xc0)):
+        frame('FIRESNAKE_%d' % g, compose(skull, [(0, 0, 0x128, f, 2)], org))
+
+    # --- spike block (blade trap)
+    frame('SPIKEBLOCK', compose(pod, [(0, 0, 0x1e6, 0, 2)], org))
+
+    palette('MINIHELM', mc_palette(0, palset=15))
+    palette('TERRORPIN', mc_palette(5, palset=15))
+    palette('HOVER', mc_palette(5, palset=10))
+    palette('KYAM', mc_palette(2, palset=10))
+    palette('ZOL', two_palettes(mc_palette(5, palset=10), mc_palette(4, palset=10)))
+    palette('FIRESNAKE', mc_palette(1, palset=13))
+    palette('SPIKEBLOCK', mc_palette(6, palset=15))
+
+
+# ---------------------------------------------------------------------------
+# the Dark World dungeons' bosses (sprite 332)
+
+# the Helmasaur King (HelmasaurKing_Draw): the body, 19 pieces drawn in two halves
+_HK_BODY = [(-24, -32, 0x0b80, 2), (-8, -32, 0x0b82, 2), (8, -32, 0x4b82, 2), (24, -32, 0x4b80, 2),
+            (-24, -16, 0x0b84, 2), (-8, -16, 0x0b86, 2), (8, -16, 0x4b86, 2), (24, -16, 0x4b84, 2),
+            (-24, 0, 0x0b88, 2), (-8, 0, 0x0b8a, 2), (8, 0, 0x4b8a, 2), (24, 0, 0x4b88, 2),
+            (-24, 16, 0x0b8c, 2), (-8, 16, 0x0b8e, 2), (8, 16, 0x4b8e, 2), (24, 16, 0x4b8c, 2),
+            (-8, 32, 0x0ba0, 2), (8, 32, 0x4ba0, 2), (0, -40, 0x0bac, 2)]
+HK_UPPER = [_HK_BODY[18]] + _HK_BODY[:8]
+HK_LOWER = _HK_BODY[8:18]
+# the mask, whole and chipped twice
+_HK_MASK = [(-16, -5, 0x0dae, 2), (0, -5, 0x0dc0, 2), (16, -5, 0x4dae, 2), (-16, 11, 0x0dc2, 2),
+            (0, 11, 0x0dc4, 2), (16, 11, 0x4dc2, 2), (-8, 27, 0x0dc6, 2), (8, 27, 0x4dc6, 2),
+            (-16, -5, 0x0dae, 2), (0, -5, 0x0dc0, 2), (16, -5, 0x4dae, 2), (-16, 11, 0x0dc8, 2),
+            (0, 11, 0x0dc4, 2), (16, 11, 0x4dc2, 2), (-8, 27, 0x0dc6, 2), (8, 27, 0x4dc6, 2),
+            (-16, -5, 0x0dae, 2), (0, -5, 0x0dc0, 2), (16, -5, 0x4dae, 2), (-16, 11, 0x0dc8, 2),
+            (0, 11, 0x0dc4, 2), (16, 11, 0x4dc8, 2), (-8, 27, 0x0dc6, 2), (8, 27, 0x4dc6, 2)]
+HK_MASK = [_HK_MASK[m * 8:m * 8 + 8] for m in range(3)]
+HK_EYE_CHARS = (0xce, 0xcf, 0xde)
+# mask debris (SpawnMaskDebris: kSprite_PrepAndDrawSingleLarge chars of sprite 0x92)
+HK_DEBRIS = (0xae, 0xc0, 0xc8, 0xc4, 0xc6, 0xe2)
+
+# Arrghus (Arrghus_Draw): the body's four pieces (+2 chars a pose) and the tail
+ARRGHUS_DMD = [(-8, -4, 0x0080, 2), (8, -4, 0x4080, 2), (-8, 12, 0x00a0, 2), (8, 12, 0x40a0, 2),
+               (0, 24, 0x00a8, 2)]
+# Mothula (Mothula_Draw): three wing beats of eight pieces
+_MOTHULA = [(-24, -8, 0x0080, 2), (-8, -8, 0x0082, 2), (8, -8, 0x4082, 2), (24, -8, 0x4080, 2),
+            (-24, 8, 0x00a0, 2), (-8, 8, 0x00a2, 2), (8, 8, 0x40a2, 2), (24, 8, 0x40a0, 2),
+            (-24, -8, 0x0084, 2), (-8, -8, 0x0086, 2), (8, -8, 0x4086, 2), (24, -8, 0x4084, 2),
+            (-24, 8, 0x00a4, 2), (-8, 8, 0x00a6, 2), (8, 8, 0x40a6, 2), (24, 8, 0x40a4, 2),
+            (-8, -8, 0x0088, 2), (-8, -8, 0x0088, 2), (8, -8, 0x4088, 2), (8, -8, 0x4088, 2),
+            (-8, 8, 0x00a8, 2), (-8, 8, 0x00a8, 2), (8, 8, 0x40a8, 2), (8, 8, 0x40a8, 2)]
+MOTHULA_DMD = [_MOTHULA[g * 8:g * 8 + 8] for g in range(3)]
+
+
+def build_frames_5():
+    use_sprite(SPRITE_INDEX_5)
+
+    # --- the Helmasaur King. Its position is A Link to the Past's sprite position
+    # plus 8: the body's middle. Parts that move on their own are frames of their own.
+    hk = Vram(21)
+    org = (8, 8)
+    frame('HKUP', compose(hk, pieces9(HK_UPPER, own=0), org))
+    # the lower body, with the mouth opening under the mask as it spits fire
+    # (SpriteDraw_KingHelmasaur_Mouth: 1-10 pixels down)
+    low = pieces9(HK_LOWER, own=0)
+    frame('HKLOW_0', compose(hk, low, org))
+    for yd in range(1, 11):
+        frame('HKLOW_%d' % yd, compose(hk, [(0, 19 + yd, 0x1aa, 0, 2)] + low, org))
+    # the legs: front and back, each side (SpriteDraw_KingHelmasaur_Legs)
+    for name, c in (('A', 0xa2), ('B', 0xa6)):
+        p = compose(hk, [(0, 0, 0x100 | c, 0, 2), (0, 16, 0x100 | (c + 2), 0, 2)], org)
+        frame('HKLEG_%s' % name, p)
+        frame('HKLEG_%s_FLIP' % name, mirrored(p))
+    # the face: mask (whole, chipped, more chipped, gone) with the eyes in front,
+    # which roll through three looks; mask colors are the upper half
+    for m in range(4):
+        for e, ec in enumerate(HK_EYE_CHARS):
+            pieces = [(-3, 20, 0x100 | ec, 0, 0, 0), (11, 20, 0x100 | ec, 0x40, 0, 0)]
+            if m < 3:
+                pieces += pieces9(HK_MASK[m], own=0, add_for={6: 8})
+            frame('HKFACE_%d_%d' % (m, e), compose(hk, pieces, org))
+    # the tail: its balls and the spiked mace on the end
+    frame('HKTAIL_BALL', compose(hk, [(0, 0, 0x1ac, 0, 2)], org))
+    frame('HKTAIL_MACE', compose(hk, [(0, 0, 0x1e4, 0, 2)], org))
+    # its fireball, full and forming, each way round
+    for name, c in (('BIG', 0x1cc), ('SMALL', 0x1ca)):
+        p = compose(hk, [(0, 0, c, 0, 2)], org)
+        frame('HKFIRE_%s' % name, p)
+        frame('HKFIRE_%s_FLIP' % name, mirrored(p))
+    # pieces of the mask breaking off
+    for g, c in enumerate(HK_DEBRIS):
+        p = compose(hk, [(0, 0, 0x100 | c, 0, 2)], org)
+        frame('HKBIT_%d' % g, p)
+        frame('HKBIT_%d_FLIP' % g, mirrored(p))
+
+    # --- Arrghus: three poses with the tail either way, swimming (no tail), and
+    # the Arrghi puffs around it
+    ar = Vram(20)
+    org = (8, 8)
+    for g in range(3):
+        body = [(x, y, cf + g * 2 if i < 4 else cf, ext) for i, (x, y, cf, ext) in enumerate(ARRGHUS_DMD)]
+        frame('ARRGHUS_%d' % g, compose(ar, pieces9(body, own=0x0d), org))
+        tail = body[:4] + [(0, 24, 0x40a8, 2)]
+        frame('ARRGHUS_%d_FLIP' % g, compose(ar, pieces9(tail, own=0x0d), org))
+        frame('ARRGHUS_SWIM_%d' % g, compose(ar, pieces9(body[:4], own=0x0d), org))
+    frame('ARRGHUS_SQUASH', scaled(compose(ar, pieces9(ARRGHUS_DMD, own=0x0d), org), 1.25, 0.75))
+    for g, c in enumerate((0x1a6, 0x188, 0x186)):
+        frame('ARRGHI_%d' % g, compose(ar, [(0, 0, c, 0, 2)], org))
+
+    # --- Mothula: three wing beats, and its beam ring each way up
+    mo = Vram(26)
+    for g in range(3):
+        frame('MOTHULA_%d' % g, compose(mo, pieces9(MOTHULA_DMD[g], own=0x0d), org))
+    p = compose(mo, [(0, 0, 0x1aa, 0, 2)], org)
+    frame('MBEAM_0', p)
+    frame('MBEAM_1', {(x, -1 - y): c for (x, y), c in p.items()})
+
+    palette('HK', mc_palette(5, palset=16))
+    palette('HKFACE', two_palettes(mc_palette(5, palset=16), mc_palette(6, palset=16)))
+    palette('HKMASK', mc_palette(6, palset=16))
+    palette('HKFIRE', mc_palette(1, palset=16))
+    palette('ARRGHUS', mc_palette(6, palset=8))
+    palette('MOTHULA', mc_palette(6, palset=14))
+    palette('MBEAM', mc_palette(1, palset=14))
 
 
 # ---------------------------------------------------------------------------
