@@ -491,6 +491,10 @@ const Transition* const gExitLists_HyruleField[] = {
 
 // TODO this is one table
 const Transition gExitList_CastleGarden_Main[] = {
+    // in the Dark World, once Agahnim has fallen in Ganon's Tower, the castle door leads down
+    // into the Pyramid of Power, Ganon's hall (taken only then: Blend_IsTransitionClosed)
+    { WARP_TYPE_AREA, 0x1f8, 0x28, ENTRY_Pyramid, TRANSITION_SHAPE_AREA_28x12, AREA_NULL_3E, 0, 1, TRANSITION_TYPE_NORMAL,
+      0x0, 0x0, 0x0, 0x0 },
     { WARP_TYPE_AREA, 0x1f8, 0x28, 0xd8, 0x208, TRANSITION_SHAPE_AREA_28x12, AREA_HYRULE_CASTLE, ROOM_HYRULE_CASTLE_0, 1, TRANSITION_TYPE_NORMAL,
       0x0, 0x0, 0x0, 0x0 },
     { WARP_TYPE_AREA, 0x308, 0x48, 0x78, 0x78, TRANSITION_SHAPE_AREA_12x12, AREA_GARDEN_FOUNTAINS, ROOM_GARDEN_FOUNTAINS_EAST,
@@ -506,6 +510,10 @@ const Transition gExitList_CastleGarden_Main[] = {
     TransitionListEnd,
 };
 const Transition gUnk_08134FBC[] = {
+    // in the Dark World, once Agahnim has fallen in Ganon's Tower, the castle door leads down
+    // into the Pyramid of Power, Ganon's hall (taken only then: Blend_IsTransitionClosed)
+    { WARP_TYPE_AREA, 0x1f8, 0x28, ENTRY_Pyramid, TRANSITION_SHAPE_AREA_28x12, AREA_NULL_3E, 0, 1, TRANSITION_TYPE_NORMAL,
+      0x0, 0x0, 0x0, 0x0 },
     { WARP_TYPE_AREA, 0x1f8, 0x28, 0x198, 0x1f0, TRANSITION_SHAPE_AREA_28x12, AREA_DARK_HYRULE_CASTLE, ROOM_DARK_HYRULE_CASTLE_1F_ENTRANCE,
       1, TRANSITION_TYPE_NORMAL, 0x0, 0x0, 0x0, 0x0 },
     { WARP_TYPE_AREA, 0x308, 0x48, 0x78, 0x78, TRANSITION_SHAPE_AREA_12x12, AREA_GARDEN_FOUNTAINS, ROOM_GARDEN_FOUNTAINS_EAST,
@@ -3900,7 +3908,7 @@ const Transition* const* const gExitLists[] = {
     /*AREA_NULL_3B*/ gExitLists_MiseryMire,
     /*AREA_NULL_3C*/ gExitLists_TurtleRock,
     /*AREA_NULL_3D*/ gExitLists_GanonsTower,
-    /*AREA_NULL_3E*/ gExitLists_NoExit,
+    /*AREA_NULL_3E*/ gExitLists_Pyramid,
     /*AREA_NULL_3F*/ gExitLists_TempleOfBonds,
     /*AREA_40*/ gExitLists_40,
     /*AREA_HYRULE_TOWN_UNDERGROUND*/ gExitLists_HyruleTownUnderground,

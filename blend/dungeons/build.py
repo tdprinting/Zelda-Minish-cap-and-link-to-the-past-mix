@@ -400,6 +400,22 @@ DUNGEONS = [
         flag_base=0x10,
         trim=True,
     ),
+    # The Pyramid of Power: Ganon's hall (room 0x00, its upper right quarter) in the free area
+    # 0x3E. A Link to the Past's hall has no door: Link falls in through the hole Ganon
+    # smashes in the Pyramid. Here the Dark World Castle Garden's castle door leads in once
+    # Agahnim has fallen in Ganon's Tower (blend.c), Link lands where A Link to the Past puts
+    # him, and steps in the hall's lower left corner lead back up to the garden.
+    dict(
+        name='Pyramid',
+        rooms=[0x00],
+        entrance=0x00,
+        area='AREA_NULL_3E',
+        arrive=(23, 8),
+        up=(18, 10),
+        exit=('AREA_CASTLE_GARDEN', 'ROOM_CASTLE_GARDEN_MAIN', 0x1f8, 0x38),
+        flag_base=0x10,
+        trim=True,
+    ),
 ]
 
 
@@ -934,6 +950,12 @@ def generate():
         edges = open_edges(plans)
         for r in ids:
             plans[r].finish(edges[r])
+        if 'arrive' in dg:
+            # a hall with no door (the Pyramid): only the floor Link lands on is kept, and
+            # steps lead back out
+            p = plans[dg['entrance']]
+            p._reach([dg['arrive']])
+            p.steps_up.append(dg['up'])
         for r, dest in dg.get('drops', {}).items():
             # (a room, or (room, the cell where the blend breaks the floor open, the cell
             # Link lands on), either cell None to let the blend choose)
@@ -979,6 +1001,10 @@ def generate():
                 bottom[cy * 32 + cx] = TILE_STAIRS
                 top[cy * 32 + cx] = 0
             for (cx, cy, _, _) in p.drops:
+                bottom[cy * 32 + cx] = TILE_STAIRS
+                top[cy * 32 + cx] = 0
+            if 'up' in dg and r == dg['entrance']:
+                cx, cy = dg['up']
                 bottom[cy * 32 + cx] = TILE_STAIRS
                 top[cy * 32 + cx] = 0
             if r in dg.get('links', {}):
@@ -1107,6 +1133,13 @@ def generate():
                              'TRANSITION_TYPE_NORMAL, 0x4, 0x0, 0x0, 0x0 },' % (
                                  (min(xs) + max(xs) + 1) * 8, cy * 16 + 8, lx * 16 + 8, ly * 16 + 8, shape,
                                  dg['area'], index[dest]))
+            if 'up' in dg and r == dg['entrance']:
+                # the steps out of a hall with no door
+                cx, cy = dg['up']
+                area, room, x, y = dg['exit']
+                exits.append('\t{ WARP_TYPE_AREA, 0x%x, 0x%x, 0x%x, 0x%x, TRANSITION_SHAPE_AREA_12x12, %s, %s, 1, '
+                             'TRANSITION_TYPE_NORMAL, 0x4, 0x0, 0x0, 0x0 },' % (
+                                 cx * 16 + 8, cy * 16 + 8, x, y, area, room))
             for d in p.doors:
                 if d['kind'] != 'exit':
                     continue
@@ -1158,7 +1191,8 @@ def generate():
         exits_h += exit_lists
         exits_h.append('const Transition* const gExitLists_%s[] = {\n%s\n};' % (
             name, '\n'.join('\tgExitList_%s_%02d,' % (name, i) for i in range(len(ids)))))
-        entries_h.append('#define ENTRY_%s 0x%x, 0x%x' % ((name,) + arrival(plans[dg['entrance']])))
+        land = tuple(c * 16 + 8 for c in dg['arrive']) if 'arrive' in dg else arrival(plans[dg['entrance']])
+        entries_h.append('#define ENTRY_%s 0x%x, 0x%x' % ((name,) + land))
         print('%s: %d rooms, flags 0x%x-0x%x' % (name, len(ids), dg['flag_base'], flag - 1))
         print('  ' + ', '.join('%d: %03x' % (i, r) for i, r in enumerate(ids)))
 

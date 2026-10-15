@@ -78,6 +78,7 @@ typedef struct {
     /*0x90*/ u8 icePalette[4];    /**< OBJ palette slot holding each frozen enemy's icy colors */
     /*0x94*/ u8 bossState;        /**< BOSS_*: the A Link to the Past boss fight in this room */
     /*0x95*/ u8 bossMaxHealth;    /**< Link's max health when the Heart Container appeared */
+    /*0x96*/ u8 endingTimer;      /**< frames since Ganon fell (the ending, then the credits) */
 } BlendLink;
 
 #define BLEND_MAGIC 0x444E4C42 /* "BLND" */

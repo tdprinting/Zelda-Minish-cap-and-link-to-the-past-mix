@@ -890,6 +890,69 @@ class Blend:
             merged[drop] = keep
             use[keep] = use.get(keep, 1) + use.pop(drop, 1)
 
+    def _merge_alike(self, tiles_b, types_b, chars, pal_lists, meta_b):
+        """Merges look-alike metatiles until the tileset fits: of two metatiles of one tile
+        type whose pixels differ least (a slab a shade apart, a wall's crack a pixel off),
+        one takes the other's place. Minish Cap's own metatiles and the crystal pegs' two
+        looks are kept. Updates self.remap; returns the new (tiles, types)."""
+        n = len(types_b)
+        rgb = np.zeros((16, 16, 3))
+        for p, cols in enumerate(pal_lists):
+            for i, c in enumerate(cols):
+                rgb[GBA_ROWS[p], i + 1] = c
+        # Minish Cap metatiles (doors, chests) and peg looks stay as they are
+        keep = {self.remap[k] for k, ((key, _), _) in enumerate(meta_b) if key[0] == 'mc'}
+        for switches, swaps in self.pegs.values():
+            for (_, m0, m1, _, _) in swaps:
+                keep |= {self.remap.get(m0, m0), self.remap.get(m1, m1)}
+        img = np.zeros((n, 16, 16, 3))
+        for k in range(n):
+            if k in keep:
+                continue
+            for q in range(4):
+                e = tiles_b[k * 4 + q]
+                raw = chars[e & 0x3ff] or bytes(32)
+                px = np.array([[(raw[y * 4 + x // 2] >> (4 * (x & 1))) & 15 for x in range(8)] for y in range(8)])
+                if e & 0x400:
+                    px = px[:, ::-1]
+                if e & 0x800:
+                    px = px[::-1]
+                y0, x0 = (q // 2) * 8, (q % 2) * 8
+                img[k, y0:y0 + 8, x0:x0 + 8] = rgb[(e >> 12) & 15][px]
+        flat = img.reshape(n, -1)
+        mean = img.reshape(n, 256, 3).mean(axis=1)
+        types = np.array(types_b)
+        dist = np.full((n, n), np.inf)
+        for i in range(0, n, 128):
+            d = ((flat[i:i + 128, None, :] - flat[None, :, :]) ** 2).sum(-1)
+            d += MEAN_WEIGHT * 256 * ((mean[i:i + 128, None, :] - mean[None, :, :]) ** 2).sum(-1)
+            d[types[i:i + 128, None] != types[None, :]] = np.inf
+            dist[i:i + 128] = d
+        idx = sorted(keep)
+        dist[idx, :] = np.inf
+        dist[:, idx] = np.inf
+        np.fill_diagonal(dist, np.inf)
+        target = {}
+        left = n
+        while left > MAX_METATILES:
+            a = int(dist.min(axis=1).argmin())
+            b = int(dist[a].argmin())
+            if not np.isfinite(dist[a, b]):
+                break
+            target[a] = b
+            dist[a, :] = np.inf
+            dist[:, a] = np.inf
+            left -= 1
+        def resolve(i):
+            while i in target:
+                i = target[i]
+            return i
+        alive = [k for k in range(n) if k not in target]
+        new_index = {k: i for i, k in enumerate(alive)}
+        self.remap = {k: new_index[resolve(v)] for k, v in self.remap.items()}
+        print('%s: %d look-alike metatiles merged, %d left' % (self.name, n - len(alive), len(alive)))
+        return [e for k in alive for e in tiles_b[k * 4:k * 4 + 4]], [types_b[k] for k in alive]
+
     def write(self, out_dir):
         """Writes the binaries; returns maps.inc lines with the tileset and tile headers."""
         lines, tiles = self.write_parts(out_dir)
@@ -976,6 +1039,9 @@ class Blend:
                 self.remap[k] = seen[look]
             print('%s: %d metatiles merged into %d' % (name, len(types_b), len(new_types)))
             tiles_b, types_b = new_tiles, new_types
+            if len(types_b) > MAX_METATILES:
+                # still too many (Ganon's Tower): merge the metatiles that look most alike
+                tiles_b, types_b = self._merge_alike(tiles_b, types_b, chars, pal_lists, meta_b)
             if len(types_b) > MAX_METATILES:
                 raise RuntimeError('%s: more than %d metatiles' % (name, MAX_METATILES))
             meta_b = [None] * len(types_b)

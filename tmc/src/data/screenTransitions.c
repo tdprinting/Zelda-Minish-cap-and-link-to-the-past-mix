@@ -26,6 +26,7 @@ const Transition gWallMasterToMiseryMire = { WARP_TYPE_AREA, 0, 0, ENTRY_MiseryM
 const Transition gWallMasterToTurtleRock = { WARP_TYPE_AREA, 0, 0, ENTRY_TurtleRock, 0, AREA_NULL_3C, 0, 1, 2, 0, 0 };
 const Transition gWallMasterToGanonsTower = { WARP_TYPE_AREA, 0, 0, ENTRY_GanonsTower, 0, AREA_NULL_3D, 0, 1, 2, 0, 0 };
 const Transition gWallMasterToTempleOfBonds = { WARP_TYPE_AREA, 0, 0, ENTRY_TempleOfBonds, 0, AREA_NULL_3F, 0, 1, 2, 0, 0 };
+const Transition gWallMasterToPyramid = { WARP_TYPE_AREA, 0, 0, ENTRY_Pyramid, 0, AREA_NULL_3E, 0, 1, 2, 0, 0 };
 
 const Transition* const gWallMasterScreenTransitions[] = {
     &gUnk_0813AA54, &gUnk_0813AA68, &gUnk_0813AA7C, &gUnk_0813AA90, &gUnk_0813AAA4,
@@ -34,6 +35,7 @@ const Transition* const gWallMasterScreenTransitions[] = {
     &gWallMasterToPalaceOfDarkness, &gWallMasterToSwampPalace, &gWallMasterToSkullWoods, &gWallMasterToThievesTown,
     &gWallMasterToIcePalace, &gWallMasterToMiseryMire, &gWallMasterToTurtleRock,
     &gWallMasterToGanonsTower, &gWallMasterToTempleOfBonds,
+    &gWallMasterToPyramid,
 };
 
 const Transition unusedScreenTransition = { WARP_TYPE_AREA, 0, 0, 0x48, 0x68, 0, AREA_CASTLE_GARDEN, ROOM_CASTLE_GARDEN_MAIN, 1, 0, 2, 0 };

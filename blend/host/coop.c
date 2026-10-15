@@ -5,8 +5,13 @@
 // other game's shared state block (gBlendLink at 0x0203F000), where the game
 // draws them as a second Link in red mail.
 //
-// Usage: zelda-blend [game.gba] [--single] [--vertical]
+// Usage: zelda-blend [game.gba] [--single] [--vertical] [--no-update]
 //        zelda-blend game.gba --test SCRIPT OUT.ppm   (headless test, see runScript)
+//        zelda-blend --update-only [--update-from FOLDER|ZIP|URL|github:owner/repo]
+//                                   (check for and install a newer build, then exit)
+//        zelda-blend --version
+//
+// On Windows it first looks for a newer build and offers to install it (updater.c).
 //
 // Controls (keyboard; gamepads 1 and 2 also work):
 //   Player 1: WASD move, J = B, K = A, U = L, I = R, Enter = Start, Right Shift = Select
@@ -20,6 +25,7 @@
 #include <mgba-util/vfs.h>
 
 #include <SDL.h>
+#include "updater.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -239,13 +245,26 @@ int main(int argc, char** argv) {
 	int players = 2, vertical = 0;
 	const char* testScript = NULL;
 	const char* testOut = NULL;
+	int checkUpdates = 1;
+	struct UpdaterOptions update = { 0 };
 	for (int i = 1; i < argc; i++) {
 		if (!strcmp(argv[i], "--single")) players = 1;
+		else if (!strcmp(argv[i], "--no-update")) checkUpdates = 0;
+		else if (!strcmp(argv[i], "--update-from") && i + 1 < argc) update.source = argv[++i];
+		else if (!strcmp(argv[i], "--update-only")) update.onlyUpdate = update.assumeYes = 1;
+		else if (!strcmp(argv[i], "--version")) {
+			printf("Zelda: The Picori Seal %s\n", updaterVersion());
+			return 0;
+		}
 		else if (!strcmp(argv[i], "--vertical")) vertical = 1;
 		else if (!strcmp(argv[i], "--test") && i + 2 < argc) { testScript = argv[++i]; testOut = argv[++i]; }
 		else rom = argv[i];
 	}
 	mLogSetDefaultLogger(&logger);
+	if (update.onlyUpdate)
+		return updaterRun(&update) ? 0 : 2;
+	if (checkUpdates && !testScript && updaterRun(&update))
+		return 0; // the new version has been started
 
 	struct Player p[2] = { 0 };
 	if (!startPlayer(&p[0], rom, "player1.sav") || (players == 2 && !startPlayer(&p[1], rom, "player2.sav"))) {
