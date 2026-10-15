@@ -79,6 +79,7 @@ typedef struct {
     /*0x94*/ u8 bossState;        /**< BOSS_*: the A Link to the Past boss fight in this room */
     /*0x95*/ u8 bossMaxHealth;    /**< Link's max health when the Heart Container appeared */
     /*0x96*/ u8 endingTimer;      /**< frames since Ganon fell (the ending, then the credits) */
+    /*0x97*/ u8 menuPage;         /**< the pause menu's Items page: 0 Minish Cap's items, 1 A Link to the Past's */
 } BlendLink;
 
 #define BLEND_MAGIC 0x444E4C42 /* "BLND" */
@@ -136,5 +137,13 @@ void Blend_ShadowUpdate(void);
 void Blend_ShadowRestore(void);
 /** The current room has a shadow layer, so the game's own background 3 overlays stay off. */
 bool32 Blend_RoomHasShadows(void);
+
+/* The pause menu's A Link to the Past page (Select on the Items page switches to it). */
+u32 Blend_MenuPageItem(u32 slot);
+u32 Blend_MenuItemText(u32 item);
+bool32 Blend_MenuPageOf(u32 item);
+bool32 Blend_MenuEquip(u32 item, u32 slot);
+void Blend_MenuEquipMinishCap(u32 item);
+void Blend_SetSlotShare(u32 item, bool32 on);
 
 #endif // BLEND_H

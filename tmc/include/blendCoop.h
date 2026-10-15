@@ -95,7 +95,8 @@ typedef struct {
     /*0xd7*/ u8 pad_d7;
     /*0xd8*/ struct Entity_* reward; /**< game only: the reward a solved puzzle left */
     /*0xdc*/ u8 carryGrace;        /**< game only: frames to keep following after the partner's carry ends */
-    /*0xdd*/ u8 pad_dd[3];
+    /*0xdd*/ u8 menuPage; /**< 0 playing, 1 paused, 2 pause Items page (Minish Cap), 3 its A Link to the Past page */
+    /*0xde*/ u8 pad_de[2];
 } BlendCoop;
 
 enum {
@@ -118,8 +119,8 @@ extern BlendCoop gBlendCoop;
 /** The Twin Stone and the Toss Bell (blend/coop/twin_relics.py; keep in step with sprite_ptrs.s). */
 #define TWIN_RELICS_SPRITE 339
 /** Co-op puzzles solved, and their rewards taken (each player's own; bits by puzzle). */
-#define BLEND_COOP_PUZZLES_SOLVED (gSave.filler2E[16])
-#define BLEND_COOP_PUZZLES_TAKEN (gSave.filler2E[17])
+#define BLEND_COOP_PUZZLES_SOLVED (gSave.filler3A[4])
+#define BLEND_COOP_PUZZLES_TAKEN (gSave.filler3A[5])
 
 void Blend_CoopUpdate(void);
 /** While Link lies down after his hearts ran out: -1 to keep waiting, 0 for the game over, or the hearts to revive with. */

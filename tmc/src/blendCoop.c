@@ -902,6 +902,7 @@ void Blend_CoopPuzzlesUpdate(void) {
 void Blend_CoopUpdate(void) {
     Entity* link = &gPlayerEntity.base;
     InitBlock();
+    gBlendCoop.menuPage = 0;
     gBlendCoop.heartbeat++;
     if (BLEND_REVIVE_FAIRIES > REVIVE_FAIRIES_MAX) {
         BLEND_REVIVE_FAIRIES = REVIVE_FAIRIES_MAX;

@@ -86,7 +86,7 @@ enum {
 	C_CARRY_SEQ = 0xb9, C_PARTNER_CARRY_STATE = 0xba, C_PARTNER_CARRY_SEQ = 0xbb, C_PARTNER_CARRY_X = 0xbc,
 	C_PARTNER_CARRY_Y = 0xbe, C_PARTNER_CARRY_Z = 0xc0, C_CARRIED = 0xc1, C_LIFTABLE = 0xc2, C_PARTNER_LIFTABLE = 0xc3,
 	C_HEART_SEQ = 0xc4, C_PARTNER_HEART_SEQ = 0xc5, C_PARTNER_HEALTH = 0xc7, C_PARTNER_MAX_HEALTH = 0xc8,
-	C_PIECES_LIT = 0xc9, C_PARTNER_PIECES_LIT = 0xca,
+	C_PIECES_LIT = 0xc9, C_PARTNER_PIECES_LIT = 0xca, C_MENU_PAGE = 0xdd,
 };
 #define MENU_MAX 24
 #define REVIVE_FAIRIES_MAX 9
@@ -955,6 +955,21 @@ static void buildOverlay(struct Player* pl, struct Player* partner) {
 		return;
 	char l1[96], l2[96];
 	int other = partner ? partner->index + 1 : 0;
+	int page = r8(pl, COOP + C_MENU_PAGE);
+	if (page) {
+		// the game's pause menu: no co-op prompts over it; on the Items page, say how to switch pages
+		if (page >= 2) {
+			const char* hint = page == 2 ? "Select: A Link to the Past items" : "Select: Minish Cap items";
+			int w = textWidth(hint);
+			ovPanel(pl, 292 - w / 2 - 10, 46, w + 20, 26, 200);
+			ovTextCentered(pl, 292, 51, hint, GOLD);
+		}
+		if (pl->toast.frames > 0) {
+			pl->toast.frames--;
+			drawBanner(pl, 96, pl->toast.text, GOLD, NULL);
+		}
+		return;
+	}
 	if (partner && inGame(partner) && !pl->menuOpen && r8(pl, LINK_SELF + SYNC_ACTIVE) && !r8(pl, COOP + C_MESSAGE_OPEN))
 		drawPartnerHearts(pl, partner);
 	if (r8(pl, COOP + C_DOWNED)) {

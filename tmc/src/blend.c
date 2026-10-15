@@ -204,6 +204,7 @@ void Blend_ApplyDarkWorldEnemy(Entity* entity) {
 }
 
 static bool32 StartItemAction(u32 item);
+static void UpdateEquippedSpells(void);
 
 /** Called when Link holds the Mirror up high: he goes through to the other world. */
 static void UseMirror(void) {
@@ -231,36 +232,16 @@ static void UpdateMirror(void) {
 
 
 /**
- * The picture shown for an item on the ground or held up by Link. The new
- * items borrow Minish Cap pictures: the Mirror Shield for the Magic Mirror,
- * and the glowing Elements for the Moon Pearl and the medallions.
+ * The picture shown for an item on the ground, held up by Link, in the menus or on
+ * a button. The A Link to the Past items have their own icons in sprite 322
+ * (blend/menu/icons.py); only the co-op Revive Fairy loads as a bottled fairy, and
+ * blendCoop.c then gives it its own picture.
  */
-/** Pictures for the shared-slot items, in item id order from ITEM_HOOKSHOT. */
-static const u8 sSlotShareIcons[] = { ITEM_LIGHT_ARROW, ITEM_SMITH_SWORD, ITEM_PACCI_CANE, ITEM_BOTTLE_FAIRY, ITEM_FIRE_ROD };
-
 u32 Blend_ItemSpriteAnim(u32 item) {
-    switch (item) {
-        case ITEM_MAGIC_MIRROR:
-            return ITEM_MIRROR_SHIELD;
-        case ITEM_MOON_PEARL:
-            return ITEM_WATER_ELEMENT;
-        case ITEM_BOMBOS:
-            return ITEM_FIRE_ELEMENT;
-        case ITEM_ETHER:
-            return ITEM_WIND_ELEMENT;
-        case ITEM_QUAKE:
-            return ITEM_EARTH_ELEMENT;
-        case ITEM_ICE_ROD:
-            return ITEM_FIRE_ROD;
-        case ITEM_REVIVE_FAIRY:
-            // loads like a bottled fairy; blendCoop.c then gives it its own picture
-            return ITEM_BOTTLE_FAIRY;
-        default:
-            if (item >= ITEM_HOOKSHOT && item <= ITEM_CANE_OF_SOMARIA) {
-                return sSlotShareIcons[item - ITEM_HOOKSHOT];
-            }
-            return item;
+    if (item == ITEM_REVIVE_FAIRY) {
+        return ITEM_BOTTLE_FAIRY;
     }
+    return item;
 }
 
 /* ---- Fire Rod ---------------------------------------------------------- */
@@ -420,7 +401,7 @@ u32 Blend_HudIcon(u32 item) {
     }
     variant = Blend_ItemVariant(item);
     if (variant != ITEM_NONE) {
-        return sSlotShareIcons[variant - ITEM_HOOKSHOT];
+        return variant;
     }
     return item;
 }
@@ -1816,6 +1797,7 @@ void Blend_GameUpdate(void) {
     UpdateMilestoneAwards();
     UpdateStory();
     UpdateRodSwap();
+    UpdateEquippedSpells();
     UpdateMedallions();
     UpdateByrna();
     UpdateFrozen();
@@ -1823,6 +1805,139 @@ void Blend_GameUpdate(void) {
     PublishSelf();
     UpdatePartner();
     Blend_CoopUpdate();
+}
+
+/* ---- The pause menu's A Link to the Past page --------------------------- */
+
+/*
+ * Select on the pause menu's Items page switches to a second page with A Link to
+ * the Past's items, in the same 4 x 3 grid and the bottles' row. A or B puts the
+ * chosen item on that button, as on the first page.
+ */
+static const u8 sMenuPage[16] = {
+    ITEM_HOOKSHOT,      ITEM_HAMMER,     ITEM_FIRE_ROD,  ITEM_ICE_ROD,      //
+    ITEM_CANE_OF_BYRNA, ITEM_CANE_OF_SOMARIA, ITEM_MAGIC_POWDER, ITEM_MAGIC_MIRROR, //
+    ITEM_BOMBOS,        ITEM_ETHER,      ITEM_QUAKE,     ITEM_MOON_PEARL,   //
+    ITEM_BOOK_OF_MUDORA, ITEM_MAGIC_CAPE, ITEM_BUG_NET,  ITEM_SHOVEL,
+};
+
+/** Names for the menu's item box, for ids whose own text entry is a sword skill's (USA.json bank 4). */
+static const u8 sMenuText[] = {
+    [ITEM_HOOKSHOT - ITEM_HOOKSHOT] = 125, [ITEM_HAMMER - ITEM_HOOKSHOT] = 126,
+    [ITEM_CANE_OF_BYRNA - ITEM_HOOKSHOT] = 127, [ITEM_MAGIC_POWDER - ITEM_HOOKSHOT] = 128,
+    [ITEM_CANE_OF_SOMARIA - ITEM_HOOKSHOT] = 129, [ITEM_REVIVE_FAIRY - ITEM_HOOKSHOT] = 130,
+    [ITEM_BOOK_OF_MUDORA - ITEM_HOOKSHOT] = 131, [ITEM_MAGIC_CAPE - ITEM_HOOKSHOT] = 132,
+    [ITEM_BUG_NET - ITEM_HOOKSHOT] = 133, [ITEM_MUSHROOM - ITEM_HOOKSHOT] = 134,
+    [ITEM_SHOVEL - ITEM_HOOKSHOT] = 135, [ITEM_TITANS_MITT - ITEM_HOOKSHOT] = 136,
+};
+
+/** The item shown in a menu slot of the A Link to the Past page, or ITEM_NONE. */
+u32 Blend_MenuPageItem(u32 slot) {
+    u32 item;
+    if (slot >= ARRAY_COUNT(sMenuPage)) {
+        return ITEM_NONE;
+    }
+    item = sMenuPage[slot];
+    if (item == ITEM_MAGIC_POWDER && !HasItem(item)) {
+        item = ITEM_MUSHROOM; // as in A Link to the Past, the Mushroom becomes the Powder
+    }
+    return HasItem(item) ? item : ITEM_NONE;
+}
+
+/** TRUE for the items the A Link to the Past page shows. */
+bool32 Blend_MenuPageOf(u32 item) {
+    u32 i;
+    for (i = 0; i < ARRAY_COUNT(sMenuPage); i++) {
+        if (sMenuPage[i] == item) {
+            return TRUE;
+        }
+    }
+    return item == ITEM_MUSHROOM || item == ITEM_TITANS_MITT;
+}
+
+/** Text index of an item's name for the menu's item box. */
+u32 Blend_MenuItemText(u32 item) {
+    if (item >= ITEM_HOOKSHOT && item - ITEM_HOOKSHOT < ARRAY_COUNT(sMenuText)) {
+        return TEXT_INDEX(TEXT_ITEMS, sMenuText[item - ITEM_HOOKSHOT]);
+    }
+    return TEXT_INDEX(TEXT_ITEMS, 0) + item;
+}
+
+/** Puts an item on a button the way ForceEquipItem does, for ids it refuses (the Mirror). */
+static void EquipRaw(u32 item, u32 slot) {
+    u32 other = slot == EQUIP_SLOT_A;
+    u32 replaced = gSave.stats.equipped[slot];
+    if (gSave.stats.equipped[other] == item) {
+        gSave.stats.equipped[other] = replaced;
+    }
+    gSave.stats.equipped[slot] = item;
+    gHUD.unk_13 = 0x7f;
+    gHUD.unk_14 = 0x7f;
+}
+
+/** A or B on the A Link to the Past page. Returns FALSE for items that never go on a button. */
+bool32 Blend_MenuEquip(u32 item, u32 slot) {
+    u32 i;
+    for (i = 0; i < ARRAY_COUNT(sSlotShares); i++) {
+        if (sSlotShares[i].item == item) {
+            // the shared slot's button, switched to this item
+            ForceEquipItem(sSlotShares[i].partner, slot);
+            BLEND_VARIANTS_ON |= VariantBit(item);
+            return TRUE;
+        }
+    }
+    switch (item) {
+        case ITEM_FIRE_ROD:
+        case ITEM_ICE_ROD:
+        case ITEM_BOMBOS:
+        case ITEM_ETHER:
+        case ITEM_QUAKE:
+            ForceEquipItem(item, slot);
+            return TRUE;
+        case ITEM_MAGIC_MIRROR:
+            EquipRaw(item, slot);
+            return TRUE;
+        default:
+            return FALSE;
+    }
+}
+
+/** A or B on the first page: a Minish Cap item, so its slot switches back to it. */
+void Blend_MenuEquipMinishCap(u32 item) {
+    Blend_SetSlotShare(item, FALSE);
+}
+
+/**
+ * The medallions and the Mirror on A or B: pressing the button raises them, as
+ * R + Select and L + R do. The game itself never sees the press.
+ */
+static void UpdateEquippedSpells(void) {
+    static const u16 sKeys[] = { A_BUTTON, B_BUTTON };
+    u32 slot;
+    for (slot = EQUIP_SLOT_A; slot <= EQUIP_SLOT_B; slot++) {
+        u32 item = gSave.stats.equipped[slot];
+        u32 key = sKeys[slot];
+        if (item != ITEM_MAGIC_MIRROR && item != ITEM_BOMBOS && item != ITEM_ETHER && item != ITEM_QUAKE) {
+            continue;
+        }
+        gInput.heldKeys &= ~key;
+        gInput.newKeys &= ~key;
+        if (!(gBlendLink.newKeys & key) || (gBlendLink.heldKeys & L_BUTTON) || !IsPlayerFree()) {
+            continue;
+        }
+        if (item == ITEM_MAGIC_MIRROR) {
+            if (CanUseMirror()) {
+                StartItemAction(ITEM_MAGIC_MIRROR);
+            } else {
+                SoundReq(SFX_MENU_ERROR);
+            }
+        } else if (!HasItem(item) || !HasSword() || gBlendLink.medallionUsed || gBlendLink.bunny) {
+            SoundReq(SFX_MENU_ERROR);
+        } else if (StartItemAction(item)) {
+            BLEND_MEDALLION = MedallionIndex(item);
+            gBlendLink.medallionUsed = 1;
+        }
+    }
 }
 
 /** The A Link to the Past item that shares this Minish Cap item's menu slot, if Link owns it. */

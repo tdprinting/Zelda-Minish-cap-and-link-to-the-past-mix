@@ -373,7 +373,19 @@
         "Sword Beam\nWhen your hearts are full,\nswing your {Color:Red}sword{Color:White}!",
         "Great Spin Attack\nPerform a {Color:Red}Spin Attack{Color:White}...and\nhit the button repeatedly!",
         "Down Thrust\nEquip the {Color:Red}Roc's Cape{Color:White} and\nthe {Color:Red}sword{Color:White}!! Jump and swing!",
-        "Peril Beam\nWhen you have only one\nheart left, swing the {Color:Red}sword{Color:White}!"
+        "Peril Beam\nWhen you have only one\nheart left, swing the {Color:Red}sword{Color:White}!",
+        "Hookshot",
+        "Magic Hammer",
+        "Cane of Byrna",
+        "Magic Powder",
+        "Cane of Somaria",
+        "Revive Fairy",
+        "Book of Mudora",
+        "Magic Cape",
+        "Bug-Catching Net",
+        "Mushroom",
+        "Shovel",
+        "Titan's Mitt"
     ],
     [
         "...",
