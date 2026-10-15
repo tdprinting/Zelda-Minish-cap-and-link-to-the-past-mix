@@ -167,3 +167,62 @@ class RoomGfx:
                         if c:
                             px[tx + x, ty + y] = bgr555(self.colors[c])
         return im
+
+
+# A Link to the Past's crystal switch (sprite 0x1E): one 16x16 sprite, char 0xe4 of the
+# dungeon sprite set, in sprite palette 1 (orange, while the blue pegs are up) or 2
+# (blue). The blend draws it into the tileset, so its two looks are dumped from the
+# cartridge by make-dungeons.sh into the git-ignored gfx folder.
+PEG_SWITCH = os.path.join(GFX, 'pegswitch.rgba')
+
+
+def write_peg_switch(rom, path=PEG_SWITCH, sprite_set=25):
+    import sys
+    here = os.path.dirname(os.path.abspath(__file__))
+    sys.path.insert(0, os.path.join(here, '..', 'enemies'))
+    import alttp_enemies as E
+    util, _, _ = E.z3()
+    util.load_rom(rom)
+    sheets = E.Sheets(sprite_set)
+    pix = E.compose(sheets, [(0, 0, 0xe4, 0, 1)], (0, 0))
+    out = bytearray()
+    for pal in (1, 2):
+        cols = E.mc_palette(pal)
+        for y in range(16):
+            for x in range(16):
+                v = pix.get((x, y))
+                out += bytes(cols[v]) + b'\xff' if v is not None else bytes(4)
+    open(path, 'wb').write(bytes(out))
+
+
+def peg_switch_art():
+    """[(16x16 RGB rows, 16x16 opaque mask)] for the switch's two looks (state 0
+    orange, state 1 blue), or None if make-dungeons.sh hasn't dumped it."""
+    try:
+        data = open(PEG_SWITCH, 'rb').read()
+    except OSError:
+        return None
+    looks = []
+    for k in range(2):
+        d = data[k * 1024:(k + 1) * 1024]
+        rgb = [[tuple(d[(y * 16 + x) * 4:(y * 16 + x) * 4 + 3]) for x in range(16)] for y in range(16)]
+        mask = [[d[(y * 16 + x) * 4 + 3] != 0 for x in range(16)] for y in range(16)]
+        looks.append((rgb, mask))
+    return looks
+
+
+def swapped_pegs(gfx):
+    """The room as it looks once the crystal switch is hit: A Link to the Past swaps the
+    raised and lowered peg characters (0x1d0-0x1d3 and 0x1d4-0x1d7) in video memory."""
+    chars = bytearray(gfx.chars)
+    a, b = chars[0x1d0 * 32:0x1d4 * 32], chars[0x1d4 * 32:0x1d8 * 32]
+    chars[0x1d0 * 32:0x1d4 * 32], chars[0x1d4 * 32:0x1d8 * 32] = b, a
+    gfx.chars = bytes(chars)
+    gfx._cache = {}
+    return gfx
+
+
+if __name__ == '__main__':
+    import sys
+    if sys.argv[1:2] == ['--peg-switch']:
+        write_peg_switch(sys.argv[2])

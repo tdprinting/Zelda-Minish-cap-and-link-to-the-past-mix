@@ -1547,6 +1547,109 @@ static void UpdatePartner(void) {
     }
 }
 
+// A Link to the Past's crystal switches (the Tower of Hera): a hit with the sword lowers
+// the raised pegs and raises the others, in every room of the dungeon. The blend draws
+// each room with both colors raised (custom/gen/pegs.h, from blend/dungeons/tileset.py)
+// and swaps the cells that differ; a local flag of the dungeon holds which are up.
+#include "../custom/gen/pegs.h"
+
+typedef struct {
+    u8 swinging; /**< Link was swinging the sword last frame */
+    u8 pad[3];
+    u8 pending[64]; /**< bits of swaps whose peg waits for Link to step off before rising */
+} BlendPegs;
+
+extern u8 gBlendPegsState[];
+#define gBlendPegs (*(BlendPegs*)gBlendPegsState)
+
+static const BlendPegRoom* FindPegRoom(void) {
+    const BlendPegRoom* r;
+    for (r = sBlendPegRooms; r->area != 0xff; r++) {
+        if (r->area == gRoomControls.area && r->room == gRoomControls.room) {
+            return r;
+        }
+    }
+    return NULL;
+}
+
+/** Whether Link stands (partly) on a cell, as a tile position. */
+static bool32 LinkOnCell(u32 pos) {
+    s32 x = gPlayerEntity.base.x.HALF.HI - gRoomControls.origin_x - (pos & 0x3f) * 16;
+    s32 y = gPlayerEntity.base.y.HALF.HI - gRoomControls.origin_y - (pos >> 6) * 16;
+    return x > -6 && x < 16 + 6 && y > -2 && y < 16 + 6;
+}
+
+static void ShowPeg(const u16* swap, u32 i, u32 state) {
+    // a peg rising (solid in this state, not the other) waits while Link stands on it
+    if (((swap[3] >> state) & 1) && !((swap[3] >> (state ^ 1)) & 1) && LinkOnCell(swap[0])) {
+        gBlendPegs.pending[i >> 3] |= 1 << (i & 7);
+        return;
+    }
+    gBlendPegs.pending[i >> 3] &= ~(1 << (i & 7));
+    SetTileByIndex(swap[1 + state], swap[0], LAYER_BOTTOM);
+}
+
+static void ShowPegs(const BlendPegRoom* r, u32 state) {
+    u32 i;
+    MemClear(gBlendPegs.pending, sizeof(gBlendPegs.pending));
+    for (i = 0; i < r->swapCount && i < 8 * sizeof(gBlendPegs.pending); i++) {
+        ShowPeg(r->swaps + i * 4, i, state);
+    }
+}
+
+static void UpdatePegs(void) {
+    const BlendPegRoom* r = FindPegRoom();
+    MapLayer* layer;
+    u32 state, i, swing;
+    const u16* mark;
+    if (r == NULL || r->swapCount == 0) {
+        gBlendPegs.swinging = 0;
+        return;
+    }
+    state = CheckLocalFlag(r->flag) ? 1 : 0;
+    layer = GetLayerByIndex(LAYER_BOTTOM);
+    // a cell no peg rises on tells which look the room's map has: a room loads the way
+    // the blend drew it, the blue pegs up
+    mark = r->swaps;
+    for (i = 0; i < r->swapCount; i++) {
+        if ((r->swaps[i * 4 + 3] & 3) != 1 && (r->swaps[i * 4 + 3] & 3) != 2) {
+            mark = r->swaps + i * 4;
+            break;
+        }
+    }
+    if (layer->mapData[mark[0]] != mark[1 + state]) {
+        ShowPegs(r, state);
+    } else {
+        for (i = 0; i < r->swapCount && i < 8 * sizeof(gBlendPegs.pending); i++) {
+            if (gBlendPegs.pending[i >> 3] & (1 << (i & 7))) {
+                ShowPeg(r->swaps + i * 4, i, state);
+            }
+        }
+    }
+    swing = gPlayerState.framestate == PL_STATE_SWORD;
+    if (swing && !gBlendPegs.swinging) {
+        s32 x, y;
+        PointInFront(12, &x, &y);
+        x -= gRoomControls.origin_x;
+        y -= gRoomControls.origin_y;
+        for (i = 0; i < r->switchCount; i++) {
+            s32 dx = x - ((r->switches[i] & 0x3f) * 16 + 8);
+            s32 dy = y - ((r->switches[i] >> 6) * 16 + 8);
+            if (dx > -14 && dx < 14 && dy > -14 && dy < 14) {
+                if (state) {
+                    ClearLocalFlag(r->flag);
+                } else {
+                    SetLocalFlag(r->flag);
+                }
+                SoundReq(SFX_METAL_CLINK);
+                ShowPegs(r, state ^ 1);
+                break;
+            }
+        }
+    }
+    gBlendPegs.swinging = swing;
+}
+
 void Blend_GameUpdate(void) {
     if (gBlendLink.magic != BLEND_MAGIC) {
         MemClear(&gBlendLink, sizeof(gBlendLink));
@@ -1557,6 +1660,7 @@ void Blend_GameUpdate(void) {
     gBlendLink.heldKeys = gInput.heldKeys;
     UpdateDevHooks();
     UpdateRoom();
+    UpdatePegs();
     UpdateBunny();
     UpdateMilestoneAwards();
     UpdateStory();

@@ -43,6 +43,11 @@ CASTS = (A.SOLID, A.TORCH, A.BLOCK, A.POT, A.LOCKED, A.SHUTTER)
 RECEIVES = (A.FLOOR, A.STAIRS)
 # A Link to the Past's crystal switch pegs (0x66 orange, 0x67 blue)
 PEG_ATTRS = (0x66, 0x67)
+# which pegs are raised with the switch in each state: the rooms as dumped have the
+# blue ones up, as A Link to the Past starts a dungeon
+PEG_RAISED = (0x67, 0x66)
+# the Minish Cap tile type of a raised peg or a crystal switch: a plain solid block
+PEG_UP_TYPE = 0x394
 # the color of a drained basin's floor
 BASIN = (58, 70, 84)
 # how far from where Link can walk a dungeon with `trim` still draws A Link to the Past's art
@@ -178,7 +183,9 @@ class Blend:
         self.meta_b, self.meta_t = {}, {}   # key -> metatile index
         self.colors = None
         self.tones = None
-        self.switch_rooms = set()  # rooms whose crystal switches work (see pegs)
+        self.switch_rooms = set()  # rooms whose crystal switches work (see room_pegs)
+        self.precious = set()  # colors kept through the palette merges
+        self.pegs = {}  # room -> (switch cells, [(cell, metatile 0, metatile 1, solid 0, solid 1)])
 
     # rooms
 
@@ -199,7 +206,11 @@ class Blend:
 
     def room(self, plan, bottom, top):
         """Redraws one room: bottom/top are the autotiler's Minish Cap metatiles,
-        whose tile types are kept. Returns the room's new bottom and top cells."""
+        whose tile types are kept. Returns the room's new bottom and top cells.
+
+        In a room with crystal switch pegs (in a dungeon whose switches work) the room is
+        drawn twice, once for each color of pegs raised; the cells that differ get a
+        second metatile, which the game swaps in when the switch is hit (self.pegs)."""
         gfx = alttpgfx.RoomGfx(plan.id)
         if self.colors is None:
             self.colors = gfx.colors
@@ -210,10 +221,55 @@ class Blend:
         if not self.meta_t:
             # top layer: empty, with the tile types the autotiler chose
             self.metatile(self.meta_t, self.types_t[0])
+        pegs = self.room_pegs(plan) if plan.id in self.switch_rooms else None
+        if pegs is None:
+            looks = [self.paint(plan, gfx, None)]
+        else:
+            looks = [self.paint(plan, gfx, pegs, 0),
+                     self.paint(plan, alttpgfx.swapped_pegs(alttpgfx.RoomGfx(plan.id)), pegs, 1)]
+        img, empty = looks[0]
+        solid = [self.raised_cells(pegs, s) for s in range(len(looks))]
+        new_b, new_t = [], []
+        swaps = []
+        for i in range(1024):
+            cx, cy = i % 32, i // 32
+            b, t = bottom[i], top[i]
+            new_t.append(t if t >= 0x4000 else self.metatile(self.meta_t, self.types_t[t]))
+            if b >= 0x4000:
+                new_b.append(b)
+                continue
+            tile_type = self.types_b[b]
+            if tile_type in (0x73, 0x74):
+                # Minish Cap chests, so they open the Minish Cap way
+                new_b.append(self.metatile(self.meta_b, (('mc', b), tile_type)))
+                continue
+            cell = []
+            for s, (im, em) in enumerate(looks):
+                key = tuple(self.tile_key(im, em, cx * 16 + dx * 8, cy * 16 + dy * 8)
+                            for dy in (0, 1) for dx in (0, 1))
+                cell.append(self.metatile(self.meta_b, (key, PEG_UP_TYPE if i in solid[s] else tile_type)))
+            new_b.append(cell[0])
+            if len(cell) > 1 and cell[1] != cell[0]:
+                swaps.append((i, cell[0], cell[1], int(i in solid[0]), int(i in solid[1])))
+        # the open chest must exist for a chest to open into
+        for b in range(len(self.types_b)):
+            if self.types_b[b] == 0x74:
+                self.metatile(self.meta_b, (('mc', b), 0x74))
+                break
+        if pegs is not None:
+            self.pegs[plan.id] = (pegs['switches'], swaps)
+        return new_b, new_t
+
+
+    def paint(self, plan, gfx, pegs, state=0):
+        """The room's picture, shaded: (RGB pixels, empty mask). `pegs` (room_pegs) and
+        `state` draw the crystal switches and their pegs, the pegs of one color raised."""
         alttp = plan.room.cells
         img, empty = self.compose(gfx)
         stoned = self.restone(gfx, plan, img, empty)
         self.center_doorways(plan, (img, empty, stoned))
+        if pegs is not None:
+            self.place_pegs(pegs, (img, empty, stoned))
         # floor Link can't reach that runs out to the room's edge is the space around
         # the room, however A Link to the Past patterned it
         def floorlike(i):
@@ -266,6 +322,22 @@ class Blend:
         cls = np.array([[A.attr_class(plan.room.attr[y * 64 + x]) for x in range(64)] for y in range(64)])
         cls = cls.repeat(8, axis=0).repeat(8, axis=1)
         carved = []
+        keep = set()
+        bump = np.zeros((512, 512), dtype=bool)
+        if pegs is not None:
+            # the pegs stand on the 16px grid now (place_pegs); the raised ones and the
+            # switches are what Link bumps into
+            for (_, (tx, ty), (sx, sy)) in pegs['pegs']:
+                cls[ty * 8:ty * 8 + 16, tx * 8:tx * 8 + 16] = A.FLOOR
+            for (attr, _, (sx, sy)) in pegs['pegs']:
+                keep.add((sy // 2) * 32 + sx // 2)
+                if attr == PEG_RAISED[state]:
+                    cls[sy * 8:sy * 8 + 16, sx * 8:sx * 8 + 16] = A.BLOCK
+                    bump[sy * 8:sy * 8 + 16, sx * 8:sx * 8 + 16] = True
+            for (cx, cy) in pegs['switches']:
+                keep.add(cy * 32 + cx)
+                cls[cy * 16:cy * 16 + 16, cx * 16:cx * 16 + 16] = A.BLOCK
+                bump[cy * 16:cy * 16 + 16, cx * 16:cx * 16 + 16] = True
         # crystal switch pegs, which only the rooms with working switches keep: elsewhere
         # they are the plain floor Link walks over
         peg_cells = {(t // 64 // 2) * 32 + (t % 64) // 2 for t in range(4096) if plan.room.attr[t] in PEG_ATTRS}
@@ -282,9 +354,11 @@ class Blend:
         for i in range(1024):
             cell = img[(i // 32) * 16:(i // 32) * 16 + 16, (i % 32) * 16:(i % 32) * 16 + 16]
             dark = np.all(cell == VOID, axis=-1).mean() > 0.5
-            pegs = i in peg_cells and plan.id not in self.switch_rooms
+            if i in keep:
+                continue
+            on_peg = i in peg_cells and pegs is None
             mat = i in chest_mats and not stoned[(i // 32) * 16:(i // 32) * 16 + 16, (i % 32) * 16:(i % 32) * 16 + 16].mean() > 0.5
-            if plan.cells[i] in PASSABLE and (alttp[i] in REDRAW_AS_FLOOR or dark or pegs or mat) and floor:
+            if plan.cells[i] in PASSABLE and (alttp[i] in REDRAW_AS_FLOOR or dark or on_peg or mat) and floor:
                 cx, cy = i % 32, i // 32
                 sx, sy = min(floor, key=lambda p: abs(p[0] - cx) + abs(p[1] - cy))
                 dst = (slice(cy * 16, cy * 16 + 16), slice(cx * 16, cx * 16 + 16))
@@ -327,6 +401,23 @@ class Blend:
         # shadows only fall where Link can go: A Link to the Past leaves unseen floor and
         # invisible walls around its rooms
         walk = np.array([[plan.cells[(y // 16) * 32 + x // 16] in PASSABLE for x in range(512)] for y in range(512)])
+        switch_art = np.zeros((512, 512), dtype=bool)
+        if pegs is not None:
+            # the crystal switch itself, on the floor where A Link to the Past's sprite stood
+            art = alttpgfx.peg_switch_art()
+            for (cx, cy) in pegs['switches']:
+                if art:
+                    rgb, mask = art[state]
+                    for y in range(16):
+                        for x in range(16):
+                            if mask[y][x]:
+                                c = celshade.snap(np.array(rgb[y][x], dtype=float))
+                                img[cy * 16 + y, cx * 16 + x] = c
+                                empty[cy * 16 + y, cx * 16 + x] = False
+                                switch_art[cy * 16 + y, cx * 16 + x] = True
+                                # its few red and blue tones would be the first merged away
+                                self.precious.add(tuple(int(v) for v in c))
+            walk &= ~bump
         receive = np.isin(cls, RECEIVES) & walk
         # floor never casts, even where A Link to the Past has an invisible wall on it
         cast = np.isin(cls, CASTS) & ~walk & ~stoned
@@ -339,30 +430,72 @@ class Blend:
             soft = spikes.repeat(8, axis=0).repeat(8, axis=1) & ~empty
             mean = img[soft].mean(axis=0)
             img[soft] = celshade.snap(mean + (img[soft] - mean) * 0.6)
+        if switch_art.any():
+            # the switch sprite has its own outline and highlights
+            soft = switch_art if soft is None else soft | switch_art
         img = celshade.shade(img, empty, receive, cast, soft)
+        return img, empty
 
-        new_b, new_t = [], []
-        for i in range(1024):
-            cx, cy = i % 32, i // 32
-            b, t = bottom[i], top[i]
-            new_t.append(t if t >= 0x4000 else self.metatile(self.meta_t, self.types_t[t]))
-            if b >= 0x4000:
-                new_b.append(b)
+
+    def room_pegs(self, plan):
+        """A room's crystal switch pegs and switches: {'pegs': [(attr, A Link to the Past
+        8px position, position on the 16px grid)], 'switches': [cells]}. A Link to the Past
+        sets some pegs 8px off the grid (the entrance hall's diagonals); each moves to the
+        cell it overlaps first, taking the first one Link can walk in."""
+        attr = plan.room.attr
+        taken = set()
+        pegs = []
+        for t in range(4096):
+            tx, ty = t % 64, t // 64
+            a = attr[t]
+            if a not in PEG_ATTRS or t in taken or tx == 63 or ty == 63:
                 continue
-            tile_type = self.types_b[b]
-            if tile_type in (0x73, 0x74):
-                # Minish Cap chests, so they open the Minish Cap way
-                key = ('mc', b)
-            else:
-                key = tuple(self.tile_key(img, empty, cx * 16 + dx * 8, cy * 16 + dy * 8)
-                            for dy in (0, 1) for dx in (0, 1))
-            new_b.append(self.metatile(self.meta_b, (key, tile_type)))
-        # the open chest must exist for a chest to open into
-        for b in range(len(self.types_b)):
-            if self.types_b[b] == 0x74:
-                self.metatile(self.meta_b, (('mc', b), 0x74))
-                break
-        return new_b, new_t
+            quad = (t, t + 1, t + 64, t + 65)
+            if any(attr[q] != a or q in taken for q in quad):
+                continue
+            taken.update(quad)
+            xs = [tx] if tx % 2 == 0 else [tx - 1, min(tx + 1, 62)]
+            ys = [ty] if ty % 2 == 0 else [ty - 1, min(ty + 1, 62)]
+            options = [(sx, sy) for sy in ys for sx in xs]
+            options.sort(key=lambda s: plan.cells[(s[1] // 2) * 32 + s[0] // 2] not in PASSABLE)
+            pegs.append((a, (tx, ty), options[0]))
+        layer = 'lower' if plan.lower else 'upper'
+        switches = [(s[0], s[1]) for s in plan.yaml.get('Sprites') or []
+                    if str(s[3]).startswith('1E-') and s[2] == layer and 0 <= s[0] < 32 and 0 <= s[1] < 32]
+        return {'pegs': pegs, 'switches': switches}
+
+    def place_pegs(self, pegs, arrays):
+        """Moves the pegs that sit 8px off the grid onto it: the floor closes over where
+        each stood (in the floor's own pattern, which repeats every 16px) and the peg is
+        drawn again in its cell."""
+        img, empty, stoned = arrays
+        moving = [(src, dst) for (_, src, dst) in pegs['pegs'] if src != dst]
+        if not moving:
+            return
+        art = [(img[sy * 8:sy * 8 + 16, sx * 8:sx * 8 + 16].copy(), empty[sy * 8:sy * 8 + 16, sx * 8:sx * 8 + 16].copy())
+               for (sx, sy), _ in moving]
+        floor = [(x, y) for y in range(64) for x in range(64) if stoned[y * 8:y * 8 + 8, x * 8:x * 8 + 8].all()]
+        for (sx, sy), _ in moving:
+            for ty in (sy, sy + 1):
+                for tx in (sx, sx + 1):
+                    same = [f for f in floor if f[0] % 2 == tx % 2 and f[1] % 2 == ty % 2]
+                    if not same:
+                        continue
+                    fx, fy = min(same, key=lambda f: abs(f[0] - tx) + abs(f[1] - ty))
+                    for arr in (img, empty, stoned):
+                        arr[ty * 8:ty * 8 + 8, tx * 8:tx * 8 + 8] = arr[fy * 8:fy * 8 + 8, fx * 8:fx * 8 + 8]
+        for ((_, (dx, dy)), (pix, em)) in zip(moving, art):
+            img[dy * 8:dy * 8 + 16, dx * 8:dx * 8 + 16] = pix
+            empty[dy * 8:dy * 8 + 16, dx * 8:dx * 8 + 16] = em
+            stoned[dy * 8:dy * 8 + 16, dx * 8:dx * 8 + 16] = False
+
+    @staticmethod
+    def raised_cells(pegs, state):
+        """The cells Link can't walk into with the switch in one state."""
+        if pegs is None:
+            return set()
+        cells = {(sy // 2) * 32 + sx // 2 for (attr, _, (sx, sy)) in pegs['pegs'] if attr == PEG_RAISED[state]}
+        return cells | {cy * 32 + cx for (cx, cy) in pegs['switches']}
 
     def center_doorways(self, plan, arrays):
         """A Link to the Past's doors in a north or south wall are 16px openings 8px off
@@ -463,6 +596,9 @@ class Blend:
             near[:, 1:] |= passable[:, :-1]
             near[:, :-1] |= passable[:, 1:]
             floor |= ~near.repeat(2, axis=0).repeat(2, axis=1)
+        if plan.id in self.switch_rooms:
+            # rows of crystal switch pegs repeat like a floor pattern too
+            floor &= ~np.isin(np.frombuffer(bytes(plan.room.attr), dtype=np.uint8), PEG_ATTRS).reshape(64, 64)
         if plan.id in A.SPIKE_RING_ROOMS:
             # a ring of spikes repeats like a floor pattern too; its spikes stay spikes
             floor &= ~np.isin(np.frombuffer(bytes(plan.room.attr), dtype=np.uint8), A.SPIKE_ATTRS).reshape(64, 64)
@@ -674,6 +810,8 @@ class Blend:
                 for c in r:
                     if c is not None:
                         usage[c] = usage.get(c, 0) + n
+        for c in self.precious:
+            usage[c] = usage.get(c, 0) + 10 ** 7
         merged, sets, (pals, where) = self.quantize(kept, usage)
         pal_lists = [sorted(p) for p in pals]
         chars = [None] * 1024
@@ -745,3 +883,31 @@ class Blend:
         print('%s tileset: %d tiles drawn as %d characters, %d bottom metatiles, %d palette rows, %d colors merged' % (
             name, len(self.tiles), 1024 - len(free), len(meta_b), len(pals), len(merged)))
         return lines
+
+
+def peg_header(dungeons):
+    """custom/gen/pegs.h, the crystal switch rooms for blend.c: `dungeons` is a list of
+    (name, area, local flag, {room index: (switch cells, swaps)}) as Blend.pegs holds them.
+    A room's swaps are its cells (as Minish Cap tile positions) with the metatile and
+    whether it is solid with the switch in each state; the flag holds the state."""
+    lines = ['#ifndef BLEND_PEGS_H', '#define BLEND_PEGS_H', '',
+             'typedef struct {', '    u8 area;', '    u8 room;', '    u8 flag;', '    u8 switchCount;',
+             '    u16 swapCount;', '    const u16* switches; /**< tile positions */',
+             '    const u16* swaps; /**< per cell: tile position, metatile in state 0 and 1, solid bits (1: state 0, 2: state 1) */',
+             '} BlendPegRoom;', '']
+    rows = []
+    for name, area, flag, rooms in dungeons:
+        for i in sorted(rooms):
+            switches, swaps = rooms[i]
+            label = '%s_%02d' % (name, i)
+            lines.append('static const u16 sPegSwitches_%s[] = { %s };' % (
+                label, ', '.join('0x%x' % (cx + cy * 64) for cx, cy in switches) or '0'))
+            lines.append('static const u16 sPegSwaps_%s[] = {' % label)
+            for (cell, m0, m1, s0, s1) in swaps:
+                lines.append('    0x%x, 0x%x, 0x%x, %d,' % ((cell % 32) + (cell // 32) * 64, m0, m1, s0 | (s1 << 1)))
+            lines.append('    0,\n};')
+            rows.append('    { %s, %d, 0x%x, %d, %d, sPegSwitches_%s, sPegSwaps_%s },' % (
+                area, i, flag, len(switches), len(swaps), label, label))
+    lines += ['', 'static const BlendPegRoom sBlendPegRooms[] = {'] + rows + [
+        '    { 0xff, 0, 0, 0, 0, NULL, NULL },', '};', '', '#endif']
+    return lines

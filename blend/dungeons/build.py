@@ -167,6 +167,9 @@ DUNGEONS = [
         area='AREA_NULL_1C',
         exit=('AREA_MT_CRENEL', 'ROOM_MT_CRENEL_CENTER', 0x348, 0x70),
         flag_base=0x80,
+        # its crystal switches work, as in A Link to the Past: this local flag holds
+        # which color of pegs is raised (see tileset.Blend.room_pegs and blend.c)
+        switch_flag=0xbd,
     ),
     dict(
         name='PalaceOfDarkness',
@@ -675,6 +678,7 @@ def generate():
     os.makedirs(OUT, exist_ok=True)
     tiler = autotile.Tiler('043', [('088', 'FortressOfWinds'), ('043', 'CastorDarknut')])
     maps_inc, rooms_inc, ents_inc, exits_h, entries_h = [], [], [], [], []
+    pegs = []
     for dg in DUNGEONS:
         name = dg['name']
         ids = dg['rooms']
@@ -693,6 +697,8 @@ def generate():
         blend = tileset.Blend(name, trim=dg.get('trim', False)) if os.path.exists(os.path.join(alttpgfx.GFX, '%03x.gfx' % ids[0])) else None
         if blend is None:
             print('%s: no A Link to the Past room graphics, drawing with Minish Cap tiles' % name)
+        elif dg.get('switch_flag'):
+            blend.switch_rooms = {r for r in ids if any(a in tileset.PEG_ATTRS for a in plans[r].room.attr)}
 
         rooms_inc.append('gAreaRoomHeaders_%s::' % name)
         maps_list = []
@@ -828,6 +834,9 @@ def generate():
         maps_inc.append('')
         if blend:
             maps_inc += blend.write(OUT)
+            if blend.pegs:
+                assert flag <= dg['switch_flag'], '%s: the switch flag is taken' % name
+                pegs.append((name, dg['area'], dg['switch_flag'], {index[r]: v for r, v in blend.pegs.items()}))
         else:
             # the Minish Cap tiles the rooms were drawn with
             cd = lambda k: '(gAreaTileSet%s_CastorDarknut_%s - gMapData)' % k
@@ -864,6 +873,8 @@ def generate():
     write('exits.h', exits_h)
     # where each dungeon's way in from the overworld lands (for transitions.c)
     write('entries.h', entries_h)
+    # the crystal switch rooms (for blend.c)
+    write('pegs.h', tileset.peg_header(pegs))
 
 
 if __name__ == '__main__':

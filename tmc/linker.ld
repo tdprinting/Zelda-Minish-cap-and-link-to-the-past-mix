@@ -108,6 +108,7 @@ SECTIONS {
         . = 0x00036BC0; gMPlayTracks = .;
         . = 0x00038560; gEndOfEwram = .;
 #endif
+        . = 0x0003CF00; gBlendPegsState = .;
         . = 0x0003D000; gBlendShadow = .;
         . = 0x0003E000; gAlttpEnemyState = .;
         . = 0x0003F000; gBlendLink = .;
