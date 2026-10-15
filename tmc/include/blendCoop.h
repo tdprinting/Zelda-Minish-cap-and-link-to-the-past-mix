@@ -65,8 +65,45 @@ typedef struct {
     /*0xb0*/ u8 revivePalette;     /**< game only: the OBJ palette slot holding the Revive Fairy's colors, + 1 */
     /*0xb1*/ u8 reviveFxTimer;     /**< game only: sparkles around a player just revived */
     /*0xb2*/ u8 messageOpen;      /**< a text box is up (the host moves its own text out of the way) */
-    /*0xb3*/ u8 padb3;
+    /* Carrying the partner: this game's Link lifts the partner's (CARRY_*)... */
+    /*0xb3*/ u8 carryState;
+    /*0xb4*/ u16 carryX;           /**< ...where the partner is held or flies (world coordinates)... */
+    /*0xb6*/ u16 carryY;
+    /*0xb8*/ s8 carryZ;            /**< ...how high */
+    /*0xb9*/ u8 carrySeq;          /**< counts landings */
+    /*0xba*/ u8 partnerCarryState; /**< host: the partner's carryState, carryX/Y/Z and carrySeq */
+    /*0xbb*/ u8 partnerCarrySeq;
+    /*0xbc*/ u16 partnerCarryX;
+    /*0xbe*/ u16 partnerCarryY;
+    /*0xc0*/ s8 partnerCarryZ;
+    /*0xc1*/ u8 carried;           /**< game only: this Link is held or thrown by the partner */
+    /*0xc2*/ u8 liftable;          /**< this Link can be picked up (free, on foot, not down) */
+    /*0xc3*/ u8 partnerLiftable;   /**< host: the partner's liftable */
+    /* Giving the partner a heart (L + R next to them) */
+    /*0xc4*/ u8 heartGiveSeq;      /**< counts hearts given */
+    /*0xc5*/ u8 partnerHeartGiveSeq; /**< host: the partner's heartGiveSeq */
+    /*0xc6*/ u8 seenHeartGiveSeq;
+    /*0xc7*/ u8 partnerHealth;     /**< host: the partner's hearts, as gSave.stats */
+    /*0xc8*/ u8 partnerMaxHealth;
+    /* Co-op puzzles (blendCoopPuzzles.c) */
+    /*0xc9*/ u8 piecesLit;         /**< the pieces of this room's puzzle this game has lit (bits) */
+    /*0xca*/ u8 partnerPiecesLit;  /**< host: the partner's piecesLit, when in the same room */
+    /*0xcb*/ u8 seenCarrySeq;      /**< game only: the partner's last landing this game acted on */
+    /*0xcc*/ u16 puzzleRoomKey;    /**< game only: area << 8 | room the puzzle pieces were made for, + 1 */
+    /*0xce*/ u8 puzzleSolved;      /**< game only: this room's puzzle was solved this visit */
+    /*0xcf*/ u8 pieceTimer[8];     /**< game only: frames each lit Twin Stone stays lit */
+    /*0xd7*/ u8 pad_d7;
+    /*0xd8*/ struct Entity_* reward; /**< game only: the reward a solved puzzle left */
+    /*0xdc*/ u8 carryGrace;        /**< game only: frames to keep following after the partner's carry ends */
+    /*0xdd*/ u8 pad_dd[3];
 } BlendCoop;
+
+enum {
+    CARRY_NONE,
+    CARRY_HOLD,   /**< the partner is held up over Link's head */
+    CARRY_FLY,    /**< thrown, in the air */
+    CARRY_LANDED, /**< came down at carryX/carryY */
+};
 
 #define BLEND_COOP_MAGIC 0x504F4F43 /* "COOP" */
 #define BLEND_COOP_VERSION 1
@@ -78,6 +115,11 @@ extern BlendCoop gBlendCoop;
 /** Revive Fairies carried, in an unused byte of the save file. */
 #define BLEND_REVIVE_FAIRIES (gSave.fillerA[21])
 #define REVIVE_FAIRIES_MAX 9
+/** The Twin Stone and the Toss Bell (blend/coop/twin_relics.py; keep in step with sprite_ptrs.s). */
+#define TWIN_RELICS_SPRITE 339
+/** Co-op puzzles solved, and their rewards taken (each player's own; bits by puzzle). */
+#define BLEND_COOP_PUZZLES_SOLVED (gSave.filler2E[16])
+#define BLEND_COOP_PUZZLES_TAKEN (gSave.filler2E[17])
 
 void Blend_CoopUpdate(void);
 /** While Link lies down after his hearts ran out: -1 to keep waiting, 0 for the game over, or the hearts to revive with. */
@@ -93,5 +135,10 @@ void Blend_CoopReviveMarker(struct Entity_* this);
 bool32 Blend_CoopPartnerDowned(void);
 /** This OBJ palette row is the Revive Fairy's: the Dark World leaves it alone. */
 bool32 Blend_CoopKeepsPalette(u32 palIdx);
+/** The partner Link object (type 0) in this game: can be lifted and thrown. Returns TRUE while carried. */
+bool32 Blend_CoopPartnerCarry(struct Entity_* this);
+/** The partner Link object's types 5 and 6: a Twin Stone and a Toss Bell. */
+void Blend_CoopPuzzlePiece(struct Entity_* this);
+void Blend_CoopPuzzlesUpdate(void);
 
 #endif // BLEND_COOP_H

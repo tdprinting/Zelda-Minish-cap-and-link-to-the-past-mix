@@ -1594,6 +1594,10 @@ void LinkPartner(Entity* this) {
         Blend_CoopReviveMarker(this);
         return;
     }
+    if (this->type == 5 || this->type == 6) {
+        Blend_CoopPuzzlePiece(this);
+        return;
+    }
     if (this->action == 0) {
         this->action = 1;
         this->spriteSettings.draw = 0;
@@ -1601,13 +1605,19 @@ void LinkPartner(Entity* this) {
     }
     if (!PartnerVisibleHere()) {
         this->spriteSettings.draw = 0;
+        if (this->action == 2) {
+            Blend_CoopPartnerCarry(this); // lets go
+        }
         return;
     }
     this->spriteSettings.draw = 1;
-    this->x.HALF.HI = p->x;
-    this->y.HALF.HI = p->y;
-    this->z.HALF.HI = p->z;
-    this->collisionLayer = p->collisionLayer;
+    if (!Blend_CoopPartnerCarry(this)) {
+        // walking about: where the partner's game has them (while carried, the carrying moves them)
+        this->x.HALF.HI = p->x;
+        this->y.HALF.HI = p->y;
+        this->z.HALF.HI = p->z;
+        this->collisionLayer = p->collisionLayer;
+    }
     ShowFrame(this, p->spriteIndex, p->frameIndex);
     this->frameSpriteSettings = p->frameSpriteSettings;
     this->animationState = p->animationState;

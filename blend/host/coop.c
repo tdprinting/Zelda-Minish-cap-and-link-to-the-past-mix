@@ -56,6 +56,8 @@
 #define LINK_SELF (LINK_BASE + 0x10)
 #define LINK_PARTNER (LINK_BASE + 0x34)
 #define LINK_SYNC_SIZE 0x24
+#define SYNC_X 0x00
+#define SYNC_Y 0x02
 #define SYNC_AREA 0x04
 #define SYNC_ROOM 0x05
 #define SYNC_DARK_WORLD 0x07
@@ -74,7 +76,11 @@ enum {
 	C_MENU_ITEM = 0x28, C_MENU_ICON = 0x40, C_MENU_FRAME = 0x58, C_ROOM_X = 0x70, C_ROOM_Y = 0x72,
 	C_LAYER = 0x74, C_ITEM_PALETTE = 0x75, C_PARTNER_ROOM_OK = 0x76, C_REGROUP_FAILED = 0x77,
 	C_PARTNER_ROOM_X = 0x78, C_PARTNER_ROOM_Y = 0x7a, C_PARTNER_LAYER = 0x7c, C_BOMBS = 0x7d, C_ARROWS = 0x7e,
-	C_MESSAGE_OPEN = 0xb2,
+	C_MESSAGE_OPEN = 0xb2, C_CARRY_STATE = 0xb3, C_CARRY_X = 0xb4, C_CARRY_Y = 0xb6, C_CARRY_Z = 0xb8,
+	C_CARRY_SEQ = 0xb9, C_PARTNER_CARRY_STATE = 0xba, C_PARTNER_CARRY_SEQ = 0xbb, C_PARTNER_CARRY_X = 0xbc,
+	C_PARTNER_CARRY_Y = 0xbe, C_PARTNER_CARRY_Z = 0xc0, C_CARRIED = 0xc1, C_LIFTABLE = 0xc2, C_PARTNER_LIFTABLE = 0xc3,
+	C_HEART_SEQ = 0xc4, C_PARTNER_HEART_SEQ = 0xc5, C_PARTNER_HEALTH = 0xc7, C_PARTNER_MAX_HEALTH = 0xc8,
+	C_PIECES_LIT = 0xc9, C_PARTNER_PIECES_LIT = 0xca,
 };
 #define MENU_MAX 24
 #define REVIVE_FAIRIES_MAX 9
@@ -138,6 +144,7 @@ struct Player {
 	int giveWaiting; // an item sits in the game's mailbox
 	struct Toast toast;
 	int wasDowned;
+	int hintFrames; // how long the "R: lift" hint has shown (it stops after a while)
 };
 
 static struct Player p[2];
@@ -289,6 +296,20 @@ static void exchangeState(struct Player* a, struct Player* b) {
 		w16(self, COOP + C_PARTNER_ROOM_X, r16(other, COOP + C_ROOM_X));
 		w16(self, COOP + C_PARTNER_ROOM_Y, r16(other, COOP + C_ROOM_Y));
 		w8(self, COOP + C_PARTNER_LAYER, r8(other, COOP + C_LAYER));
+		// carrying and throwing, giving hearts, puzzle pieces
+		w8(self, COOP + C_PARTNER_CARRY_STATE, otherIn ? r8(other, COOP + C_CARRY_STATE) : 0);
+		w8(self, COOP + C_PARTNER_CARRY_SEQ, r8(other, COOP + C_CARRY_SEQ));
+		w16(self, COOP + C_PARTNER_CARRY_X, r16(other, COOP + C_CARRY_X));
+		w16(self, COOP + C_PARTNER_CARRY_Y, r16(other, COOP + C_CARRY_Y));
+		w8(self, COOP + C_PARTNER_CARRY_Z, r8(other, COOP + C_CARRY_Z));
+		w8(self, COOP + C_PARTNER_LIFTABLE, otherIn && r8(other, COOP + C_LIFTABLE));
+		w8(self, COOP + C_PARTNER_HEART_SEQ, r8(other, COOP + C_HEART_SEQ));
+		if (otherIn) {
+			uint32_t st = saveAddr(other) + S_STATS;
+			w8(self, COOP + C_PARTNER_HEALTH, r8(other, st + ST_HEALTH));
+			w8(self, COOP + C_PARTNER_MAX_HEALTH, r8(other, st + ST_MAX_HEALTH));
+		}
+		w8(self, COOP + C_PARTNER_PIECES_LIT, otherIn ? r8(other, COOP + C_PIECES_LIT) : 0);
 	}
 }
 
@@ -675,6 +696,8 @@ static int menuCount(struct Player* pl) {
 /** Entries after the items: the Revive Fairies (shown, not equipped) and, in co-op, the regroup. */
 static int menuSpecials(void) { return players == 2 ? 2 : 1; }
 
+static int giftKind(struct Player* pl, int entry);
+
 static void drawMenu(struct Player* pl) {
 	int n = menuCount(pl);
 	char line[96];
@@ -722,15 +745,104 @@ static void drawMenu(struct Player* pl) {
 	int by = PANEL_Y + PANEL_H - 50;
 	ovRect(pl, PANEL_X + 8, by - 6, PANEL_W - 16, 1, rgba(216, 152, 40, 160));
 	if (pl->cursor < n) {
+		int kind = giftKind(pl, pl->cursor);
 		ovText(pl, PANEL_X + 16, by, itemName(r8(pl, COOP + C_MENU_ITEM + pl->cursor)), WHITE);
-		ovText(pl, PANEL_X + 16, by + 20, "A / B: put it on that button.  Start: close.", GREY);
+		if (kind) {
+			snprintf(line, sizeof(line), "A / B: equip.  L: give Player %d 5 %s.", (pl->index ^ 1) + 1,
+			         kind == 2 ? "bombs" : "arrows");
+			ovText(pl, PANEL_X + 16, by + 20, line, GREY);
+		} else {
+			ovText(pl, PANEL_X + 16, by + 20, "A / B: put it on that button.  Start: close.", GREY);
+		}
 	} else if (pl->cursor == n) {
 		ovText(pl, PANEL_X + 16, by, "Revive Fairy: brings a fallen partner back.", WHITE);
-		ovText(pl, PANEL_X + 16, by + 20, "Stand by them and press R. Sold at Stockwell's.", GREY);
+		if (players == 2) {
+			snprintf(line, sizeof(line), "Stand by them and press R.  L: give one to Player %d.", (pl->index ^ 1) + 1);
+			ovText(pl, PANEL_X + 16, by + 20, line, GREY);
+		} else {
+			ovText(pl, PANEL_X + 16, by + 20, "Stand by them and press R. Sold at Stockwell's.", GREY);
+		}
 	} else {
 		snprintf(line, sizeof(line), "Warp to where Player %d is.", (pl->index ^ 1) + 1);
 		ovText(pl, PANEL_X + 16, by, line, WHITE);
 		ovText(pl, PANEL_X + 16, by + 20, "A: go.  Start: close.", GREY);
+	}
+}
+
+#define S_REVIVE_FAIRIES 0x1f /* gSave.fillerA[21] */
+#define ST_BOMBS 0x04
+#define ST_ARROWS 0x05
+static const int sBombBagSizes[] = { 10, 30, 50, 99 };
+static const int sQuiverSizes[] = { 30, 50, 70, 99 };
+
+static int ownsItem(struct Player* pl, unsigned item) {
+	return (r8(pl, saveAddr(pl) + S_INVENTORY + item / 4) >> ((item & 3) * 2)) & 3;
+}
+
+/** What L gives the partner from this menu entry: 1 Revive Fairy, 2 bombs, 3 arrows, 0 nothing. */
+static int giftKind(struct Player* pl, int entry) {
+	int n = menuCount(pl);
+	if (players != 2)
+		return 0;
+	if (entry == n)
+		return 1;
+	if (entry < n) {
+		int item = r8(pl, COOP + C_MENU_ITEM + entry);
+		if (item == 0x07 || item == 0x08)
+			return 2;
+		if (item == 0x09 || item == 0x0a)
+			return 3;
+	}
+	return 0;
+}
+
+/** L in the quick inventory: hand the partner a Revive Fairy, or 5 bombs or arrows. */
+static void giveToPartner(struct Player* pl, int kind) {
+	struct Player* to = &p[pl->index ^ 1];
+	int other = to->index + 1;
+	if (!inGame(to)) {
+		toast(pl, "Player %d isn't playing right now.", other);
+		return;
+	}
+	if (kind == 1) {
+		uint32_t a = saveAddr(pl) + S_REVIVE_FAIRIES, b = saveAddr(to) + S_REVIVE_FAIRIES;
+		if (r8(pl, a) == 0) {
+			toast(pl, "You have no Revive Fairy to give.");
+		} else if (r8(to, b) >= REVIVE_FAIRIES_MAX) {
+			toast(pl, "Player %d can't carry more Revive Fairies.", other);
+		} else {
+			w8(pl, a, r8(pl, a) - 1);
+			w8(to, b, r8(to, b) + 1);
+			toast(pl, "You gave Player %d a Revive Fairy.", other);
+			toast(to, "Player %d gave you a Revive Fairy!", pl->index + 1);
+		}
+		return;
+	}
+	{
+		int stat = kind == 2 ? ST_BOMBS : ST_ARROWS;
+		const char* what = kind == 2 ? "bombs" : "arrows";
+		uint32_t a = saveAddr(pl) + S_STATS + stat, b = saveAddr(to) + S_STATS + stat;
+		int type = r8(to, saveAddr(to) + S_STATS + (kind == 2 ? ST_BOMB_BAG : ST_QUIVER)) & 3;
+		int cap = kind == 2 ? sBombBagSizes[type] : sQuiverSizes[type];
+		int have = r8(pl, a), theirs = r8(to, b);
+		int give = have < 5 ? have : 5;
+		if (!ownsItem(to, kind == 2 ? 0x07 : 0x09)) {
+			toast(pl, "Player %d has no %s yet.", other, kind == 2 ? "bomb bag" : "bow");
+			return;
+		}
+		if (give > cap - theirs)
+			give = cap - theirs;
+		if (give <= 0) {
+			if (have)
+				toast(pl, "Player %d's %s are full.", other, what);
+			else
+				toast(pl, "You have no %s to give.", what);
+			return;
+		}
+		w8(pl, a, have - give);
+		w8(to, b, theirs + give);
+		toast(pl, "You gave Player %d %d %s.", other, give, what);
+		toast(to, "Player %d gave you %d %s!", pl->index + 1, give, what);
 	}
 }
 
@@ -779,6 +891,10 @@ static uint16_t menuInput(struct Player* pl, uint16_t keys, int togglePressed) {
 	if (c >= total)
 		c = 0;
 	pl->cursor = c;
+	if ((pressed & GBA_L) && giftKind(pl, c)) {
+		giveToPartner(pl, giftKind(pl, c));
+		return 0;
+	}
 	if (pressed & (GBA_A | GBA_B)) {
 		if (c < n) {
 			w8(pl, COOP + C_QUICK_EQUIP_SLOT, (pressed & GBA_A) ? 0 : 1);
@@ -861,6 +977,27 @@ static void buildOverlay(struct Player* pl, struct Player* partner) {
 			snprintf(l1, sizeof(l1), "Player %d is down in another room!", other);
 			snprintf(l2, sizeof(l2), "Quick inventory: \"Go to Player %d\" takes you there.", other);
 			drawBanner(pl, 40, l1, RED, l2);
+		}
+	}
+	if (partner && !pl->menuOpen && !r8(pl, COOP + C_DOWNED) && !r8(pl, COOP + C_MESSAGE_OPEN)) {
+		int carry = r8(pl, COOP + C_CARRY_STATE);
+		if (carry == 1) {
+			snprintf(l1, sizeof(l1), "R or A: throw Player %d", other);
+			drawBanner(pl, OV_H - 80, l1, GOLD, NULL);
+		} else if (r8(pl, COOP + C_CARRIED) && r8(pl, COOP + C_PARTNER_CARRY_STATE) == 1) {
+			snprintf(l1, sizeof(l1), "Player %d is carrying you! You can still swing your sword.", other);
+			drawBanner(pl, OV_H - 80, l1, GOLD, NULL);
+		} else if (inGame(partner) && r8(pl, LINK_SELF + SYNC_ACTIVE) && pl->hintFrames < 900 &&
+		           r8(pl, LINK_SELF + SYNC_AREA) == r8(partner, LINK_SELF + SYNC_AREA) &&
+		           r8(pl, LINK_SELF + SYNC_ROOM) == r8(partner, LINK_SELF + SYNC_ROOM) &&
+		           r8(pl, COOP + C_PARTNER_LIFTABLE)) {
+			int dx = (int16_t) (r16(pl, LINK_SELF + SYNC_X) - r16(partner, LINK_SELF + SYNC_X));
+			int dy = (int16_t) (r16(pl, LINK_SELF + SYNC_Y) - r16(partner, LINK_SELF + SYNC_Y));
+			if (dx > -24 && dx < 24 && dy > -24 && dy < 24) {
+				pl->hintFrames++;
+				snprintf(l1, sizeof(l1), "R: pick up Player %d     L + R: give a heart", other);
+				drawBanner(pl, OV_H - 80, l1, WHITE, NULL);
+			}
 		}
 	}
 	if (r8(pl, COOP + C_REGROUP_FAILED)) {

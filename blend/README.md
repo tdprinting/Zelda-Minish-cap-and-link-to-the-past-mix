@@ -35,6 +35,9 @@ Everything is made by restyling and reusing the art already in Minish Cap.
 | Revive Fairy | New | A new item with its own art (a corked jar with a heart lid and a pink fairy). Stockwell sells it for 60 Rupees on the crates by his counter. Each player carries their own, up to nine. |
 | Quick inventory | New | Each player can open their own item menu over their half of the screen (Q, Numpad 0 or a gamepad's Y). It shows every item and the Revive Fairies; A or B puts the chosen item on that button. Only that player's game slows to half speed while it is open. "Go to Player N" warps you to your partner. |
 | Shared progress | New | Chests, keys, doors, bosses, story events, heart containers and pieces, wallet and bag upgrades, and the equipment and key items one player finds reach the partner's game too. Hearts, Rupees, bombs, arrows, bottle contents and Revive Fairies stay each player's own. |
+| Carry and throw your partner | New | Walk up to your partner and press R to lift them overhead, then R or A to throw them. The carried player can still swing their sword, so one player can walk while the other fights. Thrown players land on their feet. |
+| Sharing | New | Standing close, hold L and press R to give your partner one of your hearts (you always keep one). In the quick inventory, L on Bombs, Arrows or the Revive Fairies sends some to your partner. |
+| Co-op puzzles | New | Puzzles that need both players, with new art: **Twin Stones** must be struck by sword within a second of each other, and they stand too far apart for one player; a **Toss Bell** rings only when one player throws the other into it. South Hyrule Field (two stones, reward: a Revive Fairy), Hyrule Town's south square (a bell, reward: 100 Rupees) and Castle Garden (two stones in the hedge maze and a bell, reward: a Revive Fairy). They only appear in co-op, and each player gets the reward. |
 
 ## Playing on Windows
 
@@ -53,6 +56,8 @@ Everything is made by restyling and reusing the art already in Minish Cap.
 
 To revive a fallen partner, stand next to them and press R. You need a Revive
 Fairy from Stockwell's shop. A player who is down can hold A + B to give up.
+Next to your partner, R lifts them (R or A throws) and L + R gives them a heart.
+In the quick inventory, L gives the selected Bombs, Arrows or a Revive Fairy.
 
 Gamepads work too: the first controller is player 1, the second is player 2.
 **F1** switches between side-by-side and stacked screens, **F11** toggles fullscreen,
@@ -89,8 +94,9 @@ make -C blend/host                               # needs libsdl2-dev, libmgba-de
 | `blend/enemies/`, `tmc/src/enemy/alttpEnemies.c` | A Link to the Past's enemies: `alttp_enemies.py` cuts their sprites from your ALttP ROM, recolors them and adds new frames (as sprite 155); the C file gives each its behavior. Run by `make-dungeons.sh` |
 | `blend/overworld/`, `tmc/src/blendShadows.c` | The blended overworld: `build.py` restyles every overworld palette toward A Link to the Past's Light World colors and draws soft shadow maps; `blendShadows.c` shows the shadows on background 3. Run by `build.sh`; output goes to `tmc/custom/gen/ow` |
 | `blend/host/coop.c` | Split-screen co-op player (SDL2 + libmgba): state exchange, shared progress, quick inventory and prompts drawn over each player's screen, headless `--test` scripts |
-| `tmc/src/blendCoop.c`, `tmc/include/blendCoop.h` | The game's side of co-op: going down and being revived, the Revive Fairy (sprite 338, item `ITEM_REVIVE_FAIRY`), the quick inventory's menu data and equip requests, items shared from the partner, warping to the partner. Its block `gBlendCoop` sits at `0x0203F800` |
+| `tmc/src/blendCoop.c`, `tmc/include/blendCoop.h` | The game's side of co-op: going down and being revived, the Revive Fairy (sprite 338, item `ITEM_REVIVE_FAIRY`), the quick inventory's menu data and equip requests, items shared from the partner, warping to the partner, carrying and throwing the partner, giving hearts, and the co-op puzzles (pieces are `LINK_PARTNER` types 5 and 6; solved and taken bits in `gSave.filler2E[16]` and `[17]`). Its block `gBlendCoop` sits at `0x0203F800` |
 | `blend/coop/revive_fairy.py` | Draws the Revive Fairy's art (sprite and the host's copy). Run by `build.sh` |
+| `blend/coop/twin_relics.py` | Draws the co-op puzzle pieces, the Twin Stone and the Toss Bell (sprite 339). Run by `build.sh` |
 | `blend/harness/harness.c` | Headless test runner used to check builds |
 
 The shared state block `gBlendLink` sits at a fixed address, `0x0203F000`, so the

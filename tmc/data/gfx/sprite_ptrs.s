@@ -1714,6 +1714,11 @@ gMoreSpritePtrs:: @ 08003DD4
 	.4byte gSpriteFrames_ReviveFairy
 	.4byte gSprite_ReviveFairy
 	.4byte 00000000
+	@ 339: co-op puzzles, the Twin Stone and the Toss Bell (blend/coop/twin_relics.py; TWIN_RELICS_SPRITE)
+	.4byte gSpriteAnimations_TwinRelics
+	.4byte gSpriteFrames_TwinRelics
+	.4byte gSprite_TwinRelics
+	.4byte 00000000
 
 gUnk_08003E44:: @ 08003E44
 	.incbin "data_080029B4/gUnk_08003E44.bin"

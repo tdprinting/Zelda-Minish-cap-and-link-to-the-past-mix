@@ -15,6 +15,13 @@
  *   the host asks for, while the game keeps running.
  * - Items the partner found, given here quietly (the host shares progress),
  *   and regrouping: a warp to where the partner is.
+ * - Picking the partner up (R next to them) and throwing them (R again): the
+ *   partner Link object is liftable like a pot, and the partner's game keeps
+ *   its Link over our head, then sets it down where it landed.
+ * - Giving the partner a heart (L + R next to them).
+ * - Co-op puzzles in the overworld: Twin Stones that must all be lit at once
+ *   (they stand too far apart for one player) and Toss Bells that ring only
+ *   when a thrown partner flies into them.
  */
 #include "blendCoop.h"
 #include "blend.h"
@@ -40,6 +47,9 @@
 #include "ui.h"
 
 #include "../custom/gen/coop/revive_fairy.h"
+#include "../custom/gen/coop/twin_relics.h"
+#include "hitbox.h"
+#include "tiles.h"
 
 u32 FindFreeObjPalette(u32 paletteCount);
 void SetEntityObjPalette(Entity* entity, s32 palette);
@@ -48,6 +58,7 @@ extern u32 gFrameObjLists[];
 extern Frame* gSpriteAnimations_322[];
 u32 Blend_SlotShareItem(u32 item);
 void Blend_SetSlotShare(u32 item, bool32 on);
+void RegisterCarryEntity(Entity*);
 
 /** The sprite the item pictures (on the ground, held up, for sale) come from. */
 #define ITEM_PICTURE_SPRITE 322
@@ -436,6 +447,458 @@ static void HandleRegroup(void) {
     DoExitTransition(&t);
 }
 
+/* ---- Carrying and throwing the partner ---------------------------------------- */
+
+/** How close the partner must stand to give them a heart. */
+#define HEART_REACH 28
+/** Frames the partner object stays where it landed while the partner's game catches up. */
+#define CARRY_GRACE 6
+
+/** This Link can be picked up: on foot, free, not down, not carrying anything. */
+static void UpdateLiftable(void) {
+    gBlendCoop.liftable = LinkIsFree() && !gBlendCoop.carried && !gBlendCoop.downed &&
+                          !(gPlayerState.flags & (PL_MINISH | PL_IN_MINECART)) && gPlayerState.swim_state == 0 &&
+                          gPlayerState.jump_status == 0 && gPlayerState.heldObject == 0;
+}
+
+/**
+ * The partner Link object (type 0) as something to carry. While it stands
+ * still it registers as liftable, like a pot; once lifted, the game's own
+ * carrying and throwing move it, and this reports where it is to the
+ * partner's game through the host. Returns TRUE while this owns its position.
+ */
+bool32 Blend_CoopPartnerCarry(Entity* this) {
+    if (this->action == 2) {
+        if (!PartnerHere() || !gBlendCoop.partnerInGame) {
+            // the partner left: let go (the held object sees the action change and drops)
+            this->action = 1;
+            this->subAction = 0;
+            COLLISION_OFF(this);
+            gBlendCoop.carryState = CARRY_NONE;
+            return FALSE;
+        }
+        switch (this->subAction) {
+            case 0:
+                // just lifted: like a thrown pot, a thrown partner hits what they fly into
+                this->subAction = 1;
+                COLLISION_ON(this);
+                this->collisionFlags = 7;
+                this->hitType = 1;
+                this->collisionMask = gPlayerEntity.base.collisionMask;
+                gBlendCoop.carryState = CARRY_HOLD;
+                break;
+            case 1:
+                gBlendCoop.carryState = CARRY_HOLD;
+                break;
+            case 2:
+                gBlendCoop.carryState = CARRY_FLY;
+                break;
+            default:
+                // came down: the partner's game sets its Link down here
+                gBlendCoop.carryState = CARRY_LANDED;
+                gBlendCoop.carrySeq++;
+                gBlendCoop.carryX = this->x.HALF.HI;
+                gBlendCoop.carryY = this->y.HALF.HI;
+                gBlendCoop.carryZ = 0;
+                gBlendCoop.carryGrace = CARRY_GRACE;
+                this->action = 1;
+                this->subAction = 0;
+                this->z.WORD = 0;
+                COLLISION_OFF(this);
+                return TRUE;
+        }
+        gBlendCoop.carryX = this->x.HALF.HI;
+        gBlendCoop.carryY = this->y.HALF.HI;
+        gBlendCoop.carryZ = this->z.HALF.HI;
+        return TRUE;
+    }
+    if (gBlendCoop.carryGrace != 0) {
+        gBlendCoop.carryGrace--;
+        return TRUE;
+    }
+    gBlendCoop.carryState = CARRY_NONE;
+    if (gBlendCoop.partnerLiftable && !Blend_CoopPartnerDowned() && !gBlendCoop.carried &&
+        gPlayerState.heldObject == 0 && !(gBlendLink.heldKeys & L_BUTTON)) {
+        // a light toss: the arc of a heavy pot (carryFlags 0x20), with one bounce
+        this->hitbox = (Hitbox*)&gHitbox_18;
+        this->carryFlags = 0x20;
+        RegisterCarryEntity(this);
+    }
+    return FALSE;
+}
+
+/** Held up or thrown by the partner: this Link follows their game until it lands. */
+static void UpdateCarried(void) {
+    Entity* link = &gPlayerEntity.base;
+    u32 state = gBlendCoop.partnerCarryState;
+    bool32 here = PartnerHere() && gBlendCoop.partnerInGame;
+    bool32 landed = gBlendCoop.partnerCarrySeq != gBlendCoop.seenCarrySeq;
+    if (gBlendCoop.carried) {
+        if (landed || !here || gSave.stats.health == 0 || (state != CARRY_HOLD && state != CARRY_FLY)) {
+            if (landed && here) {
+                link->x.HALF.HI = gBlendCoop.partnerCarryX;
+                link->y.HALF.HI = gBlendCoop.partnerCarryY;
+                SoundReq(SFX_PLY_LAND);
+            }
+            link->z.WORD = 0;
+            link->zVelocity = 0;
+            gPlayerState.field_0x14 = 0;
+            gBlendCoop.carried = 0;
+            gBlendCoop.seenCarrySeq = gBlendCoop.partnerCarrySeq;
+            return;
+        }
+    } else {
+        gBlendCoop.seenCarrySeq = gBlendCoop.partnerCarrySeq;
+        if (!here || state != CARRY_HOLD || !gBlendCoop.liftable) {
+            return;
+        }
+        gBlendCoop.carried = 1;
+        SoundReq(SFX_PLY_JUMP);
+    }
+    // over the partner's head or in the air: keep still where their game holds us
+    link->x.HALF.HI = gBlendCoop.partnerCarryX;
+    link->y.HALF.HI = gBlendCoop.partnerCarryY;
+    link->z.HALF.HI = gBlendCoop.partnerCarryZ;
+    link->z.HALF.LO = 0;
+    link->zVelocity = 0; // no gravity of our own: the partner's game flies us
+    gPlayerState.field_0x14 = 1;
+    gInput.heldKeys &= ~(DPAD_RIGHT | DPAD_LEFT | DPAD_UP | DPAD_DOWN | R_BUTTON | L_BUTTON);
+    gInput.newKeys &= ~(DPAD_RIGHT | DPAD_LEFT | DPAD_UP | DPAD_DOWN | R_BUTTON | L_BUTTON);
+}
+
+/** L + R next to the partner gives them one of our hearts. */
+static void UpdateGiveHeart(void) {
+    BlendPlayerSync* p = &gBlendLink.partner;
+    s32 dx, dy;
+    if (!PartnerHere() || !gBlendCoop.partnerInGame || !LinkIsFree() || Blend_CoopPartnerDowned() ||
+        gBlendCoop.carried || !(gBlendLink.heldKeys & L_BUTTON)) {
+        return;
+    }
+    dx = (s32)p->x - gPlayerEntity.base.x.HALF.HI;
+    dy = (s32)p->y - gPlayerEntity.base.y.HALF.HI;
+    if (dx < -HEART_REACH || dx > HEART_REACH || dy < -HEART_REACH || dy > HEART_REACH) {
+        return;
+    }
+    // with L held, R next to the partner gives instead of lifting
+    gInput.heldKeys &= ~R_BUTTON;
+    gInput.newKeys &= ~R_BUTTON;
+    if (!(gBlendLink.newKeys & R_BUTTON)) {
+        return;
+    }
+    if (gSave.stats.health <= 8 || gBlendCoop.partnerHealth + 4 > gBlendCoop.partnerMaxHealth) {
+        SoundReq(SFX_MENU_ERROR);
+        return;
+    }
+    ModHealth(-8);
+    gBlendCoop.heartGiveSeq++;
+    SoundReq(SFX_HEART_GET);
+    SparkleAt(FX_SPARKLE2, p->x, p->y - 12);
+}
+
+/** A heart the partner gave us. */
+static void UpdateReceiveHeart(void) {
+    if (gBlendCoop.partnerHeartGiveSeq == gBlendCoop.seenHeartGiveSeq) {
+        return;
+    }
+    gBlendCoop.seenHeartGiveSeq = gBlendCoop.partnerHeartGiveSeq;
+    if (!PartnerHere() || gSave.stats.health == 0) {
+        return;
+    }
+    ModHealth(8);
+    SoundReq(SFX_HEART_GET);
+    SparkleAt(FX_SPARKLE2, gPlayerEntity.base.x.HALF.HI, gPlayerEntity.base.y.HALF.HI - 12);
+    SparkleAt(FX_SPARKLE2, gPlayerEntity.base.x.HALF.HI - 6, gPlayerEntity.base.y.HALF.HI - 4);
+}
+
+/* ---- Co-op puzzles ------------------------------------------------------------ */
+
+#define PIECE_STONE 0
+#define PIECE_BELL 1
+/** Frames a struck Twin Stone stays lit: too short to run between a puzzle's stones alone. */
+#define STONE_LIT_FRAMES 60
+/** A lit piece that stays lit (a rung bell, or every piece once solved). */
+#define PIECE_LATCHED 0xff
+/** How near a thrown partner must fly to a Toss Bell to ring it. */
+#define BELL_REACH 14
+/** Marks the puzzle pieces' palette in gPaletteList. */
+#define TWIN_RELICS_PALETTE_ID 0x3f2
+
+typedef struct {
+    u8 area;
+    u8 room;
+    u8 count;      /**< pieces */
+    u8 reward;     /**< the item each player finds once it is solved */
+    u8 kind[4];    /**< PIECE_* */
+    u16 x[4];      /**< room coordinates (moved to the nearest open ground) */
+    u16 y[4];
+    u16 rewardX;
+    u16 rewardY;
+} CoopPuzzle;
+
+/** The overworld's co-op puzzles, one per room, in the Light World only. Bits of BLEND_COOP_PUZZLES_*. */
+static const CoopPuzzle sCoopPuzzles[] = {
+    // South Hyrule Field, around Link's house: a stone on each side of the yard
+    { AREA_HYRULE_FIELD, 1, 2, ITEM_REVIVE_FAIRY,
+      { PIECE_STONE, PIECE_STONE }, { 0x1a8, 0x360 }, { 0x1c8, 0x1b0 }, 0x290, 0x210 },
+    // Hyrule Town: a bell in the south square, for a partner thrown from the road
+    { AREA_HYRULE_TOWN, 0, 1, ITEM_RUPEE100,
+      { PIECE_BELL }, { 0x200 }, { 0x330 }, 0x228, 0x330 },
+    // Castle Garden: a stone deep in each hedge maze, and a bell before the castle
+    { AREA_CASTLE_GARDEN, 0, 3, ITEM_REVIVE_FAIRY,
+      { PIECE_STONE, PIECE_STONE, PIECE_BELL }, { 0xd0, 0x340, 0x200 }, { 0x110, 0x160, 0xa0 }, 0x200, 0xd0 },
+};
+
+static bool32 OpenGround(s32 x, s32 y) {
+    u32 act;
+    if (GetCollisionDataAtWorldCoords(x, y, 1) != 0) {
+        return FALSE;
+    }
+    act = GetActTileAtWorldCoords(x, y, 1);
+    return act != ACT_TILE_13 && act != ACT_TILE_16 && act != ACT_TILE_17 && act != ACT_TILE_19 && act != ACT_TILE_90;
+}
+
+/** The nearest open ground to a room spot, in world coordinates (the same in both games). */
+static void FindOpenGround(u32 roomX, u32 roomY, s32* outX, s32* outY) {
+    s32 x0 = gRoomControls.origin_x + roomX;
+    s32 y0 = gRoomControls.origin_y + roomY;
+    s32 r, dx, dy;
+    for (r = 0; r <= 48; r += 8) {
+        for (dy = -r; dy <= r; dy += 8) {
+            for (dx = -r; dx <= r; dx += 8) {
+                if ((dx == -r || dx == r || dy == -r || dy == r) && OpenGround(x0 + dx, y0 + dy)) {
+                    *outX = x0 + dx;
+                    *outY = y0 + dy;
+                    return;
+                }
+            }
+        }
+    }
+    *outX = x0;
+    *outY = y0;
+}
+
+static const CoopPuzzle* PuzzleHere(u32* index) {
+    u32 i;
+    if (BLEND_DARK_WORLD) {
+        return NULL;
+    }
+    for (i = 0; i < ARRAY_COUNT(sCoopPuzzles); i++) {
+        if (sCoopPuzzles[i].area == gRoomControls.area && sCoopPuzzles[i].room == gRoomControls.room) {
+            *index = i;
+            return &sCoopPuzzles[i];
+        }
+    }
+    return NULL;
+}
+
+static s32 LoadTwinRelicsPalette(void) {
+    s32 slot = FindPalette(TWIN_RELICS_PALETTE_ID);
+    u16* dst;
+    u32 i;
+    if (slot < 0) {
+        slot = FindFreeObjPalette(1);
+        if (slot < 0 || slot >= 16) {
+            CleanUpObjPalettes();
+            slot = FindFreeObjPalette(1);
+        }
+        if (slot < 0 || slot >= 16) {
+            return -1;
+        }
+        gPaletteList[slot].objPaletteId = TWIN_RELICS_PALETTE_ID;
+        gPaletteList[slot]._0_4 = 1;
+        gPaletteList[slot]._0_0 = 3;
+        gPaletteList[slot]._1 = 0;
+    }
+    dst = &gPaletteBuffer[(16 + slot) * 16];
+    for (i = 0; i < 16; i++) {
+        dst[i] = sTwinRelicsPalette[i];
+    }
+    USE_PALETTE(16 + slot);
+    return slot;
+}
+
+static bool32 PieceLit(u32 i) {
+    return gBlendCoop.pieceTimer[i] != 0 || (PartnerHere() && (gBlendCoop.partnerPiecesLit & (1 << i)));
+}
+
+/** A thrown partner (in either game) is flying within reach of this spot. */
+static bool32 ThrownPartnerNear(s32 x, s32 y) {
+    s32 fx, fy;
+    if (gBlendCoop.carryState == CARRY_FLY) {
+        fx = gBlendCoop.carryX;
+        fy = gBlendCoop.carryY;
+    } else if (gBlendCoop.carried && gBlendCoop.partnerCarryState == CARRY_FLY) {
+        fx = gPlayerEntity.base.x.HALF.HI;
+        fy = gPlayerEntity.base.y.HALF.HI;
+    } else {
+        return FALSE;
+    }
+    fx -= x;
+    fy -= y;
+    return fx > -BELL_REACH && fx < BELL_REACH && fy > -BELL_REACH && fy < BELL_REACH;
+}
+
+/**
+ * Types 5 and 6 of the partner Link object: a Twin Stone and a Toss Bell
+ * (type2 is the piece's number in its puzzle).
+ */
+void Blend_CoopPuzzlePiece(Entity* this) {
+    u32 i = this->type2 & 3;
+    u32 frame;
+    bool32 lit;
+    if (this->action == 0) {
+        s32 slot = LoadTwinRelicsPalette();
+        this->action = 1;
+        this->spriteSettings.draw = 1;
+        this->spriteSettings.shadow = 1;
+        this->lastFrameIndex = 0xff;
+        if (slot >= 0) {
+            SetEntityObjPalette(this, slot);
+        }
+        if (this->type == 5) {
+            // struck like a switch, by Link's sword (or the partner's)
+            COLLISION_ON(this);
+            this->collisionFlags = 7;
+            this->hurtType = 0x48;
+            this->hitType = 0x28;
+            this->collisionMask = 10;
+            this->hitbox = (Hitbox*)&gHitbox_0;
+        } else {
+            COLLISION_OFF(this);
+        }
+        UpdateSpriteForCollisionLayer(this);
+    }
+    if (this->type == 5) {
+        if ((this->contactFlags & CONTACT_NOW) && gBlendCoop.pieceTimer[i] != PIECE_LATCHED) {
+            if (gBlendCoop.pieceTimer[i] == 0) {
+                SoundReq(SFX_110);
+            }
+            gBlendCoop.pieceTimer[i] = STONE_LIT_FRAMES;
+        }
+        this->contactFlags = 0;
+        lit = PieceLit(i);
+        frame = lit ? 1 + ((gRoomTransition.frameCount >> 3) & 1) : 0;
+    } else {
+        if (gBlendCoop.pieceTimer[i] != PIECE_LATCHED && ThrownPartnerNear(this->x.HALF.HI, this->y.HALF.HI)) {
+            gBlendCoop.pieceTimer[i] = PIECE_LATCHED;
+            this->subtimer = 90;
+            SoundReq(SFX_ITEM_SWORD_CHARGE_FINISH);
+            SparkleAt(FX_SPARKLE2, this->x.HALF.HI, this->y.HALF.HI - 16);
+        }
+        lit = PieceLit(i);
+        if (lit && this->subtimer == 0 && !(gBlendCoop.pieceTimer[i] == PIECE_LATCHED)) {
+            // the partner's game rang it: ring here too
+            this->subtimer = 90;
+            gBlendCoop.pieceTimer[i] = PIECE_LATCHED;
+            SoundReq(SFX_ITEM_SWORD_CHARGE_FINISH);
+        }
+        if (this->subtimer != 0) {
+            static const u8 sRing[] = { 4, 3, 5, 3 };
+            this->subtimer--;
+            frame = sRing[(this->subtimer >> 2) & 3];
+        } else {
+            frame = 3;
+        }
+    }
+    this->spriteIndex = TWIN_RELICS_SPRITE;
+    this->frameIndex = frame;
+    if (this->frameIndex != this->lastFrameIndex) {
+        this->lastFrameIndex = this->frameIndex;
+        sub_080042D0(this, this->frameIndex, TWIN_RELICS_SPRITE);
+    }
+}
+
+static void SpawnPuzzleReward(const CoopPuzzle* pz) {
+    s32 x, y;
+    Entity* e = CreateObject(GROUND_ITEM, pz->reward, 0);
+    if (e != NULL) {
+        FindOpenGround(pz->rewardX, pz->rewardY, &x, &y);
+        e->timer = 4; // lies in the open (TREASURE_OPEN)
+        e->x.HALF.HI = x;
+        e->y.HALF.HI = y;
+        e->collisionLayer = 1;
+    }
+    gBlendCoop.reward = e;
+}
+
+/** Sets out this room's puzzle when Link arrives, and watches for it being solved. */
+void Blend_CoopPuzzlesUpdate(void) {
+    const CoopPuzzle* pz;
+    u32 index = 0, i, key, lit;
+    key = ((gRoomControls.area << 8) | gRoomControls.room) + 1;
+    if (gBlendCoop.puzzleRoomKey != key) {
+        // a new room: wait until Link is in it and free before setting anything out
+        if (gPlayerState.controlMode != CONTROL_ENABLED || !gBlendLink.hostConnected) {
+            return;
+        }
+        gBlendCoop.puzzleRoomKey = key;
+        gBlendCoop.piecesLit = 0;
+        gBlendCoop.reward = NULL;
+        MemClear(gBlendCoop.pieceTimer, sizeof(gBlendCoop.pieceTimer));
+        pz = PuzzleHere(&index);
+        if (pz == NULL) {
+            return;
+        }
+        gBlendCoop.puzzleSolved = (BLEND_COOP_PUZZLES_SOLVED >> index) & 1;
+        for (i = 0; i < pz->count; i++) {
+            Entity* e = CreateObject(LINK_PARTNER, pz->kind[i] == PIECE_BELL ? 6 : 5, i);
+            if (e != NULL) {
+                s32 x, y;
+                FindOpenGround(pz->x[i], pz->y[i], &x, &y);
+                e->x.HALF.HI = x;
+                e->y.HALF.HI = y;
+                e->collisionLayer = 1;
+            }
+            if (gBlendCoop.puzzleSolved) {
+                gBlendCoop.pieceTimer[i] = PIECE_LATCHED;
+            }
+        }
+        if (gBlendCoop.puzzleSolved && !((BLEND_COOP_PUZZLES_TAKEN >> index) & 1)) {
+            SpawnPuzzleReward(pz);
+        }
+        return;
+    }
+    pz = PuzzleHere(&index);
+    if (pz == NULL) {
+        gBlendCoop.piecesLit = 0;
+        return;
+    }
+    lit = 0;
+    for (i = 0; i < pz->count; i++) {
+        if (gBlendCoop.pieceTimer[i] != 0 && gBlendCoop.pieceTimer[i] != PIECE_LATCHED) {
+            gBlendCoop.pieceTimer[i]--;
+        }
+        if (gBlendCoop.pieceTimer[i] != 0) {
+            lit |= 1 << i;
+        }
+    }
+    gBlendCoop.piecesLit = lit;
+    if (!gBlendCoop.puzzleSolved) {
+        for (i = 0; i < pz->count; i++) {
+            if (!PieceLit(i)) {
+                break;
+            }
+        }
+        if (i == pz->count) {
+            // solved together: everything stays lit, and the reward appears for each player
+            gBlendCoop.puzzleSolved = 1;
+            BLEND_COOP_PUZZLES_SOLVED |= 1 << index;
+            for (i = 0; i < pz->count; i++) {
+                gBlendCoop.pieceTimer[i] = PIECE_LATCHED;
+            }
+            SoundReq(SFX_SECRET);
+            SpawnPuzzleReward(pz);
+        }
+    } else if (gBlendCoop.reward != NULL) {
+        Entity* e = gBlendCoop.reward;
+        if (e->next == NULL || e->kind != OBJECT || e->id != GROUND_ITEM) {
+            // picked up
+            gBlendCoop.reward = NULL;
+            BLEND_COOP_PUZZLES_TAKEN |= 1 << index;
+        }
+    }
+}
+
 void Blend_CoopUpdate(void) {
     Entity* link = &gPlayerEntity.base;
     InitBlock();
@@ -466,7 +929,12 @@ void Blend_CoopUpdate(void) {
     HandleQuickEquip();
     HandleShareGive();
     HandleRegroup();
+    UpdateCarried();
+    UpdateGiveHeart();
+    UpdateReceiveHeart();
     UpdateRevivePartner();
+    UpdateLiftable();
+    Blend_CoopPuzzlesUpdate();
     if (gBlendCoop.reviveFxTimer != 0) {
         gBlendCoop.reviveFxTimer--;
         if ((gBlendCoop.reviveFxTimer & 7) == 0) {

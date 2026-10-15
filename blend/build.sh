@@ -25,8 +25,9 @@ elif [ ! -f custom/gen/maps.inc ] || [ ! -f custom/gen/blend_link.inc ]; then
 fi
 # overworld: blended cel-shaded palettes and soft shadows (into custom/gen/ow)
 python3 "$ROOT/blend/overworld/build.py" --quiet ${2:+--alttp "$2"}
-# co-op: the Revive Fairy's picture (into custom/gen/coop)
+# co-op: the Revive Fairy's picture and the puzzle pieces' (into custom/gen/coop)
 python3 "$ROOT/blend/coop/revive_fairy.py"
+python3 "$ROOT/blend/coop/twin_relics.py"
 # splice every generated frame object list into the game's table
 python3 "$ROOT/blend/anim/objlists.py"
 make -j"$(nproc)" CUSTOM=1
