@@ -29,6 +29,8 @@ FREE_TILES = [i for i in range(1, 1024) if i != 512]
 # palette rows for the tileset (row 0 is Minish Cap's own, which its chests use)
 GBA_ROWS = list(range(2, 15))
 MAX_METATILES = 2048
+# the space outside a room's walls
+VOID = (40, 32, 24)
 
 # A Link to the Past classes that are drawn as plain floor wherever the plan lets
 # Link walk: doors the Minish Cap door objects now draw, blocks and pots the plan
@@ -128,6 +130,7 @@ class Blend:
             self.metatile(self.meta_t, self.types_t[0])
         alttp = plan.room.cells
         img, empty = self.compose(gfx)
+        self.restone(gfx, plan, img, empty)
 
         # where the plan opens a way through A Link to the Past's art, draw floor
         floor = [(i % 32, i // 32) for i in range(1024) if alttp[i] == A.FLOOR and plan.cells[i] == A.FLOOR]
@@ -171,6 +174,64 @@ class Blend:
                 self.metatile(self.meta_b, (('mc', b), 0x74))
                 break
         return new_b, new_t
+
+    def restone(self, gfx, plan, img, empty):
+        """Swaps A Link to the Past's patterned floors for calm stone slabs: big 16px
+        squares with a lit top-left edge and a shaded joint, in each floor's own color.
+        A Link to the Past lays a floor as a 4x4-tile pattern repeated across a layer
+        before drawing anything on top, so a tile is floor where its layer repeats
+        4 tiles across and 4 tiles down; drawings, walls and steps keep their art."""
+        def pattern(layer):
+            words = np.array(layer).reshape(64, 64) & 0xffff
+            p = np.zeros((64, 64), dtype=bool)
+            for dy, dx in ((0, 4), (0, -4)):
+                for vy in (4, -4):
+                    h = np.roll(words, (0, dx), axis=(0, 1)) == words
+                    v = np.roll(words, (vy, 0), axis=(0, 1)) == words
+                    p |= h & v
+            # then every tile of those pattern words, also where objects break the repeat
+            return np.isin(words, np.unique(words[p])) if p.any() else p
+        empty_hi = np.array([not any(any(r) for r in gfx.tile(w)) for w in gfx.bg1]).reshape(64, 64)
+        floor = np.array([A.attr_class(a) == A.FLOOR or A.attr_class(b) == A.FLOOR
+                          for a, b in zip(plan.room.attr, plan.room.lower)]).reshape(64, 64)
+        on_hi = pattern(gfx.bg1) & ~empty_hi & floor
+        on_lo = pattern(gfx.bg2) & empty_hi & floor
+        yy, xx = np.mgrid[0:512, 0:512]
+        for tiles in (on_lo, on_hi):
+            # each stretch of floor gets its own color
+            seen = np.zeros((64, 64), dtype=bool)
+            for sy in range(64):
+                for sx in range(64):
+                    if not tiles[sy, sx] or seen[sy, sx]:
+                        continue
+                    comp, stack = [], [(sy, sx)]
+                    seen[sy, sx] = True
+                    while stack:
+                        y, x = stack.pop()
+                        comp.append((y, x))
+                        for ny, nx in ((y + 1, x), (y - 1, x), (y, x + 1), (y, x - 1)):
+                            if 0 <= ny < 64 and 0 <= nx < 64 and tiles[ny, nx] and not seen[ny, nx]:
+                                seen[ny, nx] = True
+                                stack.append((ny, nx))
+                    if len(comp) < 4:
+                        continue
+                    part = np.zeros((64, 64), dtype=bool)
+                    for y, x in comp:
+                        part[y, x] = True
+                    mask = part.repeat(8, axis=0).repeat(8, axis=1) & ~empty
+                    if not mask.any():
+                        continue
+                    if any(y in (0, 63) or x in (0, 63) for y, x in comp):
+                        # the space around the room: plain darkness, as in Minish Cap
+                        img[mask] = VOID
+                        continue
+                    base = celshade.snap(np.median(img[mask], axis=0))
+                    stone = np.empty((512, 512, 3))
+                    stone[:] = base
+                    stone[((xx // 16 + yy // 16) % 2) == 1] = celshade.snap(base * 0.95)
+                    stone[(xx % 16 == 0) | (yy % 16 == 0)] = celshade.snap(base + (255 - base) * 0.16)
+                    stone[(xx % 16 == 15) | (yy % 16 == 15)] = celshade.snap(base * 0.82)
+                    img[mask] = stone[mask]
 
     def tile_key(self, img, empty, x, y):
         pix = tuple(tuple(None if empty[y + j, x + i] else tuple(int(v) for v in img[y + j, x + i])
