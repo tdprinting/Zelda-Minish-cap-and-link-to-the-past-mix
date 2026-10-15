@@ -190,6 +190,20 @@ enum {
     /*0x6c*/ ALTTP_ROPE,
     /*0x6d*/ ALTTP_MOBLIN,
     /*0x6e*/ ALTTP_SPEAR,
+    /*0x6f*/ ALTTP_HINOX,
+    /*0x70*/ ALTTP_BOMB,
+    /*0x71*/ LANMOLA,
+    /*0x72*/ LANMOLA_SEGMENT,
+    /*0x73*/ ALTTP_LEEVER,
+    /*0x74*/ ALTTP_BEAMOS,
+    /*0x75*/ BEAMOS_LASER,
+    /*0x76*/ ALTTP_POKEY,
+    /*0x77*/ ALTTP_GIBDO,
+    /*0x78*/ GIANT_MOLDORM,
+    /*0x79*/ MOLDORM_SEGMENT,
+    /*0x7a*/ ALTTP_BARI,
+    /*0x7b*/ ALTTP_HARDHAT,
+    /*0x7c*/ ALTTP_BUMPER,
 };
 
 void Octorok();
@@ -302,6 +316,20 @@ void ArmosKnight();
 void AlttpRope();
 void AlttpMoblin();
 void AlttpSpear();
+void AlttpHinox();
+void AlttpBomb();
+void Lanmola();
+void LanmolaSegment();
+void AlttpLeever();
+void AlttpBeamos();
+void BeamosLaser();
+void AlttpPokey();
+void AlttpGibdo();
+void GiantMoldorm();
+void MoldormSegment();
+void AlttpBari();
+void AlttpHardhat();
+void AlttpBumper();
 
 extern void (*const gUnk_080012C8[])(Entity*);
 
