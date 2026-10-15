@@ -159,6 +159,14 @@ static void SetPalette(Entity* e, u32 pal) {
 }
 
 static void AlttpInit(AlttpEnemy* this, u32 pal, u32 frame) {
+    // A room's own enemies come with their EntityData copied over bytes 0x78-0x87
+    // (room.c), which here are savedHealth, shield, pose and the rest: kind ENEMY in
+    // savedHealth and flags 0x0F in shield left every one that never lowers its shield
+    // immune to blows. Those bytes start clear, as they do for enemies made in play
+    // (whose parents may fill targetX and the rest before their first frame).
+    if (this->savedHealth == ENEMY && this->pose == super->id) {
+        MemClear(&this->savedHealth, 0x10);
+    }
     SetPalette(super, pal);
     super->animIndex = 0xff;
     SetFrame(super, frame);
@@ -9506,4 +9514,623 @@ static void GanonPartTick(AlttpEnemy* this) {
 
 void GanonPart(AlttpEnemy* this) {
     GanonPartTick(this);
+}
+
+/* =============================================================================
+ * Ganon's Tower's last ones (sprite 340): the soldiers, the wall cannons and their
+ * cannonballs, the flying floor tiles, and the Sparks that run along the walls.
+ * ========================================================================== */
+
+static const s8 sFaceX[4] = { 1, -1, 0, 0 };
+static const s8 sFaceY[4] = { 0, 0, 1, -1 };
+
+/** Any of the player's items of this id within range (the Boomerang, an arrow). */
+static bool32 PlayerItemNear(Entity* at, u32 id, s32 range) {
+    u32 i;
+    for (i = 0; i < ARRAY_COUNT(gEntityLists); i++) {
+        LinkedList* list = &gEntityLists[i];
+        Entity* e;
+        for (e = list->first; (u32)e != (u32)list; e = e->next) {
+            if (((e->kind == PLAYER_ITEM && e->id == id) || (id == 0xff && IsHook(e))) &&
+                Abs(e->x.HALF.HI - at->x.HALF.HI) < range && Abs(e->y.HALF.HI - at->y.HALF.HI) < range) {
+                return TRUE;
+            }
+        }
+    }
+    return FALSE;
+}
+
+/* ---- soldiers (sprites 0x41 and 0x43) --------------------------------------------
+ * Type 0 the blue sword soldier, 1 the red spearman (in the Dark World, the pig-faced
+ * soldiers of the room's own sprite set). As Guard_Main: it walks a while one way
+ * (turning back at walls), stops and looks about, its head glancing left and right,
+ * and walks on. All the while it watches the half of the room before it (zelda3's
+ * probes): seeing Link, or touched or struck by him, it starts, turns to him and
+ * gives chase, steering round walls, for about four seconds. The spearman, near Link
+ * and facing him, thrusts its spear. Fields: face the body, head the head, turns a
+ * glance clock, pose a stagger after a blow, cooldown the spear.
+ */
+enum { SD_INIT, SD_WAIT, SD_WALK, SD_LOOK, SD_ALERT, SD_CHASE, SD_THRUST };
+
+static const u8 sSoldierWalk[4][4] = { { 11, 12, 13, 12 }, { 4, 5, 6, 5 }, { 0, 1, 2, 3 }, { 7, 8, 9, 10 } };
+/* kSoldier_HeadDirs: where the head looks while it stands, by facing and clock */
+static const u8 sSoldierGlance[32] = { 0, 2, 2, 2, 0, 3, 3, 3, 1, 3, 3, 3, 1, 2, 2, 2,
+                                       2, 0, 0, 0, 2, 1, 1, 1, 3, 1, 1, 1, 3, 0, 0, 0 };
+/* the spear thrust out: the body's box reaching to the spear's head */
+static const Hitbox sSpearHitbox[4] = {
+    { 10, -6, { 6, 4, 4, 6 }, 14, 7 },
+    { -10, -6, { 6, 4, 4, 6 }, 14, 7 },
+    { 0, 4, { 6, 4, 4, 6 }, 6, 17 },
+    { 0, -16, { 6, 4, 4, 6 }, 6, 17 },
+};
+
+/** Link in the half of the room the soldier looks into, nothing solid between. */
+static bool32 SoldierSeesLink(AlttpEnemy* this) {
+    Entity* link = &gPlayerEntity.base;
+    s32 dx = link->x.HALF.HI - super->x.HALF.HI;
+    s32 dy = link->y.HALF.HI - super->y.HALF.HI;
+    s32 d = this->head;
+    s32 ahead = dx * sFaceX[d] + dy * sFaceY[d];
+    s32 n, i;
+    if (ahead < 0 || Distance(dx, dy) > 160 || link->z.HALF.HI < -16 || gPlayerState.framestate == PL_STATE_DIE) {
+        return FALSE;
+    }
+    n = Distance(dx, dy) >> 3;
+    for (i = 1; i < n; i++) {
+        if (WallAt(super, dx * i / n, dy * i / n - 4)) {
+            return FALSE;
+        }
+    }
+    return TRUE;
+}
+
+static void SoldierAlert(AlttpEnemy* this) {
+    if (super->action < SD_ALERT) {
+        super->action = SD_ALERT;
+        super->timer = 32;
+        this->face = this->head = Face4ToLink(super);
+        EnqueueSFX(SFX_EM_ARMOS_ON);
+    }
+}
+
+/** A wall or a pit (act tile 0x19, ACT_TILE_25: a hole) this far off. */
+static bool32 SoldierBlocked(AlttpEnemy* this, s32 dx, s32 dy) {
+    return WallAt(super, dx, dy) ||
+           GetActTileAtWorldCoords(super->x.HALF.HI + dx, super->y.HALF.HI + dy, super->collisionLayer) == 0x19;
+}
+
+/** Minish Cap's movement, kept out of the pits too (Minish Cap's walkers go over
+ * them): a step onto one is taken back and counts as running into a wall. */
+static void SoldierMove(AlttpEnemy* this) {
+    s32 x = super->x.WORD, y = super->y.WORD;
+    // (knocked onto an edge already, it may walk off it)
+    bool32 free = !SoldierBlocked(this, 0, 0);
+    ProcessMovement0(super);
+    if (!free) {
+        return;
+    }
+    if (super->x.WORD != x && SoldierBlocked(this, super->x.WORD > x ? 6 : -6, 0)) {
+        super->x.WORD = x;
+        super->collisions |= COL_EAST_ANY;
+    }
+    if (super->y.WORD != y && SoldierBlocked(this, 0, super->y.WORD > y ? 6 : -6)) {
+        super->y.WORD = y;
+        super->collisions |= COL_SOUTH_ANY;
+    }
+}
+
+static void SoldierStartChase(AlttpEnemy* this, u32 time) {
+    super->action = SD_CHASE;
+    super->timer = time;
+    this->step = 31;
+}
+
+static void SoldierTick(AlttpEnemy* this) {
+    u32 base = super->type ? AF_SPEARMAN_0 - AF_SOLDIER_0 : 0;
+    u32 f, frame;
+    if (super->action == SD_INIT) {
+        AlttpInit(this, super->type ? AP_SPEARMAN : AP_SOLDIER, AF_SOLDIER_0 + base);
+        super->action = SD_WAIT;
+        super->timer = 16 + (Random() & 31);
+        this->face = this->head = Random() & 3;
+        this->targetX = this->targetY = 0;
+        this->pose = 0;
+        this->cooldown = 0;
+    }
+    this->step++;
+    if (this->pose) {
+        this->pose--;
+    }
+    if (this->cooldown) {
+        this->cooldown--;
+    }
+    super->hitbox = (Hitbox*)&gHitbox_AlttpTall;
+    if (super->action < SD_ALERT && ((!(this->step & 3) && SoldierSeesLink(this)) || LinkNear(super, 14, 14))) {
+        SoldierAlert(this);
+    }
+    switch (super->action) {
+        case SD_WAIT: // a moment's rest, then a way to walk
+            if (--super->timer == 0) {
+                super->action = SD_WALK;
+                super->timer = (Random() & 0x3f) + 0x28;
+                this->face = this->head = Random() & 3;
+            }
+            break;
+        case SD_WALK:
+            super->direction = sFaceToDir[this->face];
+            super->speed = 0x80;
+            SoldierMove(this);
+            if (super->collisions != COL_NONE) {
+                this->face ^= 1;    // back the other way
+                this->head = this->face;
+            }
+            // (zelda3 holds its clock back every other frame)
+            if ((this->step & 1) && --super->timer == 0) {
+                super->action = SD_LOOK;
+                super->timer = 160;
+            }
+            break;
+        case SD_LOOK: // stands and looks about
+            if (super->timer < 128) {
+                this->head = sSoldierGlance[this->face * 8 + ((super->timer >> 3) & 7)];
+            }
+            if (--super->timer == 0) {
+                this->head = this->face;
+                super->action = SD_WAIT;
+                super->timer = 32;
+            }
+            break;
+        case SD_ALERT: // turned to Link, a beat before it runs at him
+            this->face = this->head = Face4ToLink(super);
+            if (--super->timer == 0) {
+                SoldierStartChase(this, 255);
+            }
+            break;
+        case SD_CHASE: {
+            s32 dx = gPlayerEntity.base.x.HALF.HI - super->x.HALF.HI;
+            s32 dy = gPlayerEntity.base.y.HALF.HI - super->y.HALF.HI;
+            if (!(this->step & 31)) {
+                // Sprite_ApplySpeedTowardsLink(16), the body turned to him
+                super->direction = GetFacingDirection(super, &gPlayerEntity.base);
+                super->speed = 0x100;
+                this->face = this->head = Face4ToLink(super);
+            }
+            SoldierMove(this);
+            // Guard_ApplySpeedInDirection: blocked, it slides along the wall toward him
+            if (super->collisions & (COL_EAST_ANY | COL_WEST_ANY)) {
+                super->direction = dy >= 0 ? DirectionSouth : DirectionNorth;
+                super->speed = 0xe0;
+            } else if (super->collisions & (COL_NORTH_ANY | COL_SOUTH_ANY)) {
+                super->direction = dx >= 0 ? DirectionEast : DirectionWest;
+                super->speed = 0xe0;
+            }
+            if (super->type == 1 && this->cooldown == 0) {
+                s32 ahead = dx * sFaceX[this->face] + dy * sFaceY[this->face];
+                s32 side = Abs(dx * sFaceY[this->face] + dy * sFaceX[this->face]);
+                if (ahead > 0 && ahead < 40 && side < 12) {
+                    super->action = SD_THRUST;
+                    super->timer = 30;
+                    break;
+                }
+            }
+            if (--super->timer == 0) {
+                this->face = this->head = Face4ToLink(super);
+                super->action = SD_LOOK;
+                super->timer = 160;
+            }
+            break;
+        }
+        case SD_THRUST: // draws the spear back, lunges, holds it out
+            if (super->timer <= 22 && super->timer > 10) {
+                super->hitbox = (Hitbox*)&sSpearHitbox[this->face];
+                super->direction = sFaceToDir[this->face];
+                super->speed = 0x180;
+                SoldierMove(this);
+            } else if (super->timer <= 10) {
+                super->hitbox = (Hitbox*)&sSpearHitbox[this->face];
+            }
+            if (super->timer == 22) {
+                EnqueueSFX(SFX_EM_MOBLIN_SPEAR);
+            }
+            if (--super->timer == 0) {
+                this->cooldown = 48;
+                SoldierStartChase(this, 96);
+            }
+            break;
+    }
+    f = this->face;
+    if (this->pose) {
+        frame = AF_SOLDIER_HURT_0 + f * 3;
+    } else if (super->action == SD_ALERT && super->timer > 20) {
+        frame = AF_SOLDIER_ALERT_0 + f * 3;
+    } else if (super->action == SD_THRUST && super->timer <= 22) {
+        frame = AF_SOLDIER_THRUST_0 + f * 3;
+    } else if (super->action == SD_THRUST) {
+        frame = AF_SOLDIER_0 + sSoldierWalk[f][0];
+    } else if (super->action == SD_WALK) {
+        frame = AF_SOLDIER_0 + sSoldierWalk[f][(this->step >> 3) & 3];
+    } else if (super->action == SD_CHASE) {
+        frame = AF_SOLDIER_0 + sSoldierWalk[f][(this->step >> 2) & 3];
+    } else if (this->head != f) {
+        frame = AF_SOLDIER_LOOK_0_1 + f * 3 + (this->head > f ? this->head - 1 : this->head);
+    } else {
+        frame = AF_SOLDIER_0 + sSoldierWalk[f][0];
+    }
+    SetFrame(super, frame + base);
+    AlttpEndTick(this);
+}
+
+static void SoldierOnCollision(AlttpEnemy* this);
+static void SoldierOnDeath(AlttpEnemy* this) {
+    AlttpDeath(this, SPEAR_MOBLIN);
+}
+
+static void (*const Soldier_Functions[])(AlttpEnemy*) = {
+    SoldierTick, SoldierOnCollision, (void (*)(AlttpEnemy*))GenericKnockback,
+    SoldierOnDeath, (void (*)(AlttpEnemy*))GenericConfused, AlttpGrabbed,
+};
+
+static void SoldierOnCollision(AlttpEnemy* this) {
+    if (super->health < this->savedHealth) {
+        // struck: it staggers, then goes for Link (zelda3's sprite_F)
+        this->pose = 12;
+        this->face = this->head = Face4ToLink(super);
+        if (super->action != SD_THRUST) {
+            SoldierStartChase(this, 255);
+        }
+    } else if (super->action < SD_ALERT) {
+        SoldierAlert(this);
+    }
+    AlttpOnCollision(this, (void (*const*)())Soldier_Functions);
+}
+
+void AlttpSoldier(AlttpEnemy* this) {
+    EnemyFunctionHandler(super, (EntityActionArray)Soldier_Functions);
+    EnemySetFXOffset(super, 0, 1, -20);
+}
+
+/* ---- wall cannons (sprites 0x66-0x69) and their cannonballs --------------------------
+ * Types 0-3: a cannon set in the wall, firing right, left, down or up. As
+ * Sprite_66_WallCannonVerticalLeft: it slides along its wall, 128 pixels one way and
+ * back, and every half second kicks back and fires a cannonball. Type 4: the ball,
+ * rolling straight across the room (out of the wall for its first 32 frames) and
+ * smashing on the far wall. Neither can be hurt; they never hold doors shut.
+ */
+static void CannonballTick(AlttpEnemy* this) {
+    if (super->action == 0) {
+        AlttpInit(this, AP_CANNONBALL, AF_CANNONBALL_0);
+        super->timer = 32;
+        super->spritePriority.b0 = 2;
+        this->pose = 0;
+    }
+    super->health = 0;
+    super->knockbackDuration = 0;
+    this->step++;
+    if (this->pose) {
+        // smashed on the wall
+        COLLISION_OFF(super);
+        SetFrame(super, AF_CANNONBALL_SMASH);
+        if (--this->pose == 0) {
+            DeleteThisEntity();
+        }
+        return;
+    }
+    MoveVel(super, this->targetX, this->targetY);
+    if (super->timer) {
+        super->timer--;
+    } else if (ShotWallAt(super) || !InRoom(super, 0)) {
+        this->pose = 6;
+        CreateFx(super, FX_ROCK_SMALL, 0);
+        EnqueueSFX(SFX_PLACE_OBJ);
+        return;
+    }
+    SetFrame(super, AF_CANNONBALL_0 + ((this->step >> 2) & 3));
+}
+
+void WallCannon(AlttpEnemy* this) {
+    static const s8 kickX[4] = { 8, -8, 0, 0 };
+    static const s8 kickY[4] = { 0, 0, 8, -8 };
+    u32 d = super->type;
+    if (d == 4) {
+        CannonballTick(this);
+        return;
+    }
+    if (super->action == 0) {
+        AlttpInit(this, AP_CANNON, AF_CANNON_0_0 + d * 3);
+        super->spriteSettings.shadow = 0;
+        super->spritePriority.b0 = 3;
+        // SpritePrep_WallCannon: one firing across slides up and down, one firing
+        // down or up slides across; the first leg goes down or right
+        this->idx = (d & 2) ^ 1;
+        super->timer = 128;
+        this->step = Random() & 31;
+        this->pose = 0;
+    }
+    super->health = 0;
+    super->knockbackDuration = 0;
+    this->step++;
+    if (--super->timer == 0) {
+        super->timer = 128;
+        this->idx ^= 1;
+    }
+    {
+        static const s8 slideX[4] = { 0, 0, -1, 1 };
+        static const s8 slideY[4] = { -1, 1, 0, 0 };
+        super->x.HALF.HI += slideX[this->idx];
+        super->y.HALF.HI += slideY[this->idx];
+    }
+    if (!(this->step & 31)) {
+        this->pose = 16;
+    }
+    if (this->pose && --this->pose == 1) {
+        AlttpEnemy* b = (AlttpEnemy*)SpawnAt(WALL_CANNON, 4, super, kickX[d], kickY[d]);
+        if (b != NULL) {
+            b->targetX = kickX[d] * 3;   // 24: a pixel and a half a frame
+            b->targetY = kickY[d] * 3;
+            // the cannon sits in the wall: the ball rolls on the floor Link stands on
+            b->base.collisionLayer = gPlayerEntity.base.collisionLayer;
+        }
+        if (InRoom(&gPlayerEntity.base, 0)) {
+            EnqueueSFX(SFX_THUD_HEAVY);
+        }
+    }
+    SetFrame(super, this->pose > 12 ? AF_CANNON_KICK_0 + d * 3 : AF_CANNON_0_0 + d * 3 + (this->pose != 0));
+}
+
+/* ---- flying floor tiles (overlord 0x14, sprite 0x94) --------------------------------
+ * Type 0: the tile room (Overlord14_TileRoom), invisible. Once Link is in its quarter
+ * of the room it lifts 22 tiles out of the floor, one every second and a half, at
+ * zelda3's places. Type 1: a tile. It tips up out of the floor and rises, spinning,
+ * hangs a moment, then flies at Link (aiming at him as it goes) and breaks on him, on a
+ * wall, or under a blow.
+ */
+static void FlyingTileBreak(AlttpEnemy* this) {
+    super->action = 3;
+    super->timer = 8;
+    COLLISION_OFF(super);
+    super->spriteSettings.shadow = 0;
+    EnqueueSFX(SFX_PLACE_OBJ);
+    CreateFx(super, FX_ROCK_SMALL, 0);
+}
+
+static void FlyingTileTick(AlttpEnemy* this) {
+    static const u8 placeX[22] = { 0x70, 0x80, 0x60, 0x90, 0x90, 0x60, 0x70, 0x80, 0x80, 0x70, 0x50,
+                                   0xa0, 0xa0, 0x50, 0x50, 0xa0, 0xa0, 0x50, 0x70, 0x80, 0x80, 0x70 };
+    static const u8 placeY[22] = { 0x80, 0x80, 0x70, 0x90, 0x70, 0x90, 0x60, 0xa0, 0x60, 0xa0, 0x60,
+                                   0xb0, 0x60, 0xb0, 0x80, 0x90, 0x80, 0x90, 0x70, 0x90, 0x70, 0x90 };
+    if (super->type == 0) {
+        // the tile room
+        s32 qx = (super->x.HALF.HI - gRoomControls.origin_x) & ~0xff;
+        s32 qy = (super->y.HALF.HI - gRoomControls.origin_y) & ~0xff;
+        s32 lx = gPlayerEntity.base.x.HALF.HI - gRoomControls.origin_x - qx;
+        s32 ly = gPlayerEntity.base.y.HALF.HI - gRoomControls.origin_y - qy;
+        if (super->action == 0) {
+            super->action = 1;
+            super->spriteSettings.draw = 0;
+            COLLISION_OFF(super);
+            super->timer = 128;
+            this->idx = 0;
+        }
+        super->health = 0;
+        if (lx < 0 || ly < 0 || lx >= 256 || ly >= 256) {
+            return;
+        }
+        if (--super->timer == 0) {
+            AlttpEnemy* t = (AlttpEnemy*)CreateEnemy(FLYING_TILE, 1);
+            super->timer = 96;
+            if (t != NULL) {
+                t->base.x.HALF.HI = gRoomControls.origin_x + qx + placeX[this->idx] + 8;
+                t->base.y.HALF.HI = gRoomControls.origin_y + qy + placeY[this->idx];
+                t->base.collisionLayer = gPlayerEntity.base.collisionLayer;
+                if (++this->idx == 22) {
+                    DeleteThisEntity();
+                }
+            } else {
+                super->timer = 1;   // no room for it yet: try again next frame
+            }
+        }
+        return;
+    }
+    if (super->action == 0) {
+        AlttpInit(this, AP_FTILE, AF_FTILE_TIP_0);
+        super->action = 1;
+        super->timer = 128;
+        super->spritePriority.b0 = 2;
+        this->homeX = 0;    // height, in 1/16 pixels
+        COLLISION_OFF(super);
+    }
+    this->step++;
+    switch (super->action) {
+        case 1: // rising
+            if (super->timer >= 64) {
+                this->homeX += 4;
+            }
+            if (!(this->step & 15)) {
+                EnqueueSFX(SFX_LAVA_TILE_WOBBLE);
+            }
+            if (--super->timer == 0) {
+                // off it goes at Link's height (Minish Cap's collision keeps to the floor)
+                super->action = 2;
+                super->timer = 16;
+                super->y.HALF.HI -= this->homeX >> 4;
+                this->homeX = 0;
+                super->spriteSettings.shadow = 0;
+                COLLISION_ON(super);
+                AimVel(super, gPlayerEntity.base.x.HALF.HI, gPlayerEntity.base.y.HALF.HI - 4, 32, &this->targetX,
+                       &this->targetY);
+                EnqueueSFX(SFX_LAVA_TILE_FLIP);
+            }
+            break;
+        case 2: // flying at Link
+            if (super->timer) {
+                super->timer--;
+                if (!(super->timer & 3)) {
+                    AimVel(super, gPlayerEntity.base.x.HALF.HI, gPlayerEntity.base.y.HALF.HI - 4, 32, &this->targetX,
+                           &this->targetY);
+                }
+            }
+            MoveVel(super, this->targetX, this->targetY);
+            // it breaks on Link too while he is still flashing from a blow (no collision then)
+            if (ShotWallAt(super) || !InRoom(super, 0) ||
+                (Abs(super->x.HALF.HI - gPlayerEntity.base.x.HALF.HI) < 8 &&
+                 Abs(super->y.HALF.HI - gPlayerEntity.base.y.HALF.HI + 4) < 8)) {
+                FlyingTileBreak(this);
+            }
+            break;
+        case 3: // in pieces
+            if (--super->timer == 0) {
+                DeleteThisEntity();
+            }
+            break;
+    }
+    SetHeight(super, this->homeX >> 4);
+    if (super->action == 3) {
+        SetFrame(super, AF_FTILE_BREAK);
+    } else if (super->action == 1 && super->timer > 112) {
+        SetFrame(super, super->timer > 120 ? AF_FTILE_TIP_0 : AF_FTILE_TIP_1);
+    } else {
+        SetFrame(super, AF_FTILE_0 + ((this->step >> 2) & 1));
+    }
+    AlttpEndTick(this);
+}
+
+static void FlyingTileOnCollision(AlttpEnemy* this);
+static void FlyingTileOnDeath(AlttpEnemy* this) {
+    if (super->type == 0) {
+        DeleteThisEntity();
+    }
+    CreateFx(super, FX_ROCK_SMALL, 0);
+    EnqueueSFX(SFX_PLACE_OBJ);
+    DeleteThisEntity();
+}
+
+static void (*const FlyingTile_Functions[])(AlttpEnemy*) = {
+    FlyingTileTick, FlyingTileOnCollision, (void (*)(AlttpEnemy*))GenericKnockback,
+    FlyingTileOnDeath, (void (*)(AlttpEnemy*))GenericConfused, AlttpGrabbed,
+};
+
+static void FlyingTileOnCollision(AlttpEnemy* this) {
+    // whatever it meets, it breaks on
+    super->knockbackDuration = 0;
+    if (super->action == 2) {
+        FlyingTileBreak(this);
+    }
+    EnemyFunctionHandlerAfterCollision(super, (void (*const*)())FlyingTile_Functions);
+}
+
+void FlyingTile(AlttpEnemy* this) {
+    if (super->type == 0) {
+        FlyingTileTick(this);
+        return;
+    }
+    EnemyFunctionHandler(super, (EntityActionArray)FlyingTile_Functions);
+}
+
+/* ---- Sparks (sprites 0x5B and 0x5C) --------------------------------------------------
+ * A crackling ball that runs along the walls: type 0 (0x5B) keeps the wall on its left
+ * and goes round a room clockwise, type 1 (0x5C) the other way. It finds its wall
+ * where it starts (or the first one it meets), turns along it at inner corners, and
+ * round outer ones once it is past them. It spins and flickers as it goes, shocks
+ * Link on touch and turns his sword; the Boomerang or the Hookshot puts it out (and
+ * it leaves a fairy, as Minish Cap's Sparks do). It never holds doors shut.
+ * Fields: face its way (0 right, 1 left, 2 down, 3 up), turns the frames before it may
+ * round an outer corner, pose the frames to go before it does, idx 1 once it has a wall.
+ */
+static bool32 SparkWall(AlttpEnemy* this, u32 face, s32 reach) {
+    return WallAt(super, sFaceX[face] * reach, sFaceY[face] * reach);
+}
+
+void AlttpSpark(AlttpEnemy* this) {
+    // the side its wall is on, and the way it turns round an inner corner, by facing:
+    // to the left (clockwise) or right (counterclockwise)
+    static const u8 leftOf[4] = { 3, 2, 0, 1 };
+    static const u8 rightOf[4] = { 2, 3, 1, 0 };
+    const u8* wallSide = super->type ? rightOf : leftOf;
+    const u8* away = super->type ? leftOf : rightOf;
+    u32 i;
+    if (super->action == 0) {
+        AlttpInit(this, AP_SPARK, AF_SPARK_0);
+        super->spriteSettings.shadow = 0;
+        // started on a pit's edge or in a wall, the room gave it the upper layer: it runs
+        // on the floor Link stands on
+        super->collisionLayer = gPlayerEntity.base.collisionLayer;
+        super->spritePriority.b0 = 2;
+        this->idx = 0;
+        this->face = super->type ? 2 : 3;
+        // set into a wall's edge in A Link to the Past (its walls are finer than the
+        // blend's): out onto the nearest floor
+        if (WallAt(super, 0, 0)) {
+            s32 r;
+            for (r = 8; r <= 32 && WallAt(super, 0, 0); r += 8) {
+                for (i = 0; i < 4; i++) {
+                    if (!WallAt(super, sFaceX[i] * r, sFaceY[i] * r)) {
+                        super->x.HALF.HI += sFaceX[i] * r;
+                        super->y.HALF.HI += sFaceY[i] * r;
+                        break;
+                    }
+                }
+            }
+        }
+        // a wall beside it: run along it (zelda3 tests its four sides)
+        for (i = 0; i < 4; i++) {
+            if (SparkWall(this, wallSide[i], 9)) {
+                this->face = i;
+                this->idx = 1;
+                break;
+            }
+        }
+        this->turns = 0;
+        this->pose = 0;
+    }
+    super->health = 0;
+    super->knockbackDuration = 0;
+    this->step++;
+    if (super->action == 2) {
+        // put out
+        COLLISION_OFF(super);
+        SetFrame(super, AF_SPARK_FIZZLE);
+        if (--super->timer == 0) {
+            Entity* fairy = CreateObjectWithParent(super, GROUND_ITEM, 0x60, 0);
+            if (fairy != NULL) {
+                fairy->y.HALF.HI -= 4;
+            }
+            CreateFx(super, FX_DEATH, 0);
+            DeleteThisEntity();
+        }
+        return;
+    }
+    if (PlayerItemNear(super, PLAYER_ITEM_BOOMERANG, 12) || PlayerItemNear(super, 0xff, 12)) {
+        super->action = 2;
+        super->timer = 12;
+        EnqueueSFX(SFX_EVAPORATE);
+        return;
+    }
+    // zelda3's speed 16: a pixel a frame
+    for (i = 0; i < 1; i++) {
+        if (this->pose) {
+            // past an outer corner: round it
+            if (--this->pose == 0) {
+                this->face = wallSide[this->face];
+                this->turns = 12;
+            }
+        } else if (this->idx && !this->turns && !SparkWall(this, wallSide[this->face], 9)) {
+            this->pose = 8;
+        }
+        if (this->turns) {
+            this->turns--;
+        }
+        if (SparkWall(this, this->face, 9)) {
+            // an inner corner (or the first wall it meets): turn away along it
+            this->face = away[this->face];
+            this->idx = 1;
+            this->pose = 0;
+            if (SparkWall(this, this->face, 9)) {
+                this->face ^= 1; // a dead end
+            }
+            continue;
+        }
+        super->x.HALF.HI += sFaceX[this->face];
+        super->y.HALF.HI += sFaceY[this->face];
+    }
+    SetFrame(super, AF_SPARK_0 + ((this->step & 1) << 2) + ((this->step >> 2) & 3));
 }

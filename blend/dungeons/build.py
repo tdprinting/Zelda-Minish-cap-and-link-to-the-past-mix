@@ -95,6 +95,7 @@ BLIND, KHOLDSTARE, VITREOUS, TRINEXX = 0x92, 0x93, 0x95, 0x97
 FREEZOR, PENGATOR, STALFOS_KNIGHT, WIZZROBE, LASER_EYE, CHAIN_CHOMP = 0x9b, 0x9c, 0x9d, 0x9e, 0x9f, 0xa0
 ZAZAK, GIBO, FIRE_BAR, STALFOS_HEAD = 0xa1, 0xa2, 0xa3, 0xa4
 AGAHNIM, GANON = 0xa5, 0xa7
+ALTTP_SOLDIER, WALL_CANNON, FLYING_TILE, ALTTP_SPARK = 0xa9, 0xaa, 0xab, 0xac
 ENEMIES = {
     'A7-Stalfos': ALTTP_STALFOS,
     '105-StalfosDrop': (ALTTP_STALFOS, 1),    # waits in the ceiling and drops on Link
@@ -165,6 +166,17 @@ ENEMIES = {
     '7B-OneShotMagicBal': None,                 # he casts his own balls
     # Ganon, in the Pyramid of Power (room 0x00): his trident, bats and torches are his own
     'D6-Ganon': GANON,
+    # Ganon's Tower's soldiers (the Dark World's pig-faced ones, from the room's sprite set)
+    '41-BlueSoldier': (ALTTP_SOLDIER, 0),       # the sword soldier
+    '43-RedSpearSoldier': (ALTTP_SOLDIER, 1),   # the spearman, who thrusts
+    # wall cannons, by the way they fire; they bring their own cannonballs
+    '66-Cannon(Right)': (WALL_CANNON, 0),
+    '67-Cannon(Left)': (WALL_CANNON, 1),
+    '68-Cannon(Down)': (WALL_CANNON, 2),
+    '69-Cannon(Up)': (WALL_CANNON, 3),
+    '114-FloorTiles': FLYING_TILE,              # the tile room: it lifts the tiles itself
+    '5B-WallBubble(L-R)': (ALTTP_SPARK, 0),     # zelda3's name for the Sparks: clockwise
+    '5C-WallBubble(R-L)': (ALTTP_SPARK, 1),     # and the other way round
 }
 # enemies that live in the walls (statues) or on the water, not on the floor
 ENEMY_CELLS = {
@@ -172,6 +184,9 @@ ENEMY_CELLS = {
     '81-WaterBug': ('~',), '9A-Splash': ('~',), '8C-Arrghus': ('~',),
     '95-EyeLaser(Right)': None, '96-EyeLaser(Left)': None, '97-EyeLaser(Down)': None,
     '98-EyeLaser(Up)': None, 'A1-IceMan': None,
+    '66-Cannon(Right)': None, '67-Cannon(Left)': None, '68-Cannon(Down)': None, '69-Cannon(Up)': None,
+    '114-FloorTiles': None,
+    '5B-WallBubble(L-R)': None, '5C-WallBubble(R-L)': None,   # Sparks start against (or in) a wall
 }
 
 # Thieves' Town, the Ice Palace, Misery Mire, Turtle Rock and Ganon's Tower: until their own enemies
@@ -196,9 +211,6 @@ STAND_INS = {
     'A2-KholdStare': (MC_DARK_NUT, 2),
     'BD-Viterous': (MC_DARK_NUT, 2),
     'CB-TriNexx1': (MC_DARK_NUT, 2),
-    # Ganon's Tower's soldiers: a Darknut for the sword soldier, a Moblin for the spearmen
-    '41-BlueSoldier': MC_DARK_NUT,
-    '43-RedSpearSoldier': ALTTP_MOBLIN,
 }
 
 DOOR_SMALL_KEY = 0x1c

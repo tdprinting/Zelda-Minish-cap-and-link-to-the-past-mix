@@ -72,6 +72,9 @@ extern const EnemyDefinition gEnemyDefinition_AgahnimBall[];
 extern const Hitbox gHitbox_Ganon;
 extern const Hitbox gHitbox_GanonBat;
 extern const EnemyDefinition gEnemyDefinition_GanonPart[];
+extern const EnemyDefinition gEnemyDefinition_AlttpSoldier[];
+extern const EnemyDefinition gEnemyDefinition_WallCannon[];
+extern const EnemyDefinition gEnemyDefinition_FlyingTile[];
 #include "../custom/gen/alttp_enemies.h"
 /** Swapped gfx: the enemy's frames are copied into this many 16-tile slots as it animates. */
 #define ALTTP_GFX(slots) (0x4000 | ((slots) << 4))
@@ -286,6 +289,11 @@ const EnemyDefinition gEnemyDefinitions[] = {
     // Ganon, and his trident, fire bats, flames and torches: sprite 337
     { ALTTP_GFX(AS_GANON), 0, { &gHitbox_Ganon }, ALTTP_ENEMY_SPRITE_10, { 1, 1, 1, 2 }, 255, 0, 100, 139 },
     MULTI_FORM(gEnemyDefinition_GanonPart),
+    // Ganon's Tower's soldiers, wall cannons, flying floor tiles and Sparks: sprite 340
+    MULTI_FORM(gEnemyDefinition_AlttpSoldier),
+    MULTI_FORM(gEnemyDefinition_WallCannon),
+    MULTI_FORM(gEnemyDefinition_FlyingTile),
+    { ALTTP_GFX(AS_SPARK), 0, { &gHitbox_AlttpCentered }, ALTTP_ENEMY_SPRITE_11, { 1, 1, 1, 0 }, 255, 0, 72, 139 },
 };
 
 /** The bosses' parts, by type: the Helmasaur King's lower body, a leg, its face, a
@@ -375,6 +383,28 @@ const EnemyDefinition gEnemyDefinition_GanonPart[] = {
     { ALTTP_GFX(AS_GTORCH), 0, { &gHitbox_0 }, ALTTP_ENEMY_SPRITE_10, { 4, 0, 1, 0 }, 0, 0, 72, 139 },
     { ALTTP_GFX(AS_GFLAME), 0, { &gHitbox_0 }, ALTTP_ENEMY_SPRITE_10, { 1, 0, 1, 0 }, 0, 0, 72, 139 },
     { ALTTP_GFX(AS_GANON), 0, { &gHitbox_0 }, ALTTP_ENEMY_SPRITE_10, { 1, 0, 1, 0 }, 0, 0, 72, 139 },
+};
+
+/** Soldiers: type 0 the blue sword soldier, 1 the red spearman. */
+const EnemyDefinition gEnemyDefinition_AlttpSoldier[] = {
+    { ALTTP_GFX(AS_SOLDIER), 0, { &gHitbox_AlttpTall }, ALTTP_ENEMY_SPRITE_11, { 1, 1, 1, 1 }, 4, 0, 100, 139 },
+    { ALTTP_GFX(AS_SPEARMAN), 0, { &gHitbox_AlttpTall }, ALTTP_ENEMY_SPRITE_11, { 1, 1, 1, 1 }, 6, 0, 100, 139 },
+};
+
+/** Wall cannons, by the way they fire (types 0 right, 1 left, 2 down, 3 up), and
+ * (type 4) a cannonball. The cannons sit in the wall and can't be touched. */
+const EnemyDefinition gEnemyDefinition_WallCannon[] = {
+    { ALTTP_GFX(AS_CANNON), 0, { &gHitbox_0 }, ALTTP_ENEMY_SPRITE_11, { 1, 0, 1, 0 }, 0, 0, 72, 139 },
+    { ALTTP_GFX(AS_CANNON), 0, { &gHitbox_0 }, ALTTP_ENEMY_SPRITE_11, { 1, 0, 1, 0 }, 0, 0, 72, 139 },
+    { ALTTP_GFX(AS_CANNON), 0, { &gHitbox_0 }, ALTTP_ENEMY_SPRITE_11, { 1, 0, 1, 0 }, 0, 0, 72, 139 },
+    { ALTTP_GFX(AS_CANNON), 0, { &gHitbox_0 }, ALTTP_ENEMY_SPRITE_11, { 1, 0, 1, 0 }, 0, 0, 72, 139 },
+    { ALTTP_GFX(AS_CANNONBALL), 0, { &gHitbox_AlttpCentered }, ALTTP_ENEMY_SPRITE_11, { 1, 1, 1, 1 }, 0, 0, 72, 139 },
+};
+
+/** Flying floor tiles: type 0 the room's (invisible) tile spawner, 1 a tile. */
+const EnemyDefinition gEnemyDefinition_FlyingTile[] = {
+    { ALTTP_GFX(AS_FTILE), 0, { &gHitbox_0 }, ALTTP_ENEMY_SPRITE_11, { 1, 0, 0, 0 }, 0, 0, 72, 139 },
+    { ALTTP_GFX(AS_FTILE), 0, { &gHitbox_AlttpCentered }, ALTTP_ENEMY_SPRITE_11, { 1, 1, 1, 1 }, 1, 0, 25, 139 },
 };
 
 const EnemyDefinition gEnemyDefinition_AlttpEyegore[] = {
@@ -806,5 +836,9 @@ void (*const gEnemyFunctions[])(Entity* ent) = {
     [AGAHNIM_BALL] = AgahnimBall,
     [GANON] = Ganon,
     [GANON_PART] = GanonPart,
+    [ALTTP_SOLDIER] = AlttpSoldier,
+    [WALL_CANNON] = WallCannon,
+    [FLYING_TILE] = FlyingTile,
+    [ALTTP_SPARK] = AlttpSpark,
 };
 // clang-format on

@@ -1709,5 +1709,23 @@ gMoreSpritePtrs:: @ 08003DD4
 	.4byte gSprite_AlttpEnemies10
 	.4byte 00000000
 
+	@ 338: kept for the co-op branch's Revive Fairy (empty here)
+	.4byte 00000000
+	.4byte 00000000
+	.4byte 00000000
+	.4byte 00000000
+
+	@ 339: kept for the co-op branch's Twin Stone and Toss Bell (empty here)
+	.4byte 00000000
+	.4byte 00000000
+	.4byte 00000000
+	.4byte 00000000
+
+	@ 340: Ganon's Tower's soldiers, wall cannons, flying floor tiles and Sparks
+	.4byte gSpriteAnimations_AlttpEnemies11
+	.4byte gSpriteFrames_AlttpEnemies11
+	.4byte gSprite_AlttpEnemies11
+	.4byte 00000000
+
 gUnk_08003E44:: @ 08003E44
 	.incbin "data_080029B4/gUnk_08003E44.bin"
