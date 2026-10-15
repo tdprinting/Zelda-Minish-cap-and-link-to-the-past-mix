@@ -225,6 +225,25 @@ enum {
     /*0x8f*/ ZOL,
     /*0x90*/ FIRESNAKE,
     /*0x91*/ ALTTP_SHOOTER,
+    /*0x92*/ BLIND,
+    /*0x93*/ KHOLDSTARE,
+    /*0x94*/ KHOLDSTARE_SHELL,
+    /*0x95*/ VITREOUS,
+    /*0x96*/ VITREOUS_EYE,
+    /*0x97*/ TRINEXX,
+    /*0x98*/ TRINEXX_HEAD,
+    /*0x99*/ BOSS_PIECE,
+    /*0x9a*/ ALTTP_BOLT,
+    /*0x9b*/ FREEZOR,
+    /*0x9c*/ PENGATOR,
+    /*0x9d*/ STALFOS_KNIGHT,
+    /*0x9e*/ WIZZROBE,
+    /*0x9f*/ LASER_EYE,
+    /*0xa0*/ CHAIN_CHOMP,
+    /*0xa1*/ ZAZAK,
+    /*0xa2*/ GIBO,
+    /*0xa3*/ FIRE_BAR,
+    /*0xa4*/ STALFOS_HEAD,
 };
 
 void Octorok();
@@ -372,6 +391,25 @@ void Kyameron();
 void Zol();
 void Firesnake();
 void AlttpShooter();
+void Blind();
+void Kholdstare();
+void KholdstareShell();
+void Vitreous();
+void VitreousEye();
+void Trinexx();
+void TrinexxHead();
+void BossPiece();
+void AlttpBolt();
+void Freezor();
+void Pengator();
+void StalfosKnight();
+void Wizzrobe();
+void LaserEye();
+void ChainChomp();
+void Zazak();
+void Gibo();
+void FireBar();
+void StalfosHead();
 
 extern void (*const gUnk_080012C8[])(Entity*);
 

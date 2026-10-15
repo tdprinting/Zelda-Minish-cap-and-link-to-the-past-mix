@@ -40,7 +40,11 @@ SPRITE_INDEX_2 = 329  # the Desert Palace, Tower of Hera and Hinox set (a new gS
 SPRITE_INDEX_3 = 330  # Debirandos, Kodongos, mini Moldorms, the crystal switch, shared fireballs
 SPRITE_INDEX_4 = 331  # the Dark World dungeons' enemies
 SPRITE_INDEX_5 = 332  # the Dark World dungeons' bosses
-SUFFIXES = {SPRITE_INDEX: '', SPRITE_INDEX_2: '2', SPRITE_INDEX_3: '3', SPRITE_INDEX_4: '4', SPRITE_INDEX_5: '5'}
+SPRITE_INDEX_6 = 333  # Thieves' Town, Ice Palace, Misery Mire and Turtle Rock enemies
+SPRITE_INDEX_7 = 334  # Blind and Kholdstare
+SPRITE_INDEX_8 = 335  # Vitreous and Trinexx
+SUFFIXES = {SPRITE_INDEX: '', SPRITE_INDEX_2: '2', SPRITE_INDEX_3: '3', SPRITE_INDEX_4: '4', SPRITE_INDEX_5: '5',
+            SPRITE_INDEX_6: '6', SPRITE_INDEX_7: '7', SPRITE_INDEX_8: '8'}
 DUNGEON_PALSET = 11  # the Eastern Palace's sprite colors
 
 # ---------------------------------------------------------------------------
@@ -157,7 +161,7 @@ def compose(sheets, pieces, origin):
                     continue
                 dx = size - 1 - px if flags & 0x40 else px
                 dy = size - 1 - py if flags & 0x80 else py
-                pix[(x + dx - origin[0], y + dy - origin[1])] = v + add
+                pix[(x + dx - origin[0], y + dy - origin[1])] = v + add if v < 8 else v
     return pix
 
 
@@ -406,6 +410,7 @@ PREVIEW_PALETTES = {'LMDIRT': 'LANMOLA_DIRT', 'BEAMLASER': 'BEAMOS_LASER', 'MOLD
 # the enemies
 
 PALETTES = []      # (name, 16 RGB colors)
+EXTRA_DEFINES = []  # more lines for alttp_enemies.h (tables the C code reads)
 SPRITES = {n: [] for n in SUFFIXES}   # sprite slot -> its frames
 FRAMES = SPRITES[SPRITE_INDEX]
 
@@ -816,6 +821,8 @@ def build_frames_3():
 
     build_frames_4()
     build_frames_5()
+    import alttp_enemies_late
+    alttp_enemies_late.build(globals())
 
 
 # ---------------------------------------------------------------------------
@@ -1084,6 +1091,7 @@ def write_sprite(index, frames, suffix):
             gfx += b''.join(ts)
             ntiles += len(ts)
         assert ntiles <= 64, f.name
+        assert max(f.pix.values()) < 16, f.name
         max_tiles = max(max_tiles, ntiles)
         f.ntiles = ntiles
         frames_asm.append('\tsprite_frame first_tile_index=0x%x, num_tiles=%d @ %s' % (first, ntiles, f.name))
@@ -1130,7 +1138,11 @@ def write(preview=None):
          '#define ALTTP_ENEMY_SPRITE_2 %d' % SPRITE_INDEX_2,
          '#define ALTTP_ENEMY_SPRITE_3 %d' % SPRITE_INDEX_3,
          '#define ALTTP_ENEMY_SPRITE_4 %d' % SPRITE_INDEX_4,
-         '#define ALTTP_ENEMY_SPRITE_5 %d' % SPRITE_INDEX_5]
+         '#define ALTTP_ENEMY_SPRITE_5 %d' % SPRITE_INDEX_5,
+         '#define ALTTP_ENEMY_SPRITE_6 %d' % SPRITE_INDEX_6,
+         '#define ALTTP_ENEMY_SPRITE_7 %d' % SPRITE_INDEX_7,
+         '#define ALTTP_ENEMY_SPRITE_8 %d' % SPRITE_INDEX_8]
+    h += EXTRA_DEFINES
     slots = {}
     for index, frames in SPRITES.items():
         h.append('/* sprite %d */' % index)
