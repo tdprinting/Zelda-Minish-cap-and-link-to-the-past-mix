@@ -76,7 +76,10 @@ typedef struct {
     /*0x022*/ u8 blendDungeonKeys[4];        /**< blend: keys of dungeons 16 and up (Misery Mire, Turtle Rock, Ganon's Tower) */
     /*0x026*/ u8 blendDungeonItems[4];       /**< blend: their dungeon items, as dungeonItems */
     /*0x02A*/ u8 blendDungeonWarps[4];       /**< blend: their warps, as dungeonWarps */
-    /*0x02E*/ u8 filler2E[18];               /**< unused filler */
+    /*0x02E*/ u8 blendDungeonKeys2[4];       /**< blend: keys of dungeons 20 and up (the Pyramid of Power) */
+    /*0x032*/ u8 blendDungeonItems2[4];      /**< blend: their dungeon items */
+    /*0x036*/ u8 blendDungeonWarps2[4];      /**< blend: their warps */
+    /*0x03A*/ u8 filler3A[6];                /**< unused filler */
     /*0x040*/ u32 windcrests;                /**< upper 8 bit Windcrest flags @see WindcrestID
                                               * lower bits used for other things */
     /*0x044*/ u8 filler44[12];               /**< unused filler */
@@ -114,11 +117,15 @@ extern SaveFile gSave;
 
 /*
  * A dungeon's keys, items and warps. The save holds 16 of each; the blend's later
- * A Link to the Past dungeons (dungeon numbers 16 and up) keep theirs in spare bytes.
+ * A Link to the Past dungeons (dungeon numbers 16 and up) keep theirs in spare bytes
+ * (16-19 in one run, 20-23 in the next).
  */
-#define DUNGEON_KEYS(i) (*((i) < 0x10 ? &gSave.dungeonKeys[i] : &gSave.blendDungeonKeys[(i)-0x10]))
-#define DUNGEON_ITEMS(i) (*((i) < 0x10 ? &gSave.dungeonItems[i] : &gSave.blendDungeonItems[(i)-0x10]))
-#define DUNGEON_WARPS(i) (*((i) < 0x10 ? &gSave.dungeonWarps[i] : &gSave.blendDungeonWarps[(i)-0x10]))
+#define DUNGEON_KEYS(i) \
+    (*((i) < 0x10 ? &gSave.dungeonKeys[i] : (i) < 0x14 ? &gSave.blendDungeonKeys[(i)-0x10] : &gSave.blendDungeonKeys2[(i)-0x14]))
+#define DUNGEON_ITEMS(i) \
+    (*((i) < 0x10 ? &gSave.dungeonItems[i] : (i) < 0x14 ? &gSave.blendDungeonItems[(i)-0x10] : &gSave.blendDungeonItems2[(i)-0x14]))
+#define DUNGEON_WARPS(i) \
+    (*((i) < 0x10 ? &gSave.dungeonWarps[i] : (i) < 0x14 ? &gSave.blendDungeonWarps[(i)-0x10] : &gSave.blendDungeonWarps2[(i)-0x14]))
 
 /**
  * Initialize the save system.

@@ -13,7 +13,8 @@
 #                      Keep it: Android only installs an update over the old APK when
 #                      both are signed with the same key, and uninstalling deletes the saves.
 #   KEYSTORE_PASS      its password (default picoriseal)
-#   VERSION_NAME, VERSION_CODE   app version (VERSION_CODE must go up with each release)
+#   VERSION_NAME, VERSION_CODE   app version (default blend/VERSION; VERSION_CODE must go
+#                                up with each release, e.g. 110 for 1.1, 120 for 1.2)
 #
 # The APK holds the game, which is built from your own ROM: keep it private.
 set -e
@@ -27,7 +28,7 @@ NDK=${ANDROID_NDK_HOME:?set ANDROID_NDK_HOME}
 SDK=${ANDROID_HOME:?set ANDROID_HOME}
 KEYSTORE=${KEYSTORE:-$HOME/.android/picori-seal.keystore}
 KEYSTORE_PASS=${KEYSTORE_PASS:-picoriseal}
-VERSION_NAME=${VERSION_NAME:-1.0}
+VERSION_NAME=${VERSION_NAME:-$(cat "$HERE/../VERSION")}
 VERSION_CODE=${VERSION_CODE:-1}
 ABI=arm64-v8a
 API=26
@@ -59,7 +60,8 @@ fi
 echo "== host (libmain.so)"
 LIB=$BUILD/apk/lib/$ABI
 rm -rf "$BUILD/apk" && mkdir -p "$LIB" "$BUILD/assets"
-"$CC" -O2 -Wall -fPIC -shared -o "$LIB/libmain.so" "$HOST/coop.c" "$HOST/android.c" \
+"$CC" -O2 -Wall -fPIC -shared -o "$LIB/libmain.so" "$HOST/coop.c" "$HOST/android.c" "$HOST/updater.c" \
+	-DPICORI_VERSION="\"$VERSION_NAME\"" \
 	-I"$SDL/include" -I"$BUILD/sdl/include-config-release/SDL2" -I"$MGBA/include" -I"$BUILD/mgba/include" \
 	-DMGBA_STANDALONE "$BUILD/mgba/libmgba.a" -L"$BUILD/sdl" -lSDL2 -llog -landroid -lm \
 	-Wl,-z,max-page-size=16384 -Wl,--no-undefined
