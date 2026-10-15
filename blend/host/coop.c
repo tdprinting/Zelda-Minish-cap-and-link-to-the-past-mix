@@ -34,6 +34,7 @@
 #include <mgba/core/core.h>
 #include <mgba/core/blip_buf.h>
 #include <mgba/core/log.h>
+#include <mgba/core/serialize.h>
 #include <mgba-util/vfs.h>
 
 #include <SDL.h>
@@ -1263,6 +1264,21 @@ static void runScript(const char* path) {
 		}
 		if (sscanf(line, "save %63s", keys) == 1) {
 			saveStates(keys);
+			continue;
+		}
+		// "load WHO FILE" (WHO 1, 2 or b): a one-game state made by blend/harness, as the
+		// Temple of Bonds thread's scripts use it
+		if (sscanf(line, "load %7s %63s", who, keys) == 2 && who[1] == 0 &&
+		    (who[0] == '1' || who[0] == '2' || who[0] == 'b')) {
+			for (int i = 0; i < players; i++)
+				if (who[0] == 'b' || who[0] - '1' == i) {
+					struct VFile* vf = VFileOpen(keys, O_RDONLY);
+					if (vf) {
+						mCoreLoadStateNamed(p[i].core, vf, SAVESTATE_ALL);
+						vf->close(vf);
+					} else
+						fprintf(stderr, "could not load %s\n", keys);
+				}
 			continue;
 		}
 		if (sscanf(line, "load %63s", keys) == 1) {

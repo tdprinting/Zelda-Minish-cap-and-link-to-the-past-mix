@@ -25,6 +25,7 @@ const Transition gWallMasterToIcePalace = { WARP_TYPE_AREA, 0, 0, ENTRY_IcePalac
 const Transition gWallMasterToMiseryMire = { WARP_TYPE_AREA, 0, 0, ENTRY_MiseryMire, 0, AREA_NULL_3B, 0, 1, 2, 0, 0 };
 const Transition gWallMasterToTurtleRock = { WARP_TYPE_AREA, 0, 0, ENTRY_TurtleRock, 0, AREA_NULL_3C, 0, 1, 2, 0, 0 };
 const Transition gWallMasterToGanonsTower = { WARP_TYPE_AREA, 0, 0, ENTRY_GanonsTower, 0, AREA_NULL_3D, 0, 1, 2, 0, 0 };
+const Transition gWallMasterToTempleOfBonds = { WARP_TYPE_AREA, 0, 0, ENTRY_TempleOfBonds, 0, AREA_NULL_3F, 0, 1, 2, 0, 0 };
 const Transition gWallMasterToPyramid = { WARP_TYPE_AREA, 0, 0, ENTRY_Pyramid, 0, AREA_NULL_3E, 0, 1, 2, 0, 0 };
 
 const Transition* const gWallMasterScreenTransitions[] = {
@@ -33,7 +34,7 @@ const Transition* const gWallMasterScreenTransitions[] = {
     &gUnk_0813AAF4, // A Link to the Past dungeons have no Wallmasters
     &gWallMasterToPalaceOfDarkness, &gWallMasterToSwampPalace, &gWallMasterToSkullWoods, &gWallMasterToThievesTown,
     &gWallMasterToIcePalace, &gWallMasterToMiseryMire, &gWallMasterToTurtleRock,
-    &gWallMasterToGanonsTower, &gWallMasterToPyramid, // (42, the co-op dungeon, holds the Pyramid's for now)
+    &gWallMasterToGanonsTower, &gWallMasterToTempleOfBonds,
     &gWallMasterToPyramid,
 };
 

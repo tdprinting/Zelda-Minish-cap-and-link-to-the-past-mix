@@ -251,6 +251,8 @@ class Blend:
             looks = [self.paint(plan, gfx, pegs, 0),
                      self.paint(plan, alttpgfx.swapped_pegs(alttpgfx.RoomGfx(plan.id)), pegs, 1)]
         img, empty = looks[0]
+        # (kept for whoever draws more on the room: the Temple of Bonds's co-op devices)
+        self.last_look = looks[0]
         solid = [self.raised_cells(pegs, s) for s in range(len(looks))]
         new_b, new_t = [], []
         swaps = []
@@ -289,6 +291,19 @@ class Blend:
         `state` draw the crystal switches and their pegs, the pegs of one color raised."""
         alttp = plan.room.cells
         img, empty = self.compose(gfx)
+        # a room whose pegs stay flat shows them all lowered, as flush squares in the floor
+        # (the blue ones are dumped raised): Link sees why he can walk there, and a row of
+        # blocks joined by pegs (Turtle Rock's 0xC4) still reads as a fence with its gates down
+        # (only where calm.FLAT_PEG_LOOK says: elsewhere they are laid over as the floor)
+        self._flat_pegs = pegs is None and plan.id in calm.FLAT_PEG_LOOK and \
+            self.name not in calm.KEEP_AS_IS and any(a in PEG_ATTRS for a in plan.room.attr)
+        if self._flat_pegs:
+            low, low_empty = self.compose(alttpgfx.swapped_pegs(alttpgfx.RoomGfx(plan.id)))
+            for t in range(4096):
+                if plan.room.attr[t] == PEG_RAISED[0]:
+                    s = (slice(t // 64 * 8, t // 64 * 8 + 8), slice(t % 64 * 8, t % 64 * 8 + 8))
+                    img[s] = low[s]
+                    empty[s] = low_empty[s]
         if plan.id in A.BARE_FLOOR_ROOMS:
             # floor A Link to the Past draws pure black (Ganon's Tower's invisible floor) is
             # bare floor, laid in slate like a drained basin below
@@ -298,6 +313,9 @@ class Blend:
                     tile = (slice(t // 64 * 8, t // 64 * 8 + 8), slice(t % 64 * 8, t % 64 * 8 + 8))
                     if black[tile].all():
                         empty[tile] = True
+        calm.sealed_stair_art(plan, img, empty)
+        # the slanted walls round a great pit, calmed (see calm.flat_perspective)
+        persp = calm.flat_perspective(plan, gfx, img, empty, self.name)
         drawn = img.copy()
         stoned = self.restone(gfx, plan, img, empty)
         self.center_doorways(plan, (img, empty, stoned))
@@ -332,6 +350,8 @@ class Blend:
             img[dst] = VOID
             empty[dst] = False
             stoned[dst] = False
+        # and the floor beyond a room's walls on its other layer
+        calm.beyond_walls(plan, img, empty, stoned, self.name)
         # the scraps of that space left in the tiles of a diagonal wall
         calm.void_fringe(plan, drawn, self._void_fill, img, empty, stoned, self.name)
         # and the pits under Turtle Rock's tracks drawn plain
@@ -364,6 +384,8 @@ class Blend:
                 empty[tile] = False
                 stoned[tile] = True
 
+        calm.spike_edges(plan, img, empty, stoned, self.name)
+
         # where the plan opens a way through A Link to the Past's art, draw the nearest floor
         floor = [(i % 32, i // 32) for i in range(1024) if alttp[i] == A.FLOOR and plan.cells[i] == A.FLOOR
                  and stoned[(i // 32) * 16:(i // 32) * 16 + 16, (i % 32) * 16:(i % 32) * 16 + 16].all()
@@ -392,6 +414,14 @@ class Blend:
         # crystal switch pegs, which only the rooms with working switches keep: elsewhere
         # they are the plain floor Link walks over
         peg_cells = {(t // 64 // 2) * 32 + (t % 64) // 2 for t in range(4096) if plan.room.attr[t] in PEG_ATTRS}
+        lower_pegs = set()
+        if self.name not in calm.KEEP_AS_IS:
+            # and pegs on the other layer, under a floor Link walks on (Ganon's Tower's 0x5B):
+            # they stay flat even where the room's switches work
+            lower_pegs = {(t // 64 // 2) * 32 + (t % 64) // 2 for t in range(4096)
+                          if plan.room.lower[t] in PEG_ATTRS and A.attr_class(plan.room.attr[t]) == A.FLOOR and
+                          plan.cells[(t // 64 // 2) * 32 + (t % 64) // 2] in PASSABLE}
+            floor = [f for f in floor if f[1] * 32 + f[0] not in lower_pegs] or floor
         # the mat an A Link to the Past chest stands on (a framed square of other tiles):
         # its chest is a Minish Cap one on the 16px grid now, so the mat would be left
         # around nothing, half a cell off; the floor runs on under the chest instead
@@ -406,14 +436,25 @@ class Blend:
         for i in range(1024):
             cell = img[(i // 32) * 16:(i // 32) * 16 + 16, (i % 32) * 16:(i % 32) * 16 + 16]
             dark = np.all(cell == VOID, axis=-1).mean() > 0.5
-            if i in keep:
+            if i in keep or (i % 32, i // 32) in calm.KEEP_ART.get(plan.id, ()):
                 continue
-            on_peg = i in peg_cells and pegs is None
+            on_peg = (i in peg_cells and pegs is None and not self._flat_pegs) or i in lower_pegs
             mat = i in chest_mats and not stoned[(i // 32) * 16:(i // 32) * 16 + 16, (i % 32) * 16:(i % 32) * 16 + 16].mean() > 0.5
             if plan.cells[i] in PASSABLE and (alttp[i] in REDRAW_AS_FLOOR or dark or on_peg or mat or i in plan.room.tracks) and floor:
                 redraw.append(i)
         # (the floor each takes: the nearest, or the one it lies in, walking from it)
         source = calm.floor_sources(plan, redraw, floor, self.name)
+        for i in redraw:
+            if i in lower_pegs:
+                # (the next cell up or down the same column that holds no peg: a peg over the
+                # room's frame gives way to the frame)
+                cx, cy = i % 32, i // 32
+                for k in range(1, 4):
+                    near = [(cx, y) for y in (cy - k, cy + k) if 0 <= y < 32 and y * 32 + cx not in lower_pegs
+                            and plan.cells[y * 32 + cx] in PASSABLE]
+                    if near:
+                        source[i] = near[0]
+                        break
         for i in redraw:
             if True:
                 cx, cy = i % 32, i // 32
@@ -490,6 +531,16 @@ class Blend:
         if switch_art.any():
             # the switch sprite has its own outline and highlights
             soft = switch_art if soft is None else soft | switch_art
+        if persp.any():
+            soft = persp if soft is None else soft | persp
+        if self._flat_pegs:
+            # the lowered pegs, flush with the floor: soft, without outlines of their own
+            flat = np.isin(np.frombuffer(bytes(plan.room.attr), dtype=np.uint8), PEG_ATTRS).reshape(64, 64)
+            flat = flat.repeat(8, axis=0).repeat(8, axis=1) & ~empty & walk
+            if flat.any():
+                mean = img[flat].mean(axis=0)
+                img[flat] = celshade.snap(mean + (img[flat] - mean) * 0.6)
+                soft = flat if soft is None else soft | flat
         img = celshade.shade(img, empty, receive, cast, soft)
         return img, empty
 
@@ -678,7 +729,7 @@ class Blend:
             near[:, 1:] |= passable[:, :-1]
             near[:, :-1] |= passable[:, 1:]
             floor |= ~near.repeat(2, axis=0).repeat(2, axis=1)
-        if plan.id in self.switch_rooms:
+        if plan.id in self.switch_rooms or getattr(self, '_flat_pegs', False):
             # rows of crystal switch pegs repeat like a floor pattern too
             floor &= ~np.isin(np.frombuffer(bytes(plan.room.attr), dtype=np.uint8), PEG_ATTRS).reshape(64, 64)
         if plan.id in A.SPIKE_RING_ROOMS:
@@ -761,7 +812,7 @@ class Blend:
                         around = stoned[box] & ~gmask[box]
                         if around.sum() >= 64:
                             base = celshade.snap(np.median(img[box][around], axis=0))
-                    base = calm.slab_color(base, len(group))
+                    base = calm.slab_color(base, len(group), self.name)
                     stone = np.empty((512, 512, 3))
                     stone[:] = base
                     stone[((xx // 16 + yy // 16) % 2) == 1] = celshade.snap(base * 0.95)
@@ -772,6 +823,9 @@ class Blend:
                     self._slab_base[gmask] = base
         calm.flatten_conveyors(plan, img, empty, stoned, self._slab_base)
         calm.specks(plan, img, empty, stoned, self._slab_base, self.name)
+        calm.spike_beds(plan, img, empty, stoned, self._slab_base, self.name)
+        calm.one_floor(plan, gfx, img, empty, stoned, self._slab_base)
+        calm.cracks(plan, gfx, img, empty, stoned, self._slab_base)
         if plan.id in A.THIN_WALL_ROOMS:
             # around a maze, the pattern that fills the room's border is the space outside
             words = np.array(gfx.bg2).reshape(64, 64) & 0xffff
@@ -953,6 +1007,30 @@ class Blend:
 
     def write(self, out_dir):
         """Writes the binaries; returns maps.inc lines with the tileset and tile headers."""
+        lines, tiles = self.write_parts(out_dir)
+        name = self.name
+        files = {}
+        for k in ('tiles_bottom', 'tiles_top', 'types_bottom', 'types_top'):
+            files[k] = struct.pack('<%dH' % len(tiles[k]), *tiles[k])
+            open(os.path.join(out_dir, '%s_%s.bin' % (name, k)), 'wb').write(files[k])
+            lines.append('\t.align 2\ng%sTiles_%s::\n\t.incbin "custom/gen/%s_%s.bin"' % (name, k, name, k))
+        lab = lambda k: '(g%sTiles_%s - gMapData)' % (name, k)
+        lines += [
+            '\t.align 2',
+            'gAreaTileSets_%s::' % name,
+            '\t.4byte gAreaTileSet_%s_0' % name,
+            'gAreaTiles_%s::' % name,
+            '\ttiles_bottom %s, 0x%x, 0' % (lab('tiles_bottom'), len(tiles['tiles_bottom']) * 2),
+            '\ttiles_top %s, 0x%x, 0' % (lab('tiles_top'), len(tiles['tiles_top']) * 2),
+            '\ttile_types_bottom %s, 0x%x, 0' % (lab('types_bottom'), len(tiles['types_bottom']) * 2),
+            '\ttile_types_top %s, 0x%x, 0, 1' % (lab('types_top'), len(tiles['types_top']) * 2),
+        ]
+        return lines
+
+    def write_parts(self, out_dir):
+        """Writes the characters and palette; returns (maps.inc lines with the tileset that
+        loads them as gAreaTileSet_<name>_0, {tiles_bottom, tiles_top, types_bottom,
+        types_top: lists}) so that several tilesets can share one area's metatile tables."""
         name = self.name
         mc_count = len({e & 0x3ff for (key, _) in self.meta_b if key[0] == 'mc'
                         for e in self.mc_meta[key[1] * 4:key[1] * 4 + 4]})
@@ -1030,10 +1108,6 @@ class Blend:
         files = {
             'chars': chars,
             'pal': struct.pack('<%dH' % len(pal), *pal),
-            'tiles_bottom': struct.pack('<%dH' % len(tiles_b), *tiles_b),
-            'tiles_top': struct.pack('<%dH' % len(tiles_t), *tiles_t),
-            'types_bottom': struct.pack('<%dH' % len(types_b), *types_b),
-            'types_top': struct.pack('<%dH' % len(types_t), *types_t),
         }
         lines = []
         for k, data in files.items():
@@ -1047,17 +1121,10 @@ class Blend:
             '\ttileSet_palette_set 37',
             '\ttileSet_tiles %s, 0x6000000, 0x%x, 0' % (lab('chars'), len(chars)),
             '\tmap_data %s, gPaletteBuffer+0x%x, 0x%x, 0, 1' % (lab('pal'), GBA_ROWS[0] * 32, len(pal) * 2),
-            'gAreaTileSets_%s::' % name,
-            '\t.4byte gAreaTileSet_%s_0' % name,
-            'gAreaTiles_%s::' % name,
-            '\ttiles_bottom %s, 0x%x, 0' % (lab('tiles_bottom'), len(tiles_b) * 2),
-            '\ttiles_top %s, 0x%x, 0' % (lab('tiles_top'), len(tiles_t) * 2),
-            '\ttile_types_bottom %s, 0x%x, 0' % (lab('types_bottom'), len(types_b) * 2),
-            '\ttile_types_top %s, 0x%x, 0, 1' % (lab('types_top'), len(types_t) * 2),
         ]
         print('%s tileset: %d tiles drawn as %d characters, %d bottom metatiles, %d palette rows, %d colors merged' % (
             name, len(self.tiles), 1024 - len(free), len(meta_b), len(pals), len(merged)))
-        return lines
+        return lines, {'tiles_bottom': tiles_b, 'tiles_top': tiles_t, 'types_bottom': types_b, 'types_top': types_t}
 
 
 def peg_header(dungeons):

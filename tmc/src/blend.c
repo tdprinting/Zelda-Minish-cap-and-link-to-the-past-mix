@@ -1415,6 +1415,9 @@ static void OpenMedallionGate(u32 medallion) {
 /** Whether a way out of the current room is shut: a Dark World dungeon's, away from the Dark World. */
 bool32 Blend_IsTransitionClosed(const Transition* t) {
     const DarkDungeon* d;
+    if (Blend_ShrineClosed(t)) {
+        return TRUE;
+    }
     if (!(gArea.areaMetadata & AR_IS_OVERWORLD)) {
         return FALSE;
     }
@@ -1497,6 +1500,7 @@ static const BossRoom sBossRooms[] = {
     { AREA_NULL_3C, 16, 0x7f, 0x88, 0x188 },  // Turtle Rock: Trinexx
     { AREA_NULL_3D, 20, 0x7f, 0x78, 0x178 },  // Ganon's Tower: Agahnim
     { AREA_NULL_3E, 0, 0x7f, 0x178, 0x88 },   // the Pyramid of Power: Ganon (the ending)
+    { AREA_NULL_3F, 9, 0x7f, 0x108, 0x108 },  // the Temple of Bonds: Ganon's Tower's arena, the Armos Knights and a Lanmola
 };
 
 #define ENDING_FADE_AT 150 /**< frames from Ganon's end to the fade to white */
@@ -1520,6 +1524,21 @@ static void UpdateEnding(void) {
     if (!gFadeControl.active) {
         SetTask(TASK_STAFFROLL);
     }
+}
+
+/** A big chest in one of the blend's A Link to the Past dungeons opens only with the
+ * dungeon's big key, as it did there (Minish Cap's own big chests open without one). */
+bool32 Blend_IsLockedBigChest(Entity* e) {
+    u32 i;
+    if (e->kind != OBJECT || e->id != CHEST_SPAWNER || e->type != 4 || HasDungeonBigKey()) {
+        return FALSE;
+    }
+    for (i = 0; i < ARRAY_COUNT(sBossRooms); i++) {
+        if (sBossRooms[i].area == gRoomControls.area) {
+            return TRUE;
+        }
+    }
+    return FALSE;
 }
 
 static void UpdateBossRoom(void) {
@@ -1854,6 +1873,7 @@ typedef struct {
 } BlendPegs;
 
 extern u8 gBlendPegsState[];
+extern u8 gBlendCoopDungeons[];
 #define gBlendPegs (*(BlendPegs*)gBlendPegsState)
 
 static const BlendPegRoom* FindPegRoom(void) {
@@ -1949,6 +1969,8 @@ static void UpdatePegs(void) {
 void Blend_GameUpdate(void) {
     if (gBlendLink.magic != BLEND_MAGIC) {
         MemClear(&gBlendLink, sizeof(gBlendLink));
+        MemClear(gBlendPegsState, 0x100); // the pegs' and the Temple of Bonds' state
+        MemClear(gBlendCoopDungeons, 0x100);
         gBlendLink.magic = BLEND_MAGIC;
     }
     // the game's own record of pressed keys loses the keys the blend hides, so keep a true one
@@ -1968,6 +1990,8 @@ void Blend_GameUpdate(void) {
     UpdateMushroomTrade();
     UpdateFrozen();
     UpdateMirror();
+    Blend_ShrineUpdate();
+    Blend_CoopDungeonsUpdate();
     PublishSelf();
     UpdatePartner();
     Blend_CoopUpdate();

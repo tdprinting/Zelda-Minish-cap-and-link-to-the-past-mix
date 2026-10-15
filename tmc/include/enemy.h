@@ -248,6 +248,10 @@ enum {
     /*0xa6*/ AGAHNIM_BALL,
     /*0xa7*/ GANON,
     /*0xa8*/ GANON_PART,
+    /*0xa9*/ ALTTP_SOLDIER,
+    /*0xaa*/ WALL_CANNON,
+    /*0xab*/ FLYING_TILE,
+    /*0xac*/ ALTTP_SPARK,
 };
 
 void Octorok();
@@ -418,6 +422,10 @@ void Agahnim();
 void AgahnimBall();
 void Ganon();
 void GanonPart();
+void AlttpSoldier();
+void WallCannon();
+void FlyingTile();
+void AlttpSpark();
 
 extern void (*const gUnk_080012C8[])(Entity*);
 

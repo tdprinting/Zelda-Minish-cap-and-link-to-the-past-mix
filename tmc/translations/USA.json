@@ -708,7 +708,7 @@
         "Misery Mire",
         "Turtle Rock",
         "Ganon's Tower",
-        "Co-op Dungeon",
+        "Temple of Bonds",
         "Pyramid of Power"
     ],
     [
@@ -1128,7 +1128,9 @@
         "{Sound:00:8E}If I recall correctly, and I guarantee\nthat I do, my boy...\nI think Syrup said to stand in front of\na sleeping person and press {Key:Right}.",
         "{Sound:00:8E}Now there's a puzzler...{01:0A}\n\n{01:01}I suspect there's not much more we can\ndo here right now. Let's press on.\nPerhaps we can work this from another\nangle later on.",
         "{Sound:00:8E}That hand is a real pain, {Player}.\n\nPerhaps one of those gizmos you carry\naround can do something to it!",
-        "{Sound:00:8D}Ugh... So this is the {Color:Green}Dark World{Color:White}!\nThe thief of shadow, {Color:Green}Ganon{Color:White},\nwas sealed here long ago.\nNow {Color:Green}Vaati{Color:White} and his servant\n{Color:Green}Agahnim{Color:White} feed on his power!\n{Sound:00:92}The seven sages' maidens\nhold the seal. If we free them,\nwe can break their hold on\nboth worlds, {Player}!"
+        "{Sound:00:8D}Ugh... So this is the {Color:Green}Dark World{Color:White}!\nThe thief of shadow, {Color:Green}Ganon{Color:White},\nwas sealed here long ago.\nNow {Color:Green}Vaati{Color:White} and his servant\n{Color:Green}Agahnim{Color:White} feed on his power!\n{Sound:00:92}The seven sages' maidens\nhold the seal. If we free them,\nwe can break their hold on\nboth worlds, {Player}!",
+        "Halt! Beyond lies the {Color:Green}Temple of\nBonds{Color:White}. Its gates answer only to\ntwo heroes standing as one.\nCome back with a partner, and I'll\nlet you through.",
+        "Two heroes, side by side! The\n{Color:Green}Temple of Bonds{Color:White} is open to you.\nHold its plates for each other and\nstrike its twin seals as one.\nGood luck in there!"
     ],
     [
         "{Sound:00:8D}What!? I haven't even had time to\nsettle in, and you're bothering me?\n{Color:Green}Deepwood Shrine{Color:White} lies, obviously enough,\ndeep in the heart of these woods!\nSo says my superior intuitive sense.\n{01:05}Now, get a move on!",

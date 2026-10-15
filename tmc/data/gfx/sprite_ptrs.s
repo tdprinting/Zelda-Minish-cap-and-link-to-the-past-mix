@@ -1720,5 +1720,11 @@ gMoreSpritePtrs:: @ 08003DD4
 	.4byte gSprite_TwinRelics
 	.4byte 00000000
 
+	@ 340: Ganon's Tower's soldiers, wall cannons, flying floor tiles and Sparks
+	.4byte gSpriteAnimations_AlttpEnemies11
+	.4byte gSpriteFrames_AlttpEnemies11
+	.4byte gSprite_AlttpEnemies11
+	.4byte 00000000
+
 gUnk_08003E44:: @ 08003E44
 	.incbin "data_080029B4/gUnk_08003E44.bin"

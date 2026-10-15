@@ -112,6 +112,7 @@ SECTIONS {
         . = 0x0003D000; gBlendShadow = .;
         . = 0x0003E000; gAlttpEnemyState = .;
         . = 0x0003F000; gBlendLink = .;
+        . = 0x0003F700; gBlendCoopDungeons = .;
         . = 0x0003F800; gBlendCoop = .;
         . = 0x00040000;
     } >ewram
@@ -874,6 +875,8 @@ SECTIONS {
         src/blend.o(.text);
         src/blendShadows.o(.text);
         src/blendCoop.o(.text);
+        src/blendShrine.o(.text);
+        src/blendCoopDungeons.o(.text);
         /* handwritten assembly in arm mode */
         asm/src/intr.o(.text);
 
@@ -1709,6 +1712,8 @@ SECTIONS {
         data/gfx/alttp_enemies.o(.rodata);
         src/blendShadows.o(.rodata);
         src/blendCoop.o(.rodata);
+        src/blendShrine.o(.rodata);
+        src/blendCoopDungeons.o(.rodata);
     } >rom
 
     /* DWARF 2 sections */
