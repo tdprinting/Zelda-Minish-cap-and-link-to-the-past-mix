@@ -505,22 +505,31 @@ void sub_08077D38(ItemBehavior* this, u32 index) {
 
     ptr = &gItemDefinitions[this->behaviorId];
     if (ptr->frameIndex) {
+        // blend: Link can carry any item before he meets Ezlo. The game only had
+        // capless animations for the Smith's Sword, the shield and grabbing, and
+        // left every other item's animation unset (a leftover register), so the
+        // bow never reached its shoot frame. Every sword and shield takes its
+        // capless animation (same frames and flags); the rest play their own.
+        anim = ptr->frameIndex;
         if ((gPlayerState.flags & PL_NO_CAP)) {
             switch (this->behaviorId) {
-                case 0x1b:
+                case ITEM_TRY_PICKUP_OBJECT:
                     anim = ANIM_GRAB_NOCAP;
                     break;
-                case 1:
+                case ITEM_SMITH_SWORD:
+                case ITEM_GREEN_SWORD:
+                case ITEM_RED_SWORD:
+                case ITEM_BLUE_SWORD:
+                case ITEM_FOURSWORD:
                     anim = ANIM_SWORD_NOCAP;
                     break;
-                case 0xd:
+                case ITEM_SHIELD:
+                case ITEM_MIRROR_SHIELD:
                     anim = ANIM_SHIELD_PULLOUT_NOCAP;
                     break;
             }
-            SetItemAnim(this, anim);
-        } else {
-            SetItemAnim(this, ptr->frameIndex);
         }
+        SetItemAnim(this, anim);
     }
 
     this->animPriority = ptr->animPriority;
