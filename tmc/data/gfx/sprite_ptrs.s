@@ -1697,5 +1697,17 @@ gMoreSpritePtrs:: @ 08003DD4
 	.4byte gSprite_AlttpEnemies8
 	.4byte 00000000
 
+	@ 336: Agahnim
+	.4byte gSpriteAnimations_AlttpEnemies9
+	.4byte gSpriteFrames_AlttpEnemies9
+	.4byte gSprite_AlttpEnemies9
+	.4byte 00000000
+
+	@ 337: Ganon
+	.4byte gSpriteAnimations_AlttpEnemies10
+	.4byte gSpriteFrames_AlttpEnemies10
+	.4byte gSprite_AlttpEnemies10
+	.4byte 00000000
+
 gUnk_08003E44:: @ 08003E44
 	.incbin "data_080029B4/gUnk_08003E44.bin"

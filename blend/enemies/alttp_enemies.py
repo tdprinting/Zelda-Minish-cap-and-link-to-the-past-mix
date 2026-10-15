@@ -43,8 +43,11 @@ SPRITE_INDEX_5 = 332  # the Dark World dungeons' bosses
 SPRITE_INDEX_6 = 333  # Thieves' Town, Ice Palace, Misery Mire and Turtle Rock enemies
 SPRITE_INDEX_7 = 334  # Blind and Kholdstare
 SPRITE_INDEX_8 = 335  # Vitreous and Trinexx
+SPRITE_INDEX_9 = 336  # Agahnim
+SPRITE_INDEX_10 = 337  # Ganon
 SUFFIXES = {SPRITE_INDEX: '', SPRITE_INDEX_2: '2', SPRITE_INDEX_3: '3', SPRITE_INDEX_4: '4', SPRITE_INDEX_5: '5',
-            SPRITE_INDEX_6: '6', SPRITE_INDEX_7: '7', SPRITE_INDEX_8: '8'}
+            SPRITE_INDEX_6: '6', SPRITE_INDEX_7: '7', SPRITE_INDEX_8: '8', SPRITE_INDEX_9: '9',
+            SPRITE_INDEX_10: '10'}
 DUNGEON_PALSET = 11  # the Eastern Palace's sprite colors
 
 # ---------------------------------------------------------------------------
@@ -823,6 +826,8 @@ def build_frames_3():
     build_frames_5()
     import alttp_enemies_late
     alttp_enemies_late.build(globals())
+    import alttp_enemies_ganon
+    alttp_enemies_ganon.build(globals())
 
 
 # ---------------------------------------------------------------------------
@@ -1141,7 +1146,9 @@ def write(preview=None):
          '#define ALTTP_ENEMY_SPRITE_5 %d' % SPRITE_INDEX_5,
          '#define ALTTP_ENEMY_SPRITE_6 %d' % SPRITE_INDEX_6,
          '#define ALTTP_ENEMY_SPRITE_7 %d' % SPRITE_INDEX_7,
-         '#define ALTTP_ENEMY_SPRITE_8 %d' % SPRITE_INDEX_8]
+         '#define ALTTP_ENEMY_SPRITE_8 %d' % SPRITE_INDEX_8,
+         '#define ALTTP_ENEMY_SPRITE_9 %d' % SPRITE_INDEX_9,
+         '#define ALTTP_ENEMY_SPRITE_10 %d' % SPRITE_INDEX_10]
     h += EXTRA_DEFINES
     slots = {}
     for index, frames in SPRITES.items():
