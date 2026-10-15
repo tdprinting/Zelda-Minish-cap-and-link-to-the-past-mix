@@ -96,6 +96,7 @@ BLIND, KHOLDSTARE, VITREOUS, TRINEXX = 0x92, 0x93, 0x95, 0x97
 FREEZOR, PENGATOR, STALFOS_KNIGHT, WIZZROBE, LASER_EYE, CHAIN_CHOMP = 0x9b, 0x9c, 0x9d, 0x9e, 0x9f, 0xa0
 ZAZAK, GIBO, FIRE_BAR, STALFOS_HEAD = 0xa1, 0xa2, 0xa3, 0xa4
 AGAHNIM, GANON = 0xa5, 0xa7
+ALTTP_SOLDIER, WALL_CANNON, FLYING_TILE, ALTTP_SPARK = 0xa9, 0xaa, 0xab, 0xac
 ENEMIES = {
     'A7-Stalfos': ALTTP_STALFOS,
     '105-StalfosDrop': (ALTTP_STALFOS, 1),    # waits in the ceiling and drops on Link
@@ -166,6 +167,17 @@ ENEMIES = {
     '7B-OneShotMagicBal': None,                 # he casts his own balls
     # Ganon, in the Pyramid of Power (room 0x00): his trident, bats and torches are his own
     'D6-Ganon': GANON,
+    # Ganon's Tower's soldiers (the Dark World's pig-faced ones, from the room's sprite set)
+    '41-BlueSoldier': (ALTTP_SOLDIER, 0),       # the sword soldier
+    '43-RedSpearSoldier': (ALTTP_SOLDIER, 1),   # the spearman, who thrusts
+    # wall cannons, by the way they fire; they bring their own cannonballs
+    '66-Cannon(Right)': (WALL_CANNON, 0),
+    '67-Cannon(Left)': (WALL_CANNON, 1),
+    '68-Cannon(Down)': (WALL_CANNON, 2),
+    '69-Cannon(Up)': (WALL_CANNON, 3),
+    '114-FloorTiles': FLYING_TILE,              # the tile room: it lifts the tiles itself
+    '5B-WallBubble(L-R)': (ALTTP_SPARK, 0),     # zelda3's name for the Sparks: clockwise
+    '5C-WallBubble(R-L)': (ALTTP_SPARK, 1),     # and the other way round
 }
 # enemies that live in the walls (statues) or on the water, not on the floor
 ENEMY_CELLS = {
@@ -173,6 +185,9 @@ ENEMY_CELLS = {
     '81-WaterBug': ('~',), '9A-Splash': ('~',), '8C-Arrghus': ('~',),
     '95-EyeLaser(Right)': None, '96-EyeLaser(Left)': None, '97-EyeLaser(Down)': None,
     '98-EyeLaser(Up)': None, 'A1-IceMan': None,
+    '66-Cannon(Right)': None, '67-Cannon(Left)': None, '68-Cannon(Down)': None, '69-Cannon(Up)': None,
+    '114-FloorTiles': None,
+    '5B-WallBubble(L-R)': None, '5C-WallBubble(R-L)': None,   # Sparks start against (or in) a wall
 }
 
 # Thieves' Town, the Ice Palace, Misery Mire, Turtle Rock and Ganon's Tower: until their own enemies
@@ -197,9 +212,6 @@ STAND_INS = {
     'A2-KholdStare': (MC_DARK_NUT, 2),
     'BD-Viterous': (MC_DARK_NUT, 2),
     'CB-TriNexx1': (MC_DARK_NUT, 2),
-    # Ganon's Tower's soldiers: a Darknut for the sword soldier, a Moblin for the spearmen
-    '41-BlueSoldier': MC_DARK_NUT,
-    '43-RedSpearSoldier': ALTTP_MOBLIN,
 }
 
 DOOR_SMALL_KEY = 0x1c
@@ -398,6 +410,7 @@ DUNGEONS = [
         # the Tower of Hera's cracked cave on Mt. Crenel, in the Dark World with the crystals
         exit=('AREA_MT_CRENEL', 'ROOM_MT_CRENEL_CENTER', 0x348, 0x70),
         flag_base=0x10,
+        switch_flag=SWITCH_FLAG,
         trim=True,
     ),
     # The Pyramid of Power: Ganon's hall (room 0x00, its upper right quarter) in the free area
@@ -459,6 +472,7 @@ class Plan:
         self.enemies = []    # (mc enemy, form, pixel x, pixel y, A Link to the Past cell)
         self.drops = []      # (cell x, cell y, room, landing cell): holes, and the way back up
         self.steps_up = []   # cells of steps the blend draws (the way back up from a drop)
+        self.stair_cells = {}  # stairs -> the cells of their staircase
         self._doors()
         self._stairs()
 
@@ -610,6 +624,26 @@ class Plan:
                     self.put(p[0], p[1], A.FLOOR)
                 x, y = min(cluster, key=lambda p: (p[1], p[0]))
                 self.stairs.append((x, y, index))
+                self.stair_cells[(x, y, index)] = cluster
+
+    def seal_stairs(self, stairs):
+        """A staircase to a room the dungeon leaves out (the Swamp Palace's 0x16 up to the
+        side room 0x66) is wall, with the passage from it to the room's edge, so it no longer
+        leads out to nothing."""
+        self.stairs.remove(stairs)
+        cells = set(self.stair_cells.pop(stairs))
+        stack = list(cells)
+        while stack:
+            x, y = stack.pop()
+            for nx, ny in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
+                # (the passage: floor between the staircase and the room's edge)
+                if (nx, ny) not in cells and self.at(nx, ny) == A.FLOOR and \
+                        (nx in (0, 31) or ny in (0, 31) or min(ny, 31 - ny, nx, 31 - nx) < min(y, 31 - y, x, 31 - x)):
+                    cells.add((nx, ny))
+                    stack.append((nx, ny))
+        for x, y in cells:
+            self.put(x, y, A.SOLID)
+        self.sealed_cells = getattr(self, 'sealed_cells', set()) | cells
 
     def _reach(self, edges):
         """A Link to the Past marks the unseen space around a room as floor; Minish Cap's
@@ -944,6 +978,12 @@ def generate():
                 for y in range(y0, y1):
                     for x in range(x0, x1):
                         plans[r].put(x, y, A.FLOOR)
+        # staircases to rooms the dungeon leaves out are walled up
+        for r, p in plans.items():
+            for st in list(p.stairs):
+                dest = p.room.travel[st[2] + 1] if st[2] + 1 < len(p.room.travel) else 0
+                if dest and dest not in plans:
+                    p.seal_stairs(st)
         # bridges along tracks packed too close for Minish Cap's cells: only the ones Link needs
         for r in dg.get('thin', ()):
             calm.thin_tracks(plans[r])

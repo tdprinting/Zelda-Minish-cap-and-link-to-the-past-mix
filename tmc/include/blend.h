@@ -150,5 +150,7 @@ void Blend_ShrineUpdate(void);
 bool32 Blend_ShrineClosed(const struct Transition* t);
 /** A room's metatiles: each of the Temple of Bonds' rooms has its own, the other areas share theirs. */
 void* Blend_RoomTiles(u32 area, u32 room);
+/** A blend dungeon's big chest while Link has no big key (blend.c). */
+bool32 Blend_IsLockedBigChest(struct Entity_* e);
 
 #endif // BLEND_H
