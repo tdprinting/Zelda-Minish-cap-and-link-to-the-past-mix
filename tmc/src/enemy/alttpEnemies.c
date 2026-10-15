@@ -5114,7 +5114,7 @@ enum { BP_BLINDHEAD, BP_FLYHEAD, BP_KPUPIL, BP_TLEGS, BP_TSHELL, BP_TNECK, BP_TS
  * [3] the head's clock; rangeX the laser's wind-up, rangeY frames before it fires
  * again, cooldown frames it shrugs off blows.
  */
-enum { BL_INIT, BL_RETREAT, BL_SWAY, BL_SWITCH, BL_WHIRL, BL_CURTAIN, BL_REROBE };
+enum { BL_INIT, BL_RETREAT, BL_SWAY, BL_SWITCH, BL_WHIRL, BL_CURTAIN, BL_REROBE, BL_MAIDEN };
 
 static void BlindRobes(AlttpEnemy* this) {
     static const u8 gfx[8] = { 7, 8, 9, 8, 0, 1, 2, 1 };
@@ -5221,6 +5221,84 @@ static void BlindFindCenter(AlttpEnemy* this) {
     super->y.HALF.HI = this->homeY;
 }
 
+/**
+ * The maiden of Thieves' Town, who is Blind. In A Link to the Past she follows Link
+ * up from her cell, and in this room the light from the window shows her for what
+ * she is (Follower_CheckBlindTrigger, Blind_SpawnFromMaiden, then Blind's
+ * "blinded" state: she stands, the boss poof, and Blind). Here she waits in the
+ * room: she comes a few steps toward Link, and when he is near she stops, shudders
+ * and stretches, and Blind tears out of her in a poof of smoke. Fields: timer the
+ * transformation's countdown (0 until it starts), unused[0] her walk clock.
+ */
+static void BlindMaiden(AlttpEnemy* this) {
+    s32 dx = gPlayerEntity.base.x.HALF.HI - super->x.HALF.HI;
+    s32 dy = gPlayerEntity.base.y.HALF.HI - (super->y.HALF.HI + 32);
+    u32 f = AF_MAIDEN_0;
+    this->pose = 14; // no head of Blind's yet (BP_BLINDHEAD hides at poses 10 and up)
+    super->spriteSettings.draw = 1;
+    if (super->timer == 0) {
+        if (Distance(dx, dy) > 48) {
+            // her steps toward Link, as she followed him (a few, from where she waits)
+            u32 side = Abs(dx) > Abs(dy);
+            s32 sx = side ? (dx > 0 ? 1 : -1) : 0;
+            s32 sy = side ? 0 : (dy > 0 ? 1 : -1);
+            u32 step = (++this->unused[0] >> 3) & 1;
+            if ((this->unused[0] & 1) && Abs(super->x.HALF.HI + sx - this->homeX) < 24 &&
+                Abs(super->y.HALF.HI + sy - this->homeY) < 24 && !WallAt(super, sx * 12, 32 + sy * 12)) {
+                super->x.HALF.HI += sx;
+                super->y.HALF.HI += sy;
+            }
+            f = side ? (dx > 0 ? AF_MAIDEN_SIDE_2 : AF_MAIDEN_SIDE_0) + step
+                     : (dy > 0 ? AF_MAIDEN_0 : AF_MAIDEN_UP_0) + step;
+        } else {
+            super->timer = 128;
+            EnqueueSFX(SFX_EVAPORATE);
+        }
+    } else {
+        u32 t = --super->timer;
+        if (t >= 96) {
+            f = AF_MAIDEN_0; // she stands, and the light finds her
+        } else if (t >= 56) {
+            f = (t & 4) ? AF_MAIDEN_SHAKE : AF_MAIDEN_0;
+            if ((t & 15) == 0) {
+                EnqueueSFX(SFX_14C);
+            }
+        } else if (t >= 24) {
+            f = (t & 2) ? AF_MAIDEN_RISE : AF_MAIDEN_SHAKE;
+            if (t == 40) {
+                InitScreenShake(16, 0);
+            }
+        } else {
+            // the boss poof: Blind tears out of her
+            if (t == 23) {
+                u32 i;
+                static const s8 px[5] = { 0, -14, 14, -8, 8 };
+                static const s8 py[5] = { 18, 10, 10, 30, 30 };
+                for (i = 0; i < 5; i++) {
+                    Entity* fx = CreateFx(super, FX_DEATH, 0);
+                    if (fx != NULL) {
+                        fx->x.HALF.HI = super->x.HALF.HI + px[i];
+                        fx->y.HALF.HI = super->y.HALF.HI + py[i];
+                    }
+                }
+                EnqueueSFX(SFX_SUMMON);
+            }
+            this->pose = 9;
+            super->spriteSettings.draw = (t >> 1) & 1;
+            f = AF_BLIND_9;
+            if (t == 0) {
+                super->action = BL_RETREAT;
+                super->timer = 96;
+                super->spriteSettings.draw = 1;
+                COLLISION_ON(super);
+                EnqueueSFX(SFX_BOSS_HIT);
+            }
+        }
+    }
+    SetFrame(super, f);
+    AlttpEndTick(this);
+}
+
 static void BlindTick(AlttpEnemy* this) {
     static const s8 swayVy[2] = { 18, -18 };
     static const s8 swayVx[2] = { 24, -24 };
@@ -5232,8 +5310,10 @@ static void BlindTick(AlttpEnemy* this) {
         AlttpInit(this, AP_BLIND, AF_BLIND_9);
         BossStartDown(super, 24);
         ((Enemy*)this)->enemyFlags |= EM_FLAG_BOSS;
-        super->action = BL_RETREAT;
-        super->timer = 96;
+        // first the maiden he poses as (BlindMaiden), then the retreat
+        super->action = BL_MAIDEN;
+        super->timer = 0;
+        COLLISION_OFF(super);
         super->spritePriority.b0 = 3;
         BlindFindCenter(this);
         this->face = 0;
@@ -5250,6 +5330,10 @@ static void BlindTick(AlttpEnemy* this) {
                 h->collisionLayer = super->collisionLayer;
             }
         }
+    }
+    if (super->action == BL_MAIDEN) {
+        BlindMaiden(this);
+        return;
     }
     this->step++;
     if (this->cooldown) {

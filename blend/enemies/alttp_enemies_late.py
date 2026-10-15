@@ -454,6 +454,25 @@ def build_blind_kholdstare():
         frame('BLIND_%d' % g, compose(bl, pieces9(ps, own=0x01, add_for={6: 8}), org))
     table_define('BLIND_HEAD_DX', hx)
     table_define('BLIND_HEAD_DY', hy)
+    # the maiden Blind poses as. A Link to the Past draws her as its follower does
+    # (Blind_Draw's pose 21: chars 0x20 and 0x22, her head and dress, which the
+    # follower code fills from sprite sheet 0x65's first row: heads 0-2, dresses 3-6).
+    # Her step and her turns are the follower's; added: a shudder and a stretch as
+    # Blind tears out of her.
+    ms = G['MiscSheet'](0x65)
+
+    def maiden(head, body, hflip=0, bflip=0):
+        return compose(ms, [(0, 13, head * 2, hflip, 2, 0), (0, 23, body * 2, bflip, 2, 0)], org)
+    frame('MAIDEN_0', maiden(0, 5))
+    frame('MAIDEN_1', maiden(0, 5, 0, 0x40))
+    frame('MAIDEN_UP_0', maiden(1, 6))
+    frame('MAIDEN_UP_1', maiden(1, 6, 0, 0x40))
+    frame('MAIDEN_SIDE_0', maiden(2, 3))
+    frame('MAIDEN_SIDE_1', maiden(2, 4))
+    frame('MAIDEN_SIDE_2', maiden(2, 3, 0x40, 0x40))
+    frame('MAIDEN_SIDE_3', maiden(2, 4, 0x40, 0x40))
+    frame('MAIDEN_SHAKE', scaled(maiden(0, 5), 1.15, 0.88))
+    frame('MAIDEN_RISE', scaled(maiden(0, 5), 0.85, 1.18))
     org = (8, 8)
     for c, f in sorted(set(zip(BLIND_HEAD_CHAR, BLIND_HEAD_FLAGS))):
         frame('BLINDHEAD_%02x_%d' % (c, f >> 6), compose(bl, [single(c, f)], org))
@@ -566,7 +585,7 @@ def build(g):
         'WIZZBEAM': 'WIZZBEAM', 'LASEREYE': 'LASEREYE', 'LASER': 'LASER', 'CHOMP': 'CHOMP',
         'CHOMPLINK': 'CHOMPLINK', 'ZAZAK': 'ZAZAK_RED', 'PHLEGM': 'PHLEGM', 'GIBO': 'GIBO',
         'GIBOCORE': 'GIBOCORE', 'FIREBAR': 'FIREBAR', 'SKULL': 'SKULL', 'ICEBALL': 'ICEBALL',
-        'BLIND': 'BLIND', 'BLINDHEAD': 'BLINDHEAD', 'BLINDLASER': 'BLINDLASER', 'KHOLD': 'KHOLD',
+        'BLIND': 'BLIND', 'MAIDEN': 'BLIND', 'BLINDHEAD': 'BLINDHEAD', 'BLINDLASER': 'BLINDLASER', 'KHOLD': 'KHOLD',
         'KPUPIL': 'KHOLD', 'KSHELL': 'KSHELL', 'VITREOUS': 'VITREOUS', 'VEYE': 'VITREOUS',
         'BOLT': 'BOLT', 'TRINEXX': 'TRINEXX', 'TSEG': 'TRINEXX', 'TSHELL': 'TSHELL',
         'TLEGS': 'TRINEXX', 'THEAD': 'TFIRE', 'TNECK': 'TFIRE'})
