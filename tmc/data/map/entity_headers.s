@@ -1243,7 +1243,7 @@ gAreaTable:: @ 080D50FC
 	.4byte Area_VeilFallsTop            @ 0x1A
 	.4byte Area_DesertPalace             @ 0x1B (A Link to the Past)
 	.4byte Area_TowerOfHera              @ 0x1C (A Link to the Past)
-	.4byte 0x0                                       @ 0x1D
+	.4byte Area_PalaceOfDarkness        @ 0x1D (A Link to the Past)
 	.4byte 0x0                                       @ 0x1E
 	.4byte 0x0                                       @ 0x1F
 	.4byte Area_MinishHouseInteriors    @ 0x20

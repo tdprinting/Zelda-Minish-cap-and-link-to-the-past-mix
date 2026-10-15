@@ -41,6 +41,8 @@ PASSABLE = (A.FLOOR, '+')
 # what casts a shadow, and what a shadow falls on
 CASTS = (A.SOLID, A.TORCH, A.BLOCK, A.POT, A.LOCKED, A.SHUTTER)
 RECEIVES = (A.FLOOR, A.STAIRS)
+# how far from where Link can walk a dungeon with `trim` still draws A Link to the Past's art
+TRIM_REACH = 3
 
 
 def gba_tile(pix):
@@ -86,8 +88,9 @@ def pack_palettes(sets, rows, size=15):
 
 
 class Blend:
-    def __init__(self, name, tileset_area='043'):
+    def __init__(self, name, tileset_area='043', trim=False):
         self.name = name
+        self.trim = trim
         self.types_b = mctiles.tile_types(tileset_area, 'bottom')
         self.types_t = mctiles.tile_types(tileset_area, 'top')
         self.mc_meta = mcrender.metatiles(tileset_area, 'bottom')
@@ -149,6 +152,8 @@ class Blend:
                 j = ny * 32 + nx
                 if 0 <= nx < 32 and 0 <= ny < 32 and j not in outside and floorlike(j):
                     stack.append(j)
+        if self.trim:
+            outside |= self.unreached(plan)
         for i in outside:
             dst = (slice((i // 32) * 16, (i // 32) * 16 + 16), slice((i % 32) * 16, (i % 32) * 16 + 16))
             img[dst] = VOID
@@ -221,6 +226,24 @@ class Blend:
                 break
         return new_b, new_t
 
+    def unreached(self, plan):
+        """Cells more than TRIM_REACH cells from anywhere Link can walk: the parts of A Link
+        to the Past's rooms the plan walls off (other quarters of the room, closed-off
+        floor), which would otherwise show as rooms Link can't enter. Pits and water stay."""
+        near = np.array([c in PASSABLE for c in plan.cells]).reshape(32, 32)
+        for _ in range(TRIM_REACH):
+            grown = near.copy()
+            grown[1:, :] |= near[:-1, :]
+            grown[:-1, :] |= near[1:, :]
+            grown[:, 1:] |= near[:, :-1]
+            grown[:, :-1] |= near[:, 1:]
+            grown[1:, 1:] |= near[:-1, :-1]
+            grown[:-1, :-1] |= near[1:, 1:]
+            grown[1:, :-1] |= near[:-1, 1:]
+            grown[:-1, 1:] |= near[1:, :-1]
+            near = grown
+        return {i for i in range(1024) if not near.flat[i] and plan.room.cells[i] not in (A.PIT, A.WATER)}
+
     def restone(self, gfx, plan, img, empty):
         """Swaps A Link to the Past's patterned floors for calm stone slabs: big 16px
         squares with a lit top-left edge and a shaded joint, in each floor's own color.
@@ -240,11 +263,14 @@ class Blend:
         empty_hi = ~np.array([gfx.upper_in_front(i) for i in range(4096)]).reshape(64, 64)
         # floor on the layer the room was planned from, and on the other one where that
         # holds anything (an unused layer is all zeros, which read as floor, walls included)
-        lower_used = len(set(plan.room.lower)) > 1
+        # (a maze of thin walls is planned from its walls alone)
+        lower_used = len(set(plan.room.lower)) > 1 and plan.id not in A.THIN_WALL_ROOMS
         floor = np.array([A.attr_class(a) == A.FLOOR or (lower_used and A.attr_class(b) == A.FLOOR)
                           for a, b in zip(plan.room.attr, plan.room.lower)]).reshape(64, 64)
-        # and the patterned fill around the rooms, where Link can't go
-        floor |= ~np.array([plan.cells[(y // 2) * 32 + x // 2] in PASSABLE for y in range(64) for x in range(64)]).reshape(64, 64)
+        # and the patterned fill around the rooms, where Link can't go (not in a maze of
+        # thin walls, whose wall tiles repeat like a floor pattern)
+        if plan.id not in A.THIN_WALL_ROOMS:
+            floor |= ~np.array([plan.cells[(y // 2) * 32 + x // 2] in PASSABLE for y in range(64) for x in range(64)]).reshape(64, 64)
         on_hi = pattern(gfx.bg1) & ~empty_hi & floor
         on_lo = pattern(gfx.bg2) & empty_hi & floor
         walk = np.array([plan.cells[(y // 2) * 32 + x // 2] in PASSABLE for y in range(64) for x in range(64)]).reshape(64, 64)
@@ -304,6 +330,13 @@ class Blend:
                 stone[(xx % 16 == 15) | (yy % 16 == 15)] = celshade.snap(base * 0.82)
                 img[mask] = stone[mask]
                 stoned |= mask
+        if plan.id in A.THIN_WALL_ROOMS:
+            # around a maze, the pattern that fills the room's border is the space outside
+            words = np.array(gfx.bg2).reshape(64, 64) & 0xffff
+            ring = set(words[0]) | set(words[-1]) | set(words[:, 0]) | set(words[:, -1])
+            mask = np.isin(words, list(ring)).repeat(8, axis=0).repeat(8, axis=1)
+            img[mask] = VOID
+            empty[mask] = False
         return stoned
 
     def tile_key(self, img, empty, x, y):

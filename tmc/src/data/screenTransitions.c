@@ -1,6 +1,7 @@
 #include "area.h"
 #include "room.h"
 #include "roomid.h"
+#include "../../custom/gen/entries.h"
 
 // clang-format off
 
@@ -15,10 +16,16 @@ const Transition gUnk_0813AAE0 = { WARP_TYPE_AREA, 0, 0, 0x88, 0x78, 0, AREA_ROY
 const Transition gUnk_0813AB08 = { WARP_TYPE_AREA, 0, 0, 0x98, 0xa8, 0, AREA_CAVE_OF_FLAMES, ROOM_CAVE_OF_FLAMES_MAIN_CART, 1, 2, 0, 0 };
 const Transition gUnk_0813AAF4 = { WARP_TYPE_AREA, 0, 0, 0x98, 0xa8, 0, AREA_CAVE_OF_FLAMES, ROOM_CAVE_OF_FLAMES_MAIN_CART, 1, 2, 0, 0 };
 
+// the Wallmasters of the later A Link to the Past dungeons carry Link back to the entrance
+const Transition gWallMasterToPalaceOfDarkness = { WARP_TYPE_AREA, 0, 0, ENTRY_PalaceOfDarkness, 0, AREA_NULL_1D, 0, 1, 2, 0, 0 };
+const Transition gWallMasterToSwampPalace = { WARP_TYPE_AREA, 0, 0, ENTRY_PalaceOfDarkness, 0, AREA_NULL_1D, 0, 1, 2, 0, 0 };
+const Transition gWallMasterToSkullWoods = { WARP_TYPE_AREA, 0, 0, ENTRY_PalaceOfDarkness, 0, AREA_NULL_1D, 0, 1, 2, 0, 0 };
+
 const Transition* const gWallMasterScreenTransitions[] = {
     &gUnk_0813AA54, &gUnk_0813AA68, &gUnk_0813AA7C, &gUnk_0813AA90, &gUnk_0813AAA4,
     &gUnk_0813AAB8, &gUnk_0813AACC, &gUnk_0813AAE0, &gUnk_0813AB08, &gUnk_0813AAF4,
     &gUnk_0813AAF4, // A Link to the Past dungeons have no Wallmasters
+    &gWallMasterToPalaceOfDarkness, &gWallMasterToSwampPalace, &gWallMasterToSkullWoods,
 };
 
 const Transition unusedScreenTransition = { WARP_TYPE_AREA, 0, 0, 0x48, 0x68, 0, AREA_CASTLE_GARDEN, ROOM_CASTLE_GARDEN_MAIN, 1, 0, 2, 0 };

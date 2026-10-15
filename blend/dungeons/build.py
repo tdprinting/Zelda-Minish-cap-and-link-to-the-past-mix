@@ -54,6 +54,9 @@ ITEMS = {
     # Tower of Hera's Moon Pearl already comes with the Ocarina, so the mountain tower
     # holds the Mirror Shield (A Link to the Past has one too; Biggoron's stays)
     0x1f: (0x0e, 0),
+    # the Palace of Darkness's Hammer already lies in the dark Eastern Hills, so its big
+    # chest holds a bigger quiver (A Link to the Past's quiver upgrade)
+    0x09: (0x66, 0),
 }
 
 # A Link to the Past enemies -> blend enemies: id, or (id, form). Ids 0x67 and up are
@@ -61,6 +64,8 @@ ITEMS = {
 ALTTP_STALFOS, ALTTP_EYEGORE, ALTTP_POPO, ALTTP_ANTIFAIRY, ARMOS_KNIGHT = 0x67, 0x68, 0x69, 0x6a, 0x6b
 ALTTP_HINOX, LANMOLA, ALTTP_LEEVER, ALTTP_BEAMOS = 0x6f, 0x71, 0x73, 0x74
 ALTTP_POKEY, ALTTP_GIBDO, GIANT_MOLDORM, ALTTP_BARI, ALTTP_HARDHAT, ALTTP_BUMPER = 0x76, 0x77, 0x78, 0x7a, 0x7b, 0x7c
+# Minish Cap enemies used where A Link to the Past has a close relative
+MC_CHUCHU, MC_HELMASAUR, MC_SPIKED_BEETLE, MC_DARK_NUT, MC_WALL_MASTER = 0x01, 0x20, 0x1e, 0x05, 0x1a
 ENEMIES = {
     'A7-Stalfos': ALTTP_STALFOS,
     '105-StalfosDrop': (ALTTP_STALFOS, 1),    # waits in the ceiling and drops on Link
@@ -83,6 +88,12 @@ ENEMIES = {
     '18-Moldorm': 0x0d,                         # the small Moldorms
     '63-SandCrab1': 0x04, '64-SandCrab2': 0x04,  # Debirandos, the sand pit monsters
     '86-Triceritops': 0x04,                     # Kodongos, the fire-breathing lizards
+    # Palace of Darkness
+    '23-RedMiri': (ALTTP_BARI, 1),              # zelda3's name for the Baris
+    '24-BlueMiri': ALTTP_BARI,
+    '13-MiniHelmasaur': MC_HELMASAUR,           # Minish Cap has its own little Helmasaurs
+    '8E-Shell': MC_SPIKED_BEETLE,               # Terrorpins: flip them, then strike
+    '92-Helmasaur': (MC_DARK_NUT, 2),           # a gold Darknut stands in for the Helmasaur King
 }
 
 DOOR_SMALL_KEY = 0x1c
@@ -131,6 +142,17 @@ DUNGEONS = [
         exit=('AREA_MT_CRENEL', 'ROOM_MT_CRENEL_CENTER', 0x348, 0x70),
         flag_base=0x80,
     ),
+    dict(
+        name='PalaceOfDarkness',
+        rooms=[0x4a, 0x3a, 0x4b, 0x3b, 0x2a, 0x2b, 0x1a, 0x1b, 0x0a, 0x0b, 0x09, 0x19, 0x6a, 0x5a],
+        entrance=0x4a,
+        # the Eastern Palace's cave in the Eastern Hills, in the Dark World
+        area='AREA_NULL_1D',
+        exit=('AREA_HYRULE_FIELD', 'ROOM_HYRULE_FIELD_EASTERN_HILLS_CENTER', 0xa8, 0xb0),
+        flag_base=0x10,
+        # leave out the quarters of its rooms Link never reaches
+        trim=True,
+    ),
 ]
 
 
@@ -178,6 +200,12 @@ class Plan:
         self._chests()
         self._enemies()
         self._clean()
+        # a block or pot the plan dropped, alone in the walls around a room
+        for i, c in enumerate(self.cells):
+            x, y = i % 32, i // 32
+            if c == A.FLOOR and not any(self.at(x + dx, y + dy) in (A.FLOOR, '+')
+                                        for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1))):
+                self.cells[i] = A.SOLID
 
     def edge(self, side):
         """The cells along one border, in order."""
@@ -533,7 +561,7 @@ def generate():
         flag = dg['flag_base']
         door_flags = {}
 
-        blend = tileset.Blend(name) if os.path.exists(os.path.join(alttpgfx.GFX, '%03x.gfx' % ids[0])) else None
+        blend = tileset.Blend(name, trim=dg.get('trim', False)) if os.path.exists(os.path.join(alttpgfx.GFX, '%03x.gfx' % ids[0])) else None
         if blend is None:
             print('%s: no A Link to the Past room graphics, drawing with Minish Cap tiles' % name)
 

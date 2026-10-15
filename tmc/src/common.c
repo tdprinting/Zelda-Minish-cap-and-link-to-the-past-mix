@@ -1777,6 +1777,9 @@ const DungeonLayout* const* const gDungeonLayouts[] = {
     gDungeonLayouts_None, // Eastern Palace
     gDungeonLayouts_None, // Desert Palace
     gDungeonLayouts_None, // Tower of Hera
+    gDungeonLayouts_None, // Palace of Darkness
+    gDungeonLayouts_None, // Swamp Palace
+    gDungeonLayouts_None, // Skull Woods
 };
 
 const DungeonFloorMetadata gDungeonFloorMetadatas[] = {

@@ -1052,7 +1052,7 @@ gAreaRoomHeaders:: @ 0811E214
 	.4byte gAreaRoomHeaders_VeilFallsTop            @ 0x1A
 	.4byte gAreaRoomHeaders_DesertPalace             @ 0x1B (A Link to the Past)
 	.4byte gAreaRoomHeaders_TowerOfHera              @ 0x1C (A Link to the Past)
-	.4byte 0x0                                      @ 0x1D
+	.4byte gAreaRoomHeaders_PalaceOfDarkness        @ 0x1D (A Link to the Past)
 	.4byte 0x0                                      @ 0x1E
 	.4byte 0x0                                      @ 0x1F
 	.4byte gAreaRoomHeaders_MinishHouseInteriors    @ 0x20

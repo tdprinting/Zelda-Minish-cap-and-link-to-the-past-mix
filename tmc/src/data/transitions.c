@@ -344,6 +344,10 @@ const Transition gExitList_HyruleField_EasternHillsSouth[] = {
     TransitionListEnd,
 };
 const Transition gExitList_HyruleField_EasternHillsCenter[] = {
+    // in the Dark World the hillside cave leads to the Palace of Darkness instead (taken
+    // only in the Dark World with the Moon Pearl: Blend_IsTransitionClosed)
+    { WARP_TYPE_AREA, 0xa8, 0x98, ENTRY_PalaceOfDarkness, TRANSITION_SHAPE_AREA_12x12, AREA_NULL_1D, 0, 1, TRANSITION_TYPE_NORMAL,
+      0x0, 0x0, 0x0, 0x0 },
     // the hillside cave is now the way into A Link to the Past's Eastern Palace
     { WARP_TYPE_AREA, 0xa8, 0x98, ENTRY_EasternPalace, TRANSITION_SHAPE_AREA_12x12, AREA_EMPTY, 0, 1, TRANSITION_TYPE_NORMAL,
       0x0, 0x0, 0x0, 0x0 },
@@ -3836,7 +3840,7 @@ const Transition* const* const gExitLists[] = {
     /*AREA_VEIL_FALLS_TOP*/ gExitLists_VeilFallsTop,
     /*AREA_NULL_1B*/ gExitLists_DesertPalace,
     /*AREA_NULL_1C*/ gExitLists_TowerOfHera,
-    /*AREA_NULL_1D*/ gExitLists_NoExit,
+    /*AREA_NULL_1D*/ gExitLists_PalaceOfDarkness,
     /*AREA_NULL_1E*/ gExitLists_NoExit,
     /*AREA_NULL_1F*/ gExitLists_NoExit,
     /*AREA_MINISH_HOUSE_INTERIORS*/ gExitLists_MinishHouseInteriors,

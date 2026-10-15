@@ -118,6 +118,9 @@ extern BlendLink gBlendLink;
 #define BLEND_VARIANTS_ON (gSave.fillerA[3])
 
 bool32 Blend_IsDarkWorldActive(void);
+struct Transition;
+bool32 Blend_IsTransitionClosed(const struct Transition* t);
+bool32 Blend_IsCaveSealed(u32 flag);
 void Blend_GameUpdate(void);
 void Blend_ApplyDarkWorldEnemy(struct Entity_* entity);
 void Blend_TransformPalette(u16* pal, u32 palIdx);

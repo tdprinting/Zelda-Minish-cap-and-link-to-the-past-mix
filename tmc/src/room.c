@@ -343,7 +343,11 @@ static void LoadSmallChestTile(TileEntity* tileEntity) {
 }
 
 static void LoadBombableWallTile(TileEntity* tileEntity) {
-    BombableWallManager* mgr = (BombableWallManager*)GetEmptyManager();
+    BombableWallManager* mgr;
+    if (Blend_IsCaveSealed(tileEntity->localFlag)) {
+        return; // stays a plain wall: no bombing it open, and an opened one shows closed
+    }
+    mgr = (BombableWallManager*)GetEmptyManager();
     if (mgr != NULL) {
         mgr->base.kind = MANAGER;
         mgr->base.id = BOMBABLE_WALL_MANAGER;

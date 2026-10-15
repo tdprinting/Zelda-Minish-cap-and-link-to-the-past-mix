@@ -3484,7 +3484,7 @@ gAreaRoomMaps:: @ 08107988
 	.4byte gAreaRoomMaps_VeilFallsTop            @ 0x1A
 	.4byte gAreaRoomMaps_DesertPalace             @ 0x1B (A Link to the Past)
 	.4byte gAreaRoomMaps_TowerOfHera              @ 0x1C (A Link to the Past)
-	.4byte gAreaRoomMaps_Unused                  @ 0x1D
+	.4byte gAreaRoomMaps_PalaceOfDarkness        @ 0x1D (A Link to the Past)
 	.4byte gAreaRoomMaps_Unused                  @ 0x1E
 	.4byte gAreaRoomMaps_Unused                  @ 0x1F
 	.4byte gAreaRoomMaps_MinishHouseInteriors    @ 0x20

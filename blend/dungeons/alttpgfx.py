@@ -35,6 +35,11 @@ BACKDROP_MODES = ('None', 'Parallaxing', 'Translucent', 'Transparent', 'Addition
 # courtyard fills it with a checkered floor that would cover the room
 BACKDROP_ROOMS = {0x53}
 
+# rooms whose first layer only holds a cover over part of the room, which the game
+# lifts as Link comes near: the Palace of Darkness's room 0x1B ("On top") hides its
+# staircase corner under one. The room is all on the second layer; the cover is left out
+COVER_ROOMS = {0x1b}
+
 
 def layer_mode(room_id):
     """The room header's second-layer setting ("Normal", "None", "Parallaxing"...)."""
@@ -56,6 +61,8 @@ class RoomGfx:
         self.attr, self.lower = raw[:0x1000], raw[0x1000:0x2000]
         self.bg2 = list(struct.unpack('<4096H', raw[0x2000:0x4000]))
         self.bg1 = list(struct.unpack('<4096H', raw[0x4000:0x6000]))
+        if room_id in COVER_ROOMS:
+            self.bg1 = [0x3ff] * 4096  # a blank tile
         self.layer_mode = 'None' if room_id in BACKDROP_ROOMS else layer_mode(room_id)
         self._cache = {}
 

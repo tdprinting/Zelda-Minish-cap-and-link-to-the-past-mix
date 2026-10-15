@@ -53,6 +53,9 @@ enum LocalBanks {
     LOCAL_BANK_10,
     LOCAL_BANK_11,
     LOCAL_BANK_12,
+    LOCAL_BANK_13, /**< blend: Palace of Darkness */
+    LOCAL_BANK_14, /**< blend: Swamp Palace */
+    LOCAL_BANK_15, /**< blend: Skull Woods */
 };
 
 enum LocalFlagOffsets {
@@ -70,6 +73,10 @@ enum LocalFlagOffsets {
     FLAG_BANK_10 = 0x8C0,
     FLAG_BANK_11 = 0x9C0,
     FLAG_BANK_12 = 0xA80,
+    // the blend's later A Link to the Past dungeons, in the save's unused flags
+    FLAG_BANK_13 = 0xB00,
+    FLAG_BANK_14 = 0xB80,
+    FLAG_BANK_15 = 0xC00,
 };
 
 typedef enum {

@@ -57,6 +57,10 @@ def attr_class(a):
 
 
 # when the four 8px tiles of a 16px cell disagree, the first class present wins
+# rooms whose walls are one 8px tile thick (the Palace of Darkness's dark maze): a cell
+# with any wall in it is wall, or the maze would fall away at Minish Cap's 16px scale
+THIN_WALL_ROOMS = {0x19}
+
 PRIORITY = [ENTRANCE, LOCKED, SHUTTER, DOOR, BIG_CHEST, CHEST, STAIRS, TORCH, BLOCK, POT, PIT, WATER]
 
 
@@ -84,7 +88,10 @@ class Room:
                         pick = p
                         break
                 if pick is None:
-                    pick = FLOOR if quad.count(FLOOR) >= 2 else SOLID
+                    if self.id in THIN_WALL_ROOMS:
+                        pick = FLOOR if quad.count(FLOOR) == 4 else SOLID
+                    else:
+                        pick = FLOOR if quad.count(FLOOR) >= 2 else SOLID
                 cells.append(pick)
         return cells
 

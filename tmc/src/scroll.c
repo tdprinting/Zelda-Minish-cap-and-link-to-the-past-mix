@@ -606,7 +606,7 @@ bool32 DoApplicableTransition(u32 x, u32 y, u32 direction, u32 warp_types) {
 
     const Transition* transition = gArea.pCurrentRoomInfo->exits;
     while (transition->warp_type != WARP_TYPE_END_OF_LIST) {
-        if (((1 << transition->warp_type) & warp_types) != 0 &&
+        if (((1 << transition->warp_type) & warp_types) != 0 && !Blend_IsTransitionClosed(transition) &&
             gUnk_0811E7AC[transition->warp_type](transition, x, y, direction)) {
             DoExitTransition(transition);
             return 1;
@@ -620,7 +620,8 @@ const Transition* FindApplicableAreaTransition(u32 pos_x, u32 pos_y) {
     const Transition* transition = gArea.pCurrentRoomInfo->exits;
     u32 warp_types = 0xa;
     while (transition->warp_type != WARP_TYPE_END_OF_LIST) {
-        if (((1 << transition->warp_type) & warp_types) != 0 && IsPosInTransitionRect(transition, pos_x, pos_y, 0)) {
+        if (((1 << transition->warp_type) & warp_types) != 0 && !Blend_IsTransitionClosed(transition) &&
+            IsPosInTransitionRect(transition, pos_x, pos_y, 0)) {
             return transition;
         }
         transition++;

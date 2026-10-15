@@ -2499,7 +2499,9 @@ const u16* const gUnk_080B755C[] = {
     gUnk_080B7450, gUnk_080B745A, gUnk_080B7444, gUnk_080B743A, gUnk_080B7400, NULL,          NULL,
     NULL,          NULL,          NULL,          gUnk_080B746E, gUnk_080B7464, NULL,          NULL,
     gUnk_080B740A, NULL,          NULL,          NULL,          NULL,          gUnk_080B743A, NULL,
-    NULL,          gUnk_080B742E, gUnk_080B7400, gUnk_080B742E, NULL,          gUnk_080B747A, gUnk_080B747A,
+    // 0x1D-0x1F hold the blend's Palace of Darkness, Swamp Palace and Skull Woods: no
+    // overworld tile animations there
+    NULL,          NULL,          NULL,          NULL,          NULL,          gUnk_080B747A, gUnk_080B747A,
     gUnk_080B747A, gUnk_080B747A, gUnk_080B7480, gUnk_080B74C6, NULL,          gUnk_080B7480, NULL,
     gUnk_080B749C, gUnk_080B7500, NULL,          NULL,          gUnk_080B748A, gUnk_080B74D4, gUnk_080B747A,
     NULL,          gUnk_080B74B8, gUnk_080B74AA, gUnk_080B748E, gUnk_080B74DC, NULL,          NULL,

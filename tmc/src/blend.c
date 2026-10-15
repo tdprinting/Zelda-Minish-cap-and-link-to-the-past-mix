@@ -1154,6 +1154,57 @@ static const DungeonCave sDungeonCaves[] = {
     { ITEM_OCARINA, 0x44 },       // Tower of Hera: Mt. Crenel
 };
 
+// The Dark World's A Link to the Past dungeons open only in the Dark World, each
+// behind a cave in the Minish Cap area that matches its place in A Link to the Past:
+// the Palace of Darkness in the Eastern Hills (the Eastern Palace's cave, once Link
+// has the Moon Pearl), the Swamp Palace in the Castor Wilds swamp (with the Flippers)
+// and Skull Woods in the Minish Woods (with the Fire Rod that lies there, after the
+// Water Element). Their way in comes first in the cave's exit list, so elsewhere the
+// cave leads where it always did.
+typedef struct {
+    u8 area;  /**< the dungeon's area */
+    u8 item;  /**< what Link needs besides the Moon Pearl */
+    u8 item2; /**< and this too, or ITEM_NONE */
+} DarkDungeon;
+
+static const DarkDungeon sDarkDungeons[] = {
+    { AREA_NULL_1D, ITEM_MOON_PEARL, ITEM_NONE }, // Palace of Darkness
+};
+
+static const DarkDungeon* FindDarkDungeon(u32 area) {
+    u32 i;
+    for (i = 0; i < ARRAY_COUNT(sDarkDungeons); i++) {
+        if (sDarkDungeons[i].area == area) {
+            return &sDarkDungeons[i];
+        }
+    }
+    return NULL;
+}
+
+static bool32 CanEnterDarkDungeon(const DarkDungeon* d) {
+    return BLEND_DARK_WORLD && HasItem(ITEM_MOON_PEARL) && HasItem(d->item) &&
+           (d->item2 == ITEM_NONE || HasItem(d->item2));
+}
+
+/** Whether a way out of the current room is shut: a Dark World dungeon's, away from the Dark World. */
+bool32 Blend_IsTransitionClosed(const Transition* t) {
+    const DarkDungeon* d;
+    if (!(gArea.areaMetadata & AR_IS_OVERWORLD)) {
+        return FALSE;
+    }
+    d = FindDarkDungeon(t->area);
+    return d != NULL && !CanEnterDarkDungeon(d);
+}
+
+/**
+ * Whether a cracked wall stays shut: the Eastern Hills cave, which leads to the
+ * Palace of Darkness in the Dark World, stays shut there until Link has the Moon Pearl.
+ */
+bool32 Blend_IsCaveSealed(u32 flag) {
+    return gRoomControls.area == AREA_HYRULE_FIELD && flag == 0x70 && BLEND_DARK_WORLD &&
+           !CanEnterDarkDungeon(FindDarkDungeon(AREA_NULL_1D));
+}
+
 static void UpdateStory(void) {
     u32 i;
     for (i = 0; i < ARRAY_COUNT(sDungeonCaves); i++) {
@@ -1199,6 +1250,7 @@ static const BossRoom sBossRooms[] = {
     { AREA_EMPTY, 8, 0x7f, 0x178, 0x170 }, // Eastern Palace: the Armos Knights
     { AREA_NULL_1B, 9, 0x7e, 0x78, 0x180 },  // Desert Palace: the Lanmolas
     { AREA_NULL_1C, 5, 0xbe, 0x118, 0x108 }, // Tower of Hera: Moldorm
+    { AREA_NULL_1D, 13, 0x7f, 0x178, 0x188 }, // Palace of Darkness: the Helmasaur King
 };
 
 static void UpdateBossRoom(void) {
