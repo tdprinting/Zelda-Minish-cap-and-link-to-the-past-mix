@@ -70,15 +70,21 @@ SPIKE_ATTRS = (0x44,)
 # rooms 0x1E and 0x4E have floor switches (0x24) across their only way through
 FLOOR_ATTR_ROOMS = {0x3e: SPIKE_ATTRS, 0x90: (0x0d,), 0x1e: (0x24,), 0x4e: (0x24,)}
 # rooms whose way down is on the lower layer, under an upper floor that covers the room
-# (Misery Mire's room 0xA2): the blend takes the staircase up into the plan
-LOWER_STAIRS_ROOMS = {0xa2}
+# (Misery Mire's room 0xA2, and Ganon's Tower's entrance hall 0x0C, whose two staircases
+# down are drawn on its lower layer): the blend takes the staircase up into the plan
+LOWER_STAIRS_ROOMS = {0xa2, 0x0c}
+# rooms whose floor A Link to the Past draws pure black where Link can walk (Ganon's
+# Tower's invisible floor in room 0xA5): the blend lays it as bare floor (see tileset)
+BARE_FLOOR_ROOMS = {0xa5}
 # Turtle Rock's rooms with Somaria tracks or pipes over their pits (see Room.tracks)
 TRACK_ROOMS = {0xd6, 0xc6, 0xc7, 0xb5, 0xb4, 0x14, 0x15}
 # rooms with walkways a tile off the cells' grid (see Room._downsample)
 WALKWAY_ROOMS = {0xc5, 0xd5, 0x4e}
 # floor A Link to the Past never draws, beside a room's walls (8px tiles: x0, y0, x1, y1,
 # exclusive): Misery Mire's room 0x97 has a bare, spiked slab east of its narrow hall
-WALL_RECTS = {0x97: [(44, 19, 57, 55)]}
+# and Ganon's Tower's room 0x0D, Agahnim's hall in its lower left quarter, whose rows of
+# floor run on out past its walls on both sides
+WALL_RECTS = {0x97: [(44, 19, 57, 55)], 0x0d: [(0, 0, 64, 36), (30, 36, 64, 64), (0, 36, 2, 64)]}
 
 PRIORITY = [ENTRANCE, LOCKED, SHUTTER, DOOR, BIG_CHEST, CHEST, STAIRS, TORCH, BLOCK, POT, PIT, WATER]
 

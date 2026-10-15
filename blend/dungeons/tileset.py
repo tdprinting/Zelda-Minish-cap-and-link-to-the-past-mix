@@ -266,6 +266,15 @@ class Blend:
         `state` draw the crystal switches and their pegs, the pegs of one color raised."""
         alttp = plan.room.cells
         img, empty = self.compose(gfx)
+        if plan.id in A.BARE_FLOOR_ROOMS:
+            # floor A Link to the Past draws pure black (Ganon's Tower's invisible floor) is
+            # bare floor, laid in slate like a drained basin below
+            black = ~img.any(axis=-1)
+            for t in range(4096):
+                if A.attr_class(plan.room.attr[t]) == A.FLOOR:
+                    tile = (slice(t // 64 * 8, t // 64 * 8 + 8), slice(t % 64 * 8, t % 64 * 8 + 8))
+                    if black[tile].all():
+                        empty[tile] = True
         stoned = self.restone(gfx, plan, img, empty)
         self.center_doorways(plan, (img, empty, stoned))
         if pegs is not None:

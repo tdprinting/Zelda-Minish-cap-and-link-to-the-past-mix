@@ -28,7 +28,8 @@ import tileset
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 TMC = os.path.join(HERE, '..', '..', 'tmc')
-OUT = os.path.join(TMC, 'custom', 'gen')
+# (BLEND_OUT: write elsewhere, for a look without touching the game's build)
+OUT = os.environ.get('BLEND_OUT') or os.path.join(TMC, 'custom', 'gen')
 YAML_DIR = os.environ.get('ALTTP_YAML', '/home/claude/z3/assets/dungeon')
 
 # Minish Cap metatiles in the Fortress of Winds (Castor Darknut) tileset
@@ -72,6 +73,8 @@ ITEMS = {
     0x15: (0x64, 0),
     # Turtle Rock's Mirror Shield is the Tower of Hera's already: a bigger quiver
     0x06: (0x66, 0),
+    # Ganon's Tower's Red Mail neither: a piece of heart
+    0x23: (0x63, 0),
 }
 
 # A Link to the Past enemies -> blend enemies: id, or (id, form). Ids 0x67 and up are
@@ -163,7 +166,7 @@ ENEMY_CELLS = {
     '98-EyeLaser(Up)': None, 'A1-IceMan': None,
 }
 
-# Thieves' Town, the Ice Palace, Misery Mire and Turtle Rock: until their own enemies
+# Thieves' Town, the Ice Palace, Misery Mire, Turtle Rock and Ganon's Tower: until their own enemies
 # and bosses are in ENEMIES, Minish Cap and blend enemies of a like kind stand in (an
 # ENEMIES entry always wins over these)
 STAND_INS = {
@@ -185,6 +188,10 @@ STAND_INS = {
     'A2-KholdStare': (MC_DARK_NUT, 2),
     'BD-Viterous': (MC_DARK_NUT, 2),
     'CB-TriNexx1': (MC_DARK_NUT, 2),
+    '7A-Agahnim': (MC_DARK_NUT, 2),             # Ganon's Tower's Agahnim
+    # Ganon's Tower's soldiers: a Darknut for the sword soldier, a Moblin for the spearmen
+    '41-BlueSoldier': MC_DARK_NUT,
+    '43-RedSpearSoldier': ALTTP_MOBLIN,
 }
 
 DOOR_SMALL_KEY = 0x1c
@@ -348,6 +355,31 @@ DUNGEONS = [
         flag_base=0x10,
         trim=True,
     ),
+    # Ganon's Tower in the free area 0x3D. A Link to the Past's tower (26 rooms) runs past the
+    # tileset's 2048 metatiles, so the blend keeps its main way up: the entrance hall, the
+    # first floor's middle row (0x8B-0x8D) and 0x9D, with the map, compass and keys, the
+    # Armos Knights and the big key in the basement, then the big key door and the floors
+    # above (Lanmolas, Moldorm) up to Agahnim. Left out: the first floor's rooms north and
+    # south of those (0x7B-0x7D, 0x9B, 0x9C: the invisible floor maze, the warp maze and the
+    # chest rooms past them) and the empty rooms 0x8A and 0x9A; doors to them stay shut.
+    dict(
+        name='GanonsTower',
+        rooms=[0x0c, 0x8c, 0x8b, 0x8d, 0x9d, 0x1c, 0x6b, 0x5b, 0x5c, 0x5d, 0x6d, 0x6c, 0xa5, 0x95,
+               0x96, 0x3d, 0x4d, 0xa6, 0x4c, 0x1d, 0x0d],
+        entrance=0x0c,
+        area='AREA_NULL_3D',
+        sealed={0x8c: (DIR_S,), 0x8b: (DIR_N, DIR_S), 0x8d: (DIR_N,), 0x9d: (DIR_W,)},
+        # ways A Link to the Past takes by Hookshot, over a ledge or through a room left out:
+        # bridges over 0x8B's pits to its map, a passage from 0x8C's north-east quarter to the
+        # south-east one (reached from 0x9C in A Link to the Past), and in Moldorm's hall 0x4D
+        # steps down off both ledges and a bridge to the platform with the way on
+        opens={0x8b: [(12, 10, 14, 17), (12, 20, 14, 22)], 0x8c: [(23, 14, 25, 19)],
+               0x4d: [(7, 9, 11, 10), (21, 9, 25, 10), (15, 17, 17, 22)]},
+        # the Tower of Hera's cracked cave on Mt. Crenel, in the Dark World with the crystals
+        exit=('AREA_MT_CRENEL', 'ROOM_MT_CRENEL_CENTER', 0x348, 0x70),
+        flag_base=0x10,
+        trim=True,
+    ),
 ]
 
 
@@ -424,7 +456,20 @@ class Plan:
     def _doors(self):
         for d in read_room(self.id, self.lower):
             x, y, dr = d['x'], d['y'], d['dir']
-            if dr in self.sealed and d['type'] not in DOOR_EXITS:
+            # (a door between two quarters of the room stays: it leads to no other room)
+            if dr in self.sealed and d['type'] not in DOOR_EXITS and not 12 < (y if dr in (DIR_N, DIR_S) else x) < 52:
+                # a shut door's doorway is wall, so no doorway leads out to nothing
+                if dr in (DIR_N, DIR_S):
+                    cx = (x + 1) // 2
+                    span = [(c, cy) for cy in (range(0, y // 2 + 2) if dr == DIR_N else range(y // 2, 32))
+                            for c in (cx - 1, cx, cx + 1)]
+                else:
+                    cy = (y + 1) // 2
+                    span = [(cx, c) for cx in (range(0, x // 2 + 2) if dr == DIR_W else range(x // 2, 32))
+                            for c in (cy - 1, cy, cy + 1)]
+                for p in span:
+                    if self.at(*p) == A.DOOR:
+                        self.put(p[0], p[1], A.SOLID)
                 continue
             kind = {DOOR_SMALL_KEY: 'key', DOOR_BIG_KEY: 'boss'}.get(d['type'], 'open')
             if d['type'] in DOOR_EXITS or dr in self.outside:
@@ -747,7 +792,12 @@ def layout(plans, edges):
     col0 = min(r & 15 for r in plans)
     row0 = min(r >> 4 for r in plans)
     width = max(r & 15 for r in plans) - col0 + 2
-    return {r: ((r & 15) - col0 + floor[r] * width, (r >> 4) - row0) for r in plans}
+    height = max(r >> 4 for r in plans) - row0 + 2
+    # Minish Cap keeps positions in 16 bits: a map more than 32768 pixels (64 rooms) wide
+    # would wrap around, so a dungeon of many floors (Ganon's Tower) lays them out in rows
+    per_row = max(1, 63 // width)
+    return {r: ((r & 15) - col0 + floor[r] % per_row * width, (r >> 4) - row0 + floor[r] // per_row * height)
+            for r in plans}
 
 
 BORDER = {DIR_N: 'TRANSITION_SHAPE_BORDER_NORTH', DIR_S: 'TRANSITION_SHAPE_BORDER_SOUTH',
