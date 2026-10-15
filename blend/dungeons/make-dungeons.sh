@@ -27,3 +27,7 @@ gcc obj/*.o -o dumprooms $(sdl2-config --libs) -lm
 mkdir -p gfx
 python3 "$ROOT/blend/dungeons/build.py" --rooms | while read -r rooms; do ./dumprooms gfx gfx $rooms; done
 ALTTP_ROOMS="$WORK/rooms" ALTTP_GFX="$WORK/gfx" ALTTP_YAML="$WORK/assets/dungeon" python3 "$ROOT/blend/dungeons/build.py"
+# A Link to the Past's enemies: their sprite sheets, recolored, with the frames the
+# blend adds, and the frame layouts patched into gFrameObjLists (needs `make build_assets`)
+python3 "$ROOT/blend/enemies/alttp_enemies.py" "$ROM"
+python3 "$ROOT/blend/anim/objlists.py"

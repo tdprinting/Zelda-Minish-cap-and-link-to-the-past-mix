@@ -180,7 +180,16 @@ enum {
     /*0x63*/ GYORG_FEMALE_MOUTH,
     /*0x64*/ ENEMY_64,
     /*0x65*/ TREE_ITEM,
-    /*0x66*/ ENEMY_66
+    /*0x66*/ ENEMY_66,
+    /* A Link to the Past's enemies (src/enemy/alttpEnemies.c) */
+    /*0x67*/ ALTTP_STALFOS,
+    /*0x68*/ ALTTP_EYEGORE,
+    /*0x69*/ ALTTP_POPO,
+    /*0x6a*/ ALTTP_ANTIFAIRY,
+    /*0x6b*/ ARMOS_KNIGHT,
+    /*0x6c*/ ALTTP_ROPE,
+    /*0x6d*/ ALTTP_MOBLIN,
+    /*0x6e*/ ALTTP_SPEAR,
 };
 
 void Octorok();
@@ -285,6 +294,14 @@ void GyorgFemaleMouth();
 void Enemy64();
 void TreeItem();
 void Enemy66();
+void AlttpStalfos();
+void AlttpEyegore();
+void AlttpPopo();
+void AlttpAntifairy();
+void ArmosKnight();
+void AlttpRope();
+void AlttpMoblin();
+void AlttpSpear();
 
 extern void (*const gUnk_080012C8[])(Entity*);
 

@@ -780,9 +780,10 @@ gSpritePtrs:: @ 080029B4
 	.4byte 00000000
 	.4byte 00000000
 
-	.4byte 00000000
-	.4byte 00000000
-	.4byte 00000000
+	@ 155: A Link to the Past enemies (blend/enemies/alttp_enemies.py)
+	.4byte gSpriteAnimations_AlttpEnemies
+	.4byte gSpriteFrames_AlttpEnemies
+	.4byte gSprite_AlttpEnemies
 	.4byte 00000000
 
 	.4byte gSpriteAnimations_Anju

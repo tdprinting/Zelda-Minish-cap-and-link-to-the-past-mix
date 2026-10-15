@@ -51,13 +51,20 @@ ITEMS = {
     0x0b: (0x09, 0),     # bow
 }
 
-# A Link to the Past enemies -> Minish Cap enemies (None: left out)
+# A Link to the Past enemies -> blend enemies: id, or (id, form). Ids 0x67 and up are
+# A Link to the Past's own enemies (tmc/src/enemy/alttpEnemies.c); None: left out
+ALTTP_STALFOS, ALTTP_EYEGORE, ALTTP_POPO, ALTTP_ANTIFAIRY, ARMOS_KNIGHT = 0x67, 0x68, 0x69, 0x6a, 0x6b
 ENEMIES = {
-    'A7-Stalfos': 0x42, '105-StalfosDrop': 0x42, '118-StalfosAppear': 0x42,
-    '83-GreenRocklops': 0x2b, '84-RedRocklops': 0x2b,
-    '4F-Tentacle': 0x01, '4E-Tentacle2': 0x01,
-    '15-Bubble': 0x34,
-    '53-ArmosKnight': 0x2a,
+    'A7-Stalfos': ALTTP_STALFOS,
+    '105-StalfosDrop': (ALTTP_STALFOS, 1),    # waits in the ceiling and drops on Link
+    '118-StalfosAppear': (ALTTP_STALFOS, 1),
+    '83-GreenRocklops': ALTTP_EYEGORE,          # zelda3's name for the green Eyegore
+    '84-RedRocklops': (ALTTP_EYEGORE, 1),
+    '4F-Tentacle': ALTTP_POPO,                  # and for the Popos
+    '4E-Tentacle2': ALTTP_POPO,
+    '15-Bubble': ALTTP_ANTIFAIRY,
+    '82-4Bubbles': ALTTP_ANTIFAIRY,
+    '53-ArmosKnight': ARMOS_KNIGHT,
 }
 
 DOOR_SMALL_KEY = 0x1c
@@ -110,7 +117,7 @@ class Plan:
         self.doors = []      # (kind, cell x, cell y, dir)
         self.stairs = []     # (cell x, cell y, stair index)
         self.chests = []     # (cell x, cell y, alttp item)
-        self.enemies = []    # (mc enemy, pixel x, pixel y)
+        self.enemies = []    # (mc enemy, form, pixel x, pixel y)
         self._doors()
         self._stairs()
         self._reach()
@@ -254,7 +261,10 @@ class Plan:
             x, y = s[0], s[1]
             if self.at(x, y) != A.FLOOR:
                 continue
-            self.enemies.append((mc, x * 16 + 8, y * 16 + 8))
+            form = 0
+            if isinstance(mc, tuple):
+                mc, form = mc
+            self.enemies.append((mc, form, x * 16 + 8, y * 16 + 8))
 
     def _clean(self):
         """Reduce A Link to the Past's extra classes to the ones the tileset draws."""
@@ -354,8 +364,8 @@ def generate():
                         sub, x * 16 + 8, y * 16 + 8, param_a, (door_flags[key] << 16) | 0xffff))
             ents_inc.append('\tentity_list_end\n')
             ents_inc.append('Enemies_%s::' % label)
-            for (mc, x, y) in p.enemies:
-                ents_inc.append('\tenemy_raw subtype=0x%x, x=0x%x, y=0x%x' % (mc, x, y))
+            for (mc, form, x, y) in p.enemies:
+                ents_inc.append('\tenemy_raw subtype=0x%x, paramA=0x%x, x=0x%x, y=0x%x' % (mc, form, x, y))
             ents_inc.append('\tentity_list_end\n')
             ents_inc.append('TileEntities_%s::' % label)
             for (cx, cy, item) in p.chests:
