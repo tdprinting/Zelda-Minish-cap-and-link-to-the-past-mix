@@ -149,3 +149,6 @@ gSprite_082F27F4:: @ 082F27F4
 
 @ blend: Link with the A Link to the Past items (made by blend/anim/build.py)
 	.include "custom/gen/blend_link.inc"
+
+@ blend co-op: the Revive Fairy (made by blend/coop/revive_fairy.py)
+	.include "custom/gen/coop/revive_fairy.inc"

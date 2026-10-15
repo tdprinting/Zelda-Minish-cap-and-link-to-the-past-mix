@@ -531,7 +531,8 @@
         "{04:10:0E}You got the {Color:Red}Magic Hammer{Color:White}!\nPound foes and smash\nrocks in your way.\nIt shares the {Color:Red}Mole Mitts{Color:White}'s slot:\n{Color:Red}L and its button{Color:White} switches.",
         "{04:10:0E}You got the {Color:Red}Cane of Byrna{Color:White}!\nA ring of magic guards\nyou and stings foes.\nIt shares the {Color:Red}shield{Color:White}'s slot:\n{Color:Red}L and its button{Color:White} switches.",
         "{04:10:0E}You got the {Color:Red}Magic Powder{Color:White}!\nSprinkle it on a weak foe\nand see what happens!\nIt shares the {Color:Red}lantern{Color:White}'s slot:\n{Color:Red}L and its button{Color:White} switches.",
-        "{04:10:0E}You got the {Color:Red}Cane of Somaria{Color:White}!\nIt conjures a block you\ncan push onto switches.\nIt shares the {Color:Red}bombs{Color:White}'s slot:\n{Color:Red}L and its button{Color:White} switches."
+        "{04:10:0E}You got the {Color:Red}Cane of Somaria{Color:White}!\nIt conjures a block you\ncan push onto switches.\nIt shares the {Color:Red}bombs{Color:White}'s slot:\n{Color:Red}L and its button{Color:White} switches.",
+        "{04:10:0E}You got a {Color:Red}Revive Fairy{Color:White}!\nIf your partner falls, stand by\nthem and press {Key:Right} to bring\nthem back. You can carry nine."
     ],
     [
         "",
@@ -2453,7 +2454,8 @@
         "I believe there should be a {Color:Blue}doggie\ndish{Color:White} for my dog back at my house.\nJust face the {Color:Blue}dish{Color:White} and press {Key:Right} to\ndump the food into little Fifi's bowl.",
         "{Sound:00:D1}My master, {Color:Green}Stockwell{Color:White}, has been coming\nhome far too late to play with me...\nI'm so lonely.",
         "That {Color:Red}boomerang{Color:White} is a real bargain\nat {Var:1} Rupees.\n{07:2C:14}",
-        "That {Color:Red}big bomb bag{Color:White} is a real bargain\nat {Var:1} Rupees.\n{07:2C:14}"
+        "That {Color:Red}big bomb bag{Color:White} is a real bargain\nat {Var:1} Rupees.\n{07:2C:14}",
+        "Ah, a {Color:Red}Revive Fairy{Color:White}, {Var:1} Rupees!\nShould your companion fall, it\nbrings them right back. Two heroes!\n{07:2C:14}"
     ],
     [
         "{Choice:FF}Buy {Choice:2D:0A}Don't buy",

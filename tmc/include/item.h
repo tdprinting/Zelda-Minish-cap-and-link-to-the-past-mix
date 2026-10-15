@@ -160,6 +160,8 @@ typedef enum {
     ITEM_CANE_OF_BYRNA,
     ITEM_MAGIC_POWDER,
     ITEM_CANE_OF_SOMARIA,
+    // Co-op (blendCoop.c): revives a downed partner; sold in Stockwell's shop
+    ITEM_REVIVE_FAIRY,
 
     // these are not actually item ids but special values used by item drops for example
     ITEM_KINSTONE_RED = 0xfc,

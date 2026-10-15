@@ -31,6 +31,10 @@ Everything is made by restyling and reusing the art already in Minish Cap.
 | Blended overworld | Both | The overworld's colors move toward A Link to the Past's Light World (deeper greens, golden dirt, blue water) in the same cel-shaded style as the dungeons, and trees, cliffs, walls and buildings cast soft shadows. |
 | Blended story | Both | The opening legend tells of the Golden Power, the shadow sealed in a Dark World and the seven sages. Ezlo explains Ganon, Vaati and Agahnim the first time Link reaches the Dark World, and the castle and final boss text name Ganon's shadow. |
 | Split-screen co-op | New | Two copies of the game run side by side in one window. Each player sees the other as a second Link in red mail when they are in the same room and world, including sword swings. The partner's sword hits enemies on your screen too. |
+| Going down and reviving | New | Each player has their own hearts, items and Rupees. A player who runs out of hearts lies down instead of getting a game over, and the partner sees a fairy over them. Standing next to them and pressing R uses a **Revive Fairy**, which brings them back with half their hearts. The game is over only when both are down, or when the downed player holds A + B to give up. |
+| Revive Fairy | New | A new item with its own art (a corked jar with a heart lid and a pink fairy). Stockwell sells it for 60 Rupees on the crates by his counter. Each player carries their own, up to nine. |
+| Quick inventory | New | Each player can open their own item menu over their half of the screen (Q, Numpad 0 or a gamepad's Y). It shows every item and the Revive Fairies; A or B puts the chosen item on that button. Only that player's game slows to half speed while it is open. "Go to Player N" warps you to your partner. |
+| Shared progress | New | Chests, keys, doors, bosses, story events, heart containers and pieces, wallet and bag upgrades, and the equipment and key items one player finds reach the partner's game too. Hearts, Rupees, bombs, arrows, bottle contents and Revive Fairies stay each player's own. |
 
 ## Playing on Windows
 
@@ -45,6 +49,10 @@ Everything is made by restyling and reusing the art already in Minish Cap.
 | U / I | Numpad 4 / 5 | L / R |
 | Enter | Numpad Enter | Start |
 | Right Shift | Numpad + | Select |
+| Q | Numpad 0 | Quick inventory (gamepad: Y) |
+
+To revive a fallen partner, stand next to them and press R. You need a Revive
+Fairy from Stockwell's shop. A player who is down can hold A + B to give up.
 
 Gamepads work too: the first controller is player 1, the second is player 2.
 **F1** switches between side-by-side and stacked screens, **F11** toggles fullscreen,
@@ -80,7 +88,9 @@ make -C blend/host                               # needs libsdl2-dev, libmgba-de
 | `blend/anim/` | Link's animations for the A Link to the Past items: `build.py` draws A Link to the Past's item art, recolored to Link's Minish Cap palette, into Minish Cap Link poses (Hammer lifted and slammed, rods and Somaria swung, Hookshot held out, Byrna raised, Powder shaken, medallions and Mirror held up) as sprite 159; `objlists.py` splices generated frame object lists into `gFrameObjLists`; `mcsprite.py` reads and draws Minish Cap sprites. Run by `make-dungeons.sh`; output goes to `tmc/custom/gen/` |
 | `blend/enemies/`, `tmc/src/enemy/alttpEnemies.c` | A Link to the Past's enemies: `alttp_enemies.py` cuts their sprites from your ALttP ROM, recolors them and adds new frames (as sprite 155); the C file gives each its behavior. Run by `make-dungeons.sh` |
 | `blend/overworld/`, `tmc/src/blendShadows.c` | The blended overworld: `build.py` restyles every overworld palette toward A Link to the Past's Light World colors and draws soft shadow maps; `blendShadows.c` shows the shadows on background 3. Run by `build.sh`; output goes to `tmc/custom/gen/ow` |
-| `blend/host/coop.c` | Split-screen co-op player (SDL2 + libmgba) |
+| `blend/host/coop.c` | Split-screen co-op player (SDL2 + libmgba): state exchange, shared progress, quick inventory and prompts drawn over each player's screen, headless `--test` scripts |
+| `tmc/src/blendCoop.c`, `tmc/include/blendCoop.h` | The game's side of co-op: going down and being revived, the Revive Fairy (sprite 338, item `ITEM_REVIVE_FAIRY`), the quick inventory's menu data and equip requests, items shared from the partner, warping to the partner. Its block `gBlendCoop` sits at `0x0203F800` |
+| `blend/coop/revive_fairy.py` | Draws the Revive Fairy's art (sprite and the host's copy). Run by `build.sh` |
 | `blend/harness/harness.c` | Headless test runner used to check builds |
 
 The shared state block `gBlendLink` sits at a fixed address, `0x0203F000`, so the

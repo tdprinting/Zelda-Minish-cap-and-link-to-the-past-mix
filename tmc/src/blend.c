@@ -13,6 +13,7 @@
  * - Dev hooks used by the automated test harness.
  */
 #include "blend.h"
+#include "blendCoop.h"
 #include "area.h"
 #include "common.h"
 #include "entity.h"
@@ -78,7 +79,7 @@ static void BunnyTint(u16* pal) {
 static bool32 IsPaletteExempt(u32 palIdx) {
     u32 id;
     if (palIdx == 16u + gPlayerEntity.base.palette.b.b0 ||
-        (gBlendLink.partnerPalette != 0 && palIdx == 16u + gBlendLink.partnerPalette)) {
+        (gBlendLink.partnerPalette != 0 && palIdx == 16u + gBlendLink.partnerPalette) || Blend_CoopKeepsPalette(palIdx)) {
         return TRUE;
     }
     // A Link to the Past's enemies already wear their own Dark World colors
@@ -251,6 +252,9 @@ u32 Blend_ItemSpriteAnim(u32 item) {
             return ITEM_EARTH_ELEMENT;
         case ITEM_ICE_ROD:
             return ITEM_FIRE_ROD;
+        case ITEM_REVIVE_FAIRY:
+            // loads like a bottled fairy; blendCoop.c then gives it its own picture
+            return ITEM_BOTTLE_FAIRY;
         default:
             if (item >= ITEM_HOOKSHOT && item <= ITEM_CANE_OF_SOMARIA) {
                 return sSlotShareIcons[item - ITEM_HOOKSHOT];
@@ -1586,6 +1590,10 @@ void LinkPartner(Entity* this) {
         LinkHook(this);
         return;
     }
+    if (this->type == 4) {
+        Blend_CoopReviveMarker(this);
+        return;
+    }
     if (this->action == 0) {
         this->action = 1;
         this->spriteSettings.draw = 0;
@@ -1604,6 +1612,10 @@ void LinkPartner(Entity* this) {
     this->frameSpriteSettings = p->frameSpriteSettings;
     this->animationState = p->animationState;
     this->spriteSettings.flipX = p->flipX;
+    if (Blend_CoopPartnerDowned() && (gRoomTransition.frameCount & 3) == 0) {
+        // a downed partner shows as a see-through ghost until revived
+        this->spriteSettings.draw = 0;
+    }
     UpdateSpriteForCollisionLayer(this);
 }
 
@@ -1621,6 +1633,9 @@ static void UpdatePartner(void) {
     }
     if (!IsPartnerObject(gBlendLink.partnerItemEntity, 1)) {
         gBlendLink.partnerItemEntity = CreateObject(LINK_PARTNER, 1, 0);
+    }
+    if (Blend_CoopPartnerDowned() && FindEntity(OBJECT, LINK_PARTNER, 6, 4, 0) == NULL) {
+        CreateObject(LINK_PARTNER, 4, 0);
     }
 }
 
@@ -1750,4 +1765,27 @@ void Blend_GameUpdate(void) {
     UpdateMirror();
     PublishSelf();
     UpdatePartner();
+    Blend_CoopUpdate();
+}
+
+/** The A Link to the Past item that shares this Minish Cap item's menu slot, if Link owns it. */
+u32 Blend_SlotShareItem(u32 item) {
+    const SlotShare* s = FindSlotShare(item);
+    if (s == NULL || !HasItem(s->item)) {
+        return ITEM_NONE;
+    }
+    return s->item;
+}
+
+/** Switches a shared slot to its A Link to the Past item, or back. */
+void Blend_SetSlotShare(u32 item, bool32 on) {
+    const SlotShare* s = FindSlotShare(item);
+    if (s == NULL) {
+        return;
+    }
+    if (on) {
+        BLEND_VARIANTS_ON |= VariantBit(s->item);
+    } else {
+        BLEND_VARIANTS_ON &= ~VariantBit(s->item);
+    }
 }

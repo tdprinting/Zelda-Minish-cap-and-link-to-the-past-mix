@@ -1709,5 +1709,11 @@ gMoreSpritePtrs:: @ 08003DD4
 	.4byte gSprite_AlttpEnemies10
 	.4byte 00000000
 
+	@ 338: co-op, the Revive Fairy (blend/coop/revive_fairy.py; REVIVE_FAIRY_SPRITE in blendCoop.h)
+	.4byte gSpriteAnimations_ReviveFairy
+	.4byte gSpriteFrames_ReviveFairy
+	.4byte gSprite_ReviveFairy
+	.4byte 00000000
+
 gUnk_08003E44:: @ 08003E44
 	.incbin "data_080029B4/gUnk_08003E44.bin"

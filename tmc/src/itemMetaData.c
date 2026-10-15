@@ -127,6 +127,7 @@ const ItemMetaData gItemMetaData[] = {
     [ITEM_CANE_OF_BYRNA] = { 0u, 0u, 0u, 0u, 0x99u, TEXT_ITEM_GET, 0x99u, 0x5u },
     [ITEM_MAGIC_POWDER] = { 0u, 0u, 0u, 0u, 0x9au, TEXT_ITEM_GET, 0x9au, 0x5u },
     [ITEM_CANE_OF_SOMARIA] = { 0u, 0u, 0u, 0u, 0x9bu, TEXT_ITEM_GET, 0x9bu, 0x5u },
+    [ITEM_REVIVE_FAIRY] = { 0x63u, 0x13u, 0u, 0x2u, 0x9cu, TEXT_ITEM_GET, 0x9cu, 0x5u },
 };
 
 // TODO Shop price and item get message
@@ -271,5 +272,6 @@ const struct_080FD964 gUnk_080FD964[] = {
     [ITEM_CANE_OF_BYRNA] = { 0, 0, 0x0, TEXT_INDEX(TEXT_ITEM_GET, 0x99) },
     [ITEM_MAGIC_POWDER] = { 0, 0, 0x0, TEXT_INDEX(TEXT_ITEM_GET, 0x9a) },
     [ITEM_CANE_OF_SOMARIA] = { 0, 0, 0x0, TEXT_INDEX(TEXT_ITEM_GET, 0x9b) },
+    [ITEM_REVIVE_FAIRY] = { 60, 0, TEXT_INDEX(TEXT_STOCKWELL, 0x26), TEXT_INDEX(TEXT_ITEM_GET, 0x9c) },
 
 };

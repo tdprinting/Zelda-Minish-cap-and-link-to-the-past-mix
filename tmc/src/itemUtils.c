@@ -17,6 +17,7 @@
 #include "enemy.h"
 #include "message.h"
 #include "ui.h"
+#include "blendCoop.h"
 
 const Wallet gWalletSizes[] = {
     { 100, 0xf060 },
@@ -181,6 +182,9 @@ u32 GiveItem(Item item, u32 param_2) {
             break;
         case 0x0f:
             AddKinstoneToBag(param_2);
+            break;
+        case 0x13:
+            Blend_GiveReviveFairy();
             break;
         case 0x10:
             gSave.stats.walletType++;

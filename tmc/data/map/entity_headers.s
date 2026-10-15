@@ -18641,6 +18641,11 @@ gUnk_080F58A8:: @ 080F58A8
 	entity_list_end
 .endif
 
+@ blend co-op: the Revive Fairy (ITEM_REVIVE_FAIRY), on the crates right of the counter
+gBlendShopReviveFairy::
+	object_raw subtype=0x2, x=0xc8, y=0x84, paramA=0x7b @ ITEM_REVIVE_FAIRY
+	entity_list_end
+
 Entities_HouseInteriors3_StockwellShop_1:: @ 080F58C8
 	object_raw subtype=0x4f, x=0x78, y=0xc8, paramA=0x2, paramB=0x2
 	object_raw subtype=0x4e, x=0xac, y=0x28, collision=1, paramB=0x800

@@ -4,6 +4,7 @@
  *
  * @brief Stockwell NPC
  */
+#include "blendCoop.h"
 #include "entity.h"
 #include "game.h"
 #include "item.h"
@@ -250,6 +251,12 @@ void sub_08065370(Entity* this, ScriptExecutionContext* context) {
             localFlag = SHOP00_BOMBBAG;
             break;
 #endif
+        case ITEM_REVIVE_FAIRY:
+            if (BLEND_REVIVE_FAIRIES >= REVIVE_FAIRIES_MAX) {
+                messageIndex = TEXT_INDEX(TEXT_STOCKWELL, 0xe);
+                goto showmsg;
+            }
+            break;
         case ITEM_SHELLS30:
             if (999 <= gSave.stats.shells) {
                 MessageNoOverlap(TEXT_INDEX(TEXT_STOCKWELL, 0xe), this);
