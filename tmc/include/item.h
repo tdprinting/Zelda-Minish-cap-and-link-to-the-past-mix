@@ -28,6 +28,10 @@ extern void ItemPegasusBoots(ItemBehavior*, u32);
 extern void ItemOcarina(ItemBehavior*, u32);
 extern void ItemTryPickupObject(ItemBehavior*, u32);
 extern void ItemJarEmpty(ItemBehavior*, u32);
+extern void ItemFireRod(ItemBehavior*, u32);
+/** Blend: the A Link to the Past item to use instead of a Minish Cap one, or ITEM_NONE. */
+extern u32 Blend_ItemVariant(u32 item);
+extern void Blend_ExecuteVariant(ItemBehavior*, u32);
 
 typedef enum {
     ITEM_NONE,
@@ -149,6 +153,13 @@ typedef enum {
     ITEM_SKILL_FAST_SPIN,
     ITEM_SKILL_FAST_SPLIT,
     ITEM_SKILL_LONG_SPIN,
+    // A Link to the Past items added by the blend. They share a menu slot with a
+    // Minish Cap item and are switched to with L + that item's button.
+    ITEM_HOOKSHOT,
+    ITEM_HAMMER,
+    ITEM_CANE_OF_BYRNA,
+    ITEM_MAGIC_POWDER,
+    ITEM_CANE_OF_SOMARIA,
 
     // these are not actually item ids but special values used by item drops for example
     ITEM_KINSTONE_RED = 0xfc,

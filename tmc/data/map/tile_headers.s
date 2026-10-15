@@ -344,7 +344,7 @@ gAreaTiles:: @ 0810309C
 	.4byte gAreaTiles_LakeHylia               @ 0xB
 	.4byte gAreaTiles_MinishWoods             @ 0xC
 	.4byte gAreaTiles_Beanstalks              @ 0xD
-	.4byte gAreaTiles_MinishWoods             @ 0xE
+	.4byte gAreaTiles_EasternPalace           @ 0xE (Eastern Palace)
 	.4byte gAreaTiles_HyruleTown              @ 0xF
 	.4byte gAreaTiles_MelarisMine             @ 0x10
 	.4byte gAreaTiles_MnishPaths1             @ 0x11
@@ -357,8 +357,8 @@ gAreaTiles:: @ 0810309C
 	.4byte gAreaTiles_CastorWilds             @ 0x18
 	.4byte gAreaTiles_LakeHylia               @ 0x19
 	.4byte gAreaTiles_MtCrenel                @ 0x1A
-	.4byte gAreaTiles_Unused                  @ 0x1B
-	.4byte gAreaTiles_Unused                  @ 0x1C
+	.4byte gAreaTiles_DesertPalace             @ 0x1B (A Link to the Past)
+	.4byte gAreaTiles_TowerOfHera              @ 0x1C (A Link to the Past)
 	.4byte gAreaTiles_HyruleField             @ 0x1D
 	.4byte gAreaTiles_MinishWoods             @ 0x1E
 	.4byte gAreaTiles_HyruleField             @ 0x1F

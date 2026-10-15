@@ -31,6 +31,7 @@ void DeathFx(Entity* this) {
 void DeathFx_Action0(DeathFxObject* this) {
     static const u8 gUnk_0811EC08[] = {
         0, 64, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, // A Link to the Past's enemies (ids 0x67 and up)
     };
     static const u8 gUnk_0811EC20[] = {
         26,

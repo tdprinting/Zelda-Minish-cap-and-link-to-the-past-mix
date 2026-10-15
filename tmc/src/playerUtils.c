@@ -223,6 +223,11 @@ bool32 IsPreventedFromUsingItem(void) {
 }
 
 void CreateItemIfInputMatches(Item itemId, PlayerInputState input, bool32 forceCreate) {
+    // blend: an A Link to the Past item switched in for this one runs on its behalf
+    u32 variant = Blend_ItemVariant(itemId);
+    if (variant != ITEM_NONE) {
+        itemId = ITEM_PACCI_CANE;
+    }
     if (itemId - 1 < 0x1f) {
         ItemDefinition* ptr = &gItemDefinitions[itemId];
         u16* inputPtr = &gPlayerState.playerInput.heldInput;
@@ -236,6 +241,7 @@ void CreateItemIfInputMatches(Item itemId, PlayerInputState input, bool32 forceC
                 item->priority = gItemDefinitions[itemId].priority;
                 item->behaviorId = itemId;
                 item->field_0x2[1] = input;
+                item->field_0x2[0] = variant;
             }
         }
     }

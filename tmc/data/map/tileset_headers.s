@@ -1018,7 +1018,7 @@ gAreaTileSets:: @ 0810246C
 	.4byte gAreaTileSets_LakeHylia               @ 0xB
 	.4byte gAreaTileSets_LakeWoodsCave           @ 0xC
 	.4byte gAreaTileSets_Beanstalks              @ 0xD
-	.4byte gAreaTileSets_MinishWoods             @ 0xE
+	.4byte gAreaTileSets_EasternPalace           @ 0xE (Eastern Palace)
 	.4byte gAreaTileSets_HyruleDigCaves          @ 0xF
 	.4byte gAreaTileSets_MelarisMine             @ 0x10
 	.4byte gAreaTileSets_MinishPaths            @ 0x11
@@ -1031,8 +1031,8 @@ gAreaTileSets:: @ 0810246C
 	.4byte gAreaTileSets_OuterFortressOfWinds    @ 0x18
 	.4byte gAreaTileSets_HyliaDigCaves           @ 0x19
 	.4byte gAreaTileSets_VeilFallsTop            @ 0x1A
-	.4byte gAreaTileSets_Unused                  @ 0x1B
-	.4byte gAreaTileSets_Unused                  @ 0x1C
+	.4byte gAreaTileSets_DesertPalace             @ 0x1B (A Link to the Past)
+	.4byte gAreaTileSets_TowerOfHera              @ 0x1C (A Link to the Past)
 	.4byte gAreaTileSets_Unused                  @ 0x1D
 	.4byte gAreaTileSets_Unused                  @ 0x1E
 	.4byte gAreaTileSets_Unused                  @ 0x1F

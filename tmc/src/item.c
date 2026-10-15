@@ -8,7 +8,7 @@ void (*const gItemFunctions[])(ItemBehavior*, u32) = {
     [ITEM_GREEN_SWORD] = ItemSword,
     [ITEM_RED_SWORD] = ItemSword,
     [ITEM_BLUE_SWORD] = ItemSword,
-    [ITEM_UNUSED_SWORD] = ItemSword,
+    [ITEM_UNUSED_SWORD] = ItemFireRod, // the Ice Rod
     [ITEM_FOURSWORD] = ItemSword,
     [ITEM_BOMBS] = ItemBomb,
     [ITEM_REMOTE_BOMBS] = ItemBomb,
@@ -25,7 +25,7 @@ void (*const gItemFunctions[])(ItemBehavior*, u32) = {
     [ITEM_MOLE_MITTS] = ItemMoleMitts,
     [ITEM_ROCS_CAPE] = ItemRocsCape,
     [ITEM_PEGASUS_BOOTS] = ItemPegasusBoots,
-    [ITEM_FIRE_ROD] = ItemDebug,
+    [ITEM_FIRE_ROD] = ItemFireRod,
     [ITEM_OCARINA] = ItemOcarina,
     [ITEM_ORB_GREEN] = ItemDebug,
     [ITEM_ORB_BLUE] = ItemDebug,
@@ -38,5 +38,9 @@ void (*const gItemFunctions[])(ItemBehavior*, u32) = {
 };
 
 void ExecuteItemFunction(ItemBehavior* behavior, u32 index) {
+    if (behavior->field_0x2[0] != ITEM_NONE) {
+        Blend_ExecuteVariant(behavior, index);
+        return;
+    }
     gItemFunctions[behavior->behaviorId](behavior, index);
 }

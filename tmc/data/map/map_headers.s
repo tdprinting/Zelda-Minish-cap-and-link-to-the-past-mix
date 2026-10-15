@@ -3469,7 +3469,7 @@ gAreaRoomMaps:: @ 08107988
 	.4byte gAreaRoomMaps_LakeHylia               @ 0xB
 	.4byte gAreaRoomMaps_LakeWoodsCave           @ 0xC
 	.4byte gAreaRoomMaps_Beanstalks              @ 0xD
-	.4byte gAreaRoomMaps_Empty                   @ 0xE
+	.4byte gAreaRoomMaps_EasternPalace           @ 0xE
 	.4byte gAreaRoomMaps_HyruleDigCaves          @ 0xF
 	.4byte gAreaRoomMaps_MelarisMine             @ 0x10
 	.4byte gAreaRoomMaps_MinishPaths            @ 0x11
@@ -3482,8 +3482,8 @@ gAreaRoomMaps:: @ 08107988
 	.4byte gAreaRoomMaps_OuterFortressOfWinds    @ 0x18
 	.4byte gAreaRoomMaps_HyliaDigCaves           @ 0x19
 	.4byte gAreaRoomMaps_VeilFallsTop            @ 0x1A
-	.4byte gAreaRoomMaps_Unused                  @ 0x1B
-	.4byte gAreaRoomMaps_Unused                  @ 0x1C
+	.4byte gAreaRoomMaps_DesertPalace             @ 0x1B (A Link to the Past)
+	.4byte gAreaRoomMaps_TowerOfHera              @ 0x1C (A Link to the Past)
 	.4byte gAreaRoomMaps_Unused                  @ 0x1D
 	.4byte gAreaRoomMaps_Unused                  @ 0x1E
 	.4byte gAreaRoomMaps_Unused                  @ 0x1F

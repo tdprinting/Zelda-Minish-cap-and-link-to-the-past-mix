@@ -18,6 +18,7 @@
 #include "screen.h"
 #include "tileMap.h"
 #include "tiles.h"
+#include "blend.h"
 
 extern void UpdateScreenShake(void);
 extern void sub_0807C8B0(u16*, u32, u32);
@@ -932,9 +933,10 @@ void sub_08080CB4(Entity* this) {
     u32 tmp2;
     u32 tmp3;
     u32 mask;
+    u32 anim = Blend_ItemSpriteAnim(this->type);
 
-    if (this->type != this->animIndex) {
-        InitAnimationForceUpdate(this, this->type);
+    if (anim != this->animIndex) {
+        InitAnimationForceUpdate(this, anim);
         if (this->type == 0x5c) {
             const KinstoneWorldEvent* ptr = &gKinstoneWorldEvents[this->type2];
             tmp = ptr->objPalette;
@@ -944,7 +946,7 @@ void sub_08080CB4(Entity* this) {
     } else {
         UpdateAnimationSingleFrame(this);
         if (this->spriteSettings.draw != 0) {
-            switch (this->type) {
+            switch (anim) {
                 case 0x60:
                     if (((GenericEntity*)this)->field_0x6a.HALF.LO != 0) {
                         ((GenericEntity*)this)->field_0x6a.HALF.LO--;

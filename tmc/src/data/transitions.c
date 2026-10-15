@@ -1,6 +1,8 @@
 #include "area.h"
 #include "roomid.h"
 #include "transitions.h"
+// where the way into each A Link to the Past dungeon lands (made by blend/dungeons/build.py)
+#include "../../custom/gen/entries.h"
 
 // clang-format off
 
@@ -276,7 +278,8 @@ const Transition gExitList_MtCrenel_GustJarShortcut[] = {
       1, TRANSITION_TYPE_NORMAL, 0x0, 0x0, 0x0, 0x0 },
     { WARP_TYPE_AREA, 0x2f8, 0x28, 0x38, 0x98, TRANSITION_SHAPE_AREA_12x12, AREA_CRENEL_CAVES, ROOM_CRENEL_CAVES_SPINY_CHU_PUZZLE,
       1, TRANSITION_TYPE_NORMAL, 0x0, 0x0, 0x0, 0x0 },
-    { WARP_TYPE_AREA, 0x348, 0x58, 0xb8, 0x88, TRANSITION_SHAPE_AREA_12x12, AREA_CRENEL_CAVES, ROOM_CRENEL_CAVES_CHUCHU_POT_CHEST,
+    // the cracked cave is now the way into A Link to the Past's Tower of Hera
+    { WARP_TYPE_AREA, 0x348, 0x58, ENTRY_TowerOfHera, TRANSITION_SHAPE_AREA_12x12, AREA_NULL_1C, 0,
       1, TRANSITION_TYPE_NORMAL, 0x0, 0x0, 0x0, 0x0 },
     { WARP_TYPE_AREA, 0x38, 0x108, 0x78, 0x118, TRANSITION_SHAPE_AREA_12x12, AREA_CRENEL_CAVES, ROOM_CRENEL_CAVES_WATER_HEART_PIECE,
       1, TRANSITION_TYPE_NORMAL, 0x0, 0x0, 0x0, 0x0 },
@@ -341,7 +344,8 @@ const Transition gExitList_HyruleField_EasternHillsSouth[] = {
     TransitionListEnd,
 };
 const Transition gExitList_HyruleField_EasternHillsCenter[] = {
-    { WARP_TYPE_AREA, 0xa8, 0x98, 0x78, 0x78, TRANSITION_SHAPE_AREA_12x12, AREA_CAVES, ROOM_CAVES_HILLS_KEESE_CHEST, 1, TRANSITION_TYPE_NORMAL,
+    // the hillside cave is now the way into A Link to the Past's Eastern Palace
+    { WARP_TYPE_AREA, 0xa8, 0x98, ENTRY_EasternPalace, TRANSITION_SHAPE_AREA_12x12, AREA_EMPTY, 0, 1, TRANSITION_TYPE_NORMAL,
       0x0, 0x0, 0x0, 0x0 },
     TransitionListEnd,
 };
@@ -411,7 +415,8 @@ const Transition gExitList_HyruleField_NorthHyruleField[] = {
 const Transition gExitList_HyruleField_TrilbyHighlands[] = {
     { WARP_TYPE_AREA, 0x40, 0x388, 0x78, 0x78, TRANSITION_SHAPE_AREA_28x12, AREA_TREE_INTERIORS, ROOM_TREE_INTERIORS_PERCYS_TREEHOUSE,
       1, TRANSITION_TYPE_NORMAL, 0x0, 0x0, 0x0, 0x0 },
-    { WARP_TYPE_AREA, 0x88, 0x222, 0x78, 0x78, TRANSITION_SHAPE_AREA_12x12, AREA_CAVES, ROOM_CAVES_TRILBY_KEESE_CHEST, 1, TRANSITION_TYPE_NORMAL,
+    // the cracked cave is now the way into A Link to the Past's Desert Palace
+    { WARP_TYPE_AREA, 0x88, 0x222, ENTRY_DesertPalace, TRANSITION_SHAPE_AREA_12x12, AREA_NULL_1B, 0, 1, TRANSITION_TYPE_NORMAL,
       0x0, 0x0, 0x0, 0x0 },
     { WARP_TYPE_AREA, 0x38, 0x2a8, 0x78, 0x78, TRANSITION_SHAPE_AREA_12x12, AREA_CAVES, ROOM_CAVES_TRILBY_RUPEE, 1, TRANSITION_TYPE_NORMAL, 0x0,
       0x0, 0x0, 0x0 },
@@ -3798,6 +3803,9 @@ const Transition* const gExitLists_Sanctuary[] = {
     [ROOM_SANCTUARY_STAINED_GLASS] = gExitList_Sanctuary_StainedGlass,
 };
 
+// A Link to the Past dungeons (made by blend/dungeons/build.py)
+#include "../../custom/gen/exits.h"
+
 const Transition* const* const gExitLists[] = {
     /*AREA_MINISH_WOODS*/ gExitLists_MinishWoods,
     /*AREA_MINISH_VILLAGE*/ gExitLists_MinishVillage,
@@ -3813,7 +3821,7 @@ const Transition* const* const gExitLists[] = {
     /*AREA_LAKE_HYLIA*/ gExitLists_LakeHylia,
     /*AREA_LAKE_WOODS_CAVE*/ gExitLists_LakeWoodsCave,
     /*AREA_BEANSTALKS*/ gExitLists_Beanstalks,
-    /*AREA_EMPTY*/ gExitLists_NoExit,
+    /*AREA_EMPTY*/ gExitLists_EasternPalace,
     /*AREA_HYRULE_DIG_CAVES*/ gExitLists_HyruleDigCaves,
     /*AREA_MELARIS_MINE*/ gExitLists_MelarisMine,
     /*AREA_MINISH_PATHS*/ gExitLists_MinishPaths,
@@ -3826,8 +3834,8 @@ const Transition* const* const gExitLists[] = {
     /*AREA_OUTER_FORTRESS_OF_WINDS*/ gExitLists_OuterFortressOfWinds,
     /*AREA_HYLIA_DIG_CAVES*/ gExitLists_HyliaDigCaves,
     /*AREA_VEIL_FALLS_TOP*/ gExitLists_VeilFallsTop,
-    /*AREA_NULL_1B*/ gExitLists_NoExit,
-    /*AREA_NULL_1C*/ gExitLists_NoExit,
+    /*AREA_NULL_1B*/ gExitLists_DesertPalace,
+    /*AREA_NULL_1C*/ gExitLists_TowerOfHera,
     /*AREA_NULL_1D*/ gExitLists_NoExit,
     /*AREA_NULL_1E*/ gExitLists_NoExit,
     /*AREA_NULL_1F*/ gExitLists_NoExit,
