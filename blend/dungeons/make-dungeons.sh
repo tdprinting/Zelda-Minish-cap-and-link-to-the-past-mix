@@ -39,5 +39,7 @@ ALTTP_ROOMS="$WORK/rooms" ALTTP_GFX="$WORK/gfx" ALTTP_YAML="$WORK/assets/dungeon
 python3 "$ROOT/blend/enemies/alttp_enemies.py" "$ROM"
 # Link's animations for the A Link to the Past items, drawn with that game's item art
 python3 "$ROOT/blend/anim/build.py" "$ROM"
+# icons for the A Link to the Past items (menus, buttons, items on the ground), from that game's item menu art
+python3 "$ROOT/blend/menu/icons.py" "$ROM"
 # both generators' frame layouts, patched into gFrameObjLists (needs `make build_assets`)
 python3 "$ROOT/blend/anim/objlists.py"

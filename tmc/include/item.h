@@ -160,8 +160,16 @@ typedef enum {
     ITEM_CANE_OF_BYRNA,
     ITEM_MAGIC_POWDER,
     ITEM_CANE_OF_SOMARIA,
-    // The Temple of Bonds' reward (blendGoldenSword.c). A fixed id, clear of the co-op
-    // branch's items (0x7b-0x81), so the two can merge in any order.
+    // Co-op (blendCoop.c): revives a downed partner; sold in Stockwell's shop
+    ITEM_REVIVE_FAIRY,
+    // The rest of A Link to the Past's items (their icons: blend/menu/icons.py)
+    ITEM_BOOK_OF_MUDORA,
+    ITEM_MAGIC_CAPE,
+    ITEM_BUG_NET,
+    ITEM_MUSHROOM,
+    ITEM_SHOVEL,
+    ITEM_TITANS_MITT,
+    // The Temple of Bonds' reward (blendGoldenSword.c)
     ITEM_GOLDEN_SWORD = 0x82,
 
     // these are not actually item ids but special values used by item drops for example

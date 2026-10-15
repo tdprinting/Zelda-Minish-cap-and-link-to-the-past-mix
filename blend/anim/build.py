@@ -176,7 +176,88 @@ def make_items(ss):
             items[name] = Item(img, grip_up=(len(img[0]) // 2, 1))   # held by the string at the top
         else:
             items[name] = Item(img)
+    # the Bug Net, the Shovel and the Magic Cape, drawn by hand after A Link to the Past's
+    for name, art, grip in (('bug_net', NET_ART, None), ('shovel', SHOVEL_ART, None), ('cape', CAPE_ART, (4, 0))):
+        up = [[ART_COLORS[ch] for ch in row] for row in art]
+        g = grip or (len(up[0]) // 2, len(up) - 1)
+        diag, gd = rot45(up, g)
+        items[name] = Item(up, diag, grip_up=g, grip_diag=gd)
     return items
+
+
+# Hand-drawn items, pointing up with the grip at the bottom, in Link's palette:
+# O outline, W white, B brown, b dark brown, S steel blue, R red, r dark red, G gold.
+ART_COLORS = {'.': 0, 'O': OUT, 'W': 14, 'B': 10, 'b': 11, 'S': 6, 'R': 1, 'r': 2, 'G': 8}
+NET_ART = [
+    '..OOOOO..',
+    '.OW.W.WO.',
+    'OW.W.W.WO',
+    'O.W.W.W.O',
+    'OW.W.W.WO',
+    '.OW.W.WO.',
+    '..OWWWO..',
+    '...OBO...',
+    '...OBO...',
+    '...ObO...',
+    '...OBO...',
+    '...OBO...',
+    '...ObO...',
+    '...OBO...',
+    '...OBO...',
+    '....O....',
+]
+SHOVEL_ART = [
+    '..OOO..',
+    '.OSWSO.',
+    'OSSWSSO',
+    'OSSWSSO',
+    'OSSSSSO',
+    '.OSSSO.',
+    '..OBO..',
+    '..OBO..',
+    '..ObO..',
+    '..OBO..',
+    '..OBO..',
+    '..ObO..',
+    '.OBBBO.',
+    '.ObbbO.',
+    '..OOO..',
+]
+CAPE_ART = [
+    '...OGO...',
+    '..ORGRO..',
+    '.ORRrRRO.',
+    '.ORRrRRO.',
+    'ORRRrRRRO',
+    'ORRRrRRRO',
+    'ORRrRrRRO',
+    'ORrRRRrRO',
+    '.OOOOOOO.',
+]
+
+
+def rot45(img, grip):
+    """The item turned an eighth clockwise (pointing up and right), with its new grip."""
+    import math
+    h, w = len(img), len(img[0])
+    gx, gy = grip
+    c = s_ = math.sqrt(0.5)
+    pts = [((x - gx) * c - (y - gy) * s_, (x - gx) * s_ + (y - gy) * c) for y in range(h) for x in range(w) if img[y][x]]
+    x0 = int(math.floor(min(p[0] for p in pts))) - 1
+    y0 = int(math.floor(min(p[1] for p in pts))) - 1
+    x1 = int(math.ceil(max(p[0] for p in pts))) + 1
+    y1 = int(math.ceil(max(p[1] for p in pts))) + 1
+    out = [[0] * (x1 - x0 + 1) for _ in range(y1 - y0 + 1)]
+    for oy in range(y0, y1 + 1):
+        for ox in range(x0, x1 + 1):
+            # back into the upright picture
+            sx = ox * c + oy * s_ + gx
+            sy = -ox * s_ + oy * c + gy
+            ix, iy = int(round(sx)), int(round(sy))
+            if 0 <= ix < w and 0 <= iy < h:
+                out[oy - y0][ox - x0] = img[iy][ix]
+    out, dx, dy = trim(out)
+    return out, (-x0 - dx, -y0 - dy)
 
 
 # ---------------------------------------------------------------- MC frames
@@ -270,6 +351,13 @@ POSES = {
     },
 }
 
+# the Magic Cape: flung up over Link's head and swept down around him
+POSES['swirl'] = {
+    'down': [(D_RAISE, 'up', 7, -17, 'front'), (D_UP2, 'up', 0, -19, 'back'), (D_UP2B, 'down', 0, -8, 'front')],
+    'side': [(S_BACK, 'up', 1, -13, 'back'), (S_BACK, 'up', 1, -18, 'back'), (S_MID, 'down', -3, -8, 'front')],
+    'up': [(U_RAISE, 'up', -6, -17, 'front'), (U_HOLD, 'up', 0, -19, 'back'), (U_HOLD, 'down', 0, -8, 'back')],
+}
+
 # Keyframes per pose family: (pose index, duration, playerFrame flags).
 # The item acts on the frame flagged 0x40 and ends on 0x80, as before.
 TIMING = {
@@ -279,6 +367,7 @@ TIMING = {
     'hold': [(0, 2, 0), (0, 1, 0x40), (0, 10, 0), (0, 1, 0x80)],
     'shake': [(0, 4, 0), (1, 4, 0), (0, 3, 0), (1, 1, 0x40), (1, 3, 0), (0, 4, 0), (1, 4, 0), (1, 1, 0x80)],
     'hold_up': [(0, 3, 0), (1, 4, 0), (2, 20, 0), (2, 1, 0x40), (2, 16, 0), (2, 1, 0x80)],
+    'swirl': [(0, 4, 0), (1, 6, 0), (2, 1, 0x40), (2, 8, 0), (2, 1, 0x80)],
 }
 
 # Animation groups in order: the id is 0x9F00 + 4 * index (keep in sync with blend.h).
@@ -286,6 +375,7 @@ GROUPS = [
     ('hammer', 'hammer'), ('hookshot', 'hold'), ('fire_rod', 'rod'), ('ice_rod', 'rod'),
     ('somaria', 'rod'), ('byrna', 'raise'), ('powder', 'shake'),
     ('bombos', 'hold_up'), ('ether', 'hold_up'), ('quake', 'hold_up'), ('mirror', 'hold_up'),
+    ('bug_net', 'rod'), ('shovel', 'hammer'), ('cape', 'swirl'),
 ]
 
 

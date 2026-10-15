@@ -21,6 +21,8 @@
 #include "ui.h"
 #include "affine.h"
 #include "fade.h"
+#include "blend.h"
+#include "blendCoop.h"
 
 extern void sub_080A4DB8(u32);
 
@@ -40,6 +42,7 @@ void Subtask_PauseMenu(void) {
         SetBgmVolume(0x100);
         Subtask_Exit();
     } else {
+        gBlendCoop.menuPage = 1; // blend: tells the co-op host the game is paused (the Items page says which page)
         FlushSprites();
         pauseMenu_Variants[gPauseMenuOptions.unk11]();
         sub_080A5128();
@@ -284,6 +287,8 @@ void PauseMenu_ItemMenu(void) {
     PauseMenu_ItemMenu_Draw();
 }
 
+static void FillItemSlots(void);
+
 void PauseMenu_ItemMenu_Init(void) {
     static const KeyButtonLayout gUnk_08128B50 = {
         0xd0u,
@@ -310,15 +315,37 @@ void PauseMenu_ItemMenu_Init(void) {
         },
     };
 
+    gMenu.field_0xc = NULL;
+    sub_080A70AC((KeyButtonLayout*)&gUnk_08128B50);
+    FillItemSlots();
+    SetMenuType(1);
+}
+
+/** Puts the items of the page being shown (blend: Minish Cap's, or A Link to the Past's) in the slots. */
+static void FillItemSlots(void) {
     u32 uVar1;
     u32 i;
     u32 item;
 
-    gMenu.field_0xc = NULL;
-    sub_080A70AC((KeyButtonLayout*)&gUnk_08128B50);
+    for (i = 0; i <= MENU_SLOT_BOTTLE3; i++) {
+        gPauseMenu.items[i] = ITEM_NONE;
+    }
+    if (gBlendLink.menuPage) {
+        for (i = 0; i <= MENU_SLOT_BOTTLE3; i++) {
+            item = Blend_MenuPageItem(i);
+            if (item != ITEM_NONE) {
+                gPauseMenu.items[i] = item;
+                sub_080A5F48(item, i * 8 + 0x360);
+            }
+        }
+        return;
+    }
     for (item = ITEM_SMITH_SWORD; item < ITEM_BOTTLE_EMPTY; item++) {
         uVar1 = GetInventoryValue(item);
         if ((uVar1 == 1) && (i = gItemMetaData[item].menuSlot, i <= MENU_SLOT_SAVE_BUTTON_JP)) {
+            if (Blend_MenuPageOf(item)) {
+                continue; // blend: on the A Link to the Past page (the rods would hide the Pacci Cane)
+            }
             switch (item) {
                 case ITEM_LANTERN_OFF:
                 case ITEM_LANTERN_ON:
@@ -331,7 +358,6 @@ void PauseMenu_ItemMenu_Init(void) {
             sub_080A5F48(item, i * 8 + 0x360);
         }
     }
-    SetMenuType(1);
 }
 
 const ItemMenuTableEntry gItemMenuTable[] = {
@@ -384,6 +410,13 @@ void PauseMenu_ItemMenu_Update(void) {
         menuSlot = gMenu.field_0x3;
 
         entry = &gItemMenuTable[menuSlot];
+        // blend: Select switches between Minish Cap's items and A Link to the Past's
+        gBlendCoop.menuPage = gBlendLink.menuPage ? 3 : 2;
+        if (gInput.newKeys == SELECT_BUTTON) {
+            gBlendLink.menuPage ^= 1;
+            FillItemSlots();
+            SoundReq(SFX_TEXTBOX_SWAP);
+        }
         switch (gInput.newKeys) {
             case A_BUTTON:
                 if (menuSlot == MENU_SLOT_SAVE_BUTTON) {
@@ -398,6 +431,13 @@ void PauseMenu_ItemMenu_Update(void) {
             case B_BUTTON:
                 if (gPauseMenu.items[menuSlot] != 0) {
                     u32 slot = !!(gInput.newKeys ^ A_BUTTON);
+                    if (gBlendLink.menuPage) {
+                        // blend: an A Link to the Past item; the Moon Pearl and the like never go on a button
+                        SoundReq(Blend_MenuEquip(gPauseMenu.items[menuSlot], slot) ? SFX_TEXTBOX_SELECT
+                                                                                    : SFX_MENU_ERROR);
+                        break;
+                    }
+                    Blend_MenuEquipMinishCap(gPauseMenu.items[menuSlot]);
                     ForceEquipItem(gPauseMenu.items[menuSlot], slot);
                     SoundReq(SFX_TEXTBOX_SELECT);
                 }
@@ -429,7 +469,7 @@ void PauseMenu_ItemMenu_Update(void) {
             case MENU_SLOT_BOTTLE1:
             case MENU_SLOT_BOTTLE2:
             case MENU_SLOT_BOTTLE3:
-                if (item != 0) {
+                if (item != 0 && !gBlendLink.menuPage) {
                     item = gSave.stats.bottles[item - ITEM_BOTTLE1];
                 }
                 break;
@@ -441,7 +481,7 @@ void PauseMenu_ItemMenu_Update(void) {
             default:
                 break;
         }
-        sub_080A6F6C(TEXT_INDEX(TEXT_ITEMS, 0) + item);
+        sub_080A6F6C(menuSlot == MENU_SLOT_SAVE_BUTTON ? TEXT_INDEX(TEXT_ITEMS, 0) + item : Blend_MenuItemText(item));
     }
 }
 
@@ -528,14 +568,15 @@ void PauseMenu_ItemMenu_Draw(void) {
         gOamCmd._8 = 0x800;
         DrawDirect(sub_080A5384_draw_constant0, 0x22);
     }
-    i = GetMenuSlotForItem(gSave.stats.equipped[SLOT_A]);
+    // blend: a shared slot's button shows on whichever page has the item switched in
+    i = GetMenuSlotForItem(Blend_HudIcon(gSave.stats.equipped[SLOT_A]));
     if (i < MENU_SLOT_COUNT) {
         entry = &gItemMenuTable[i];
         gOamCmd.x = entry->x;
         gOamCmd.y = entry->y;
         DrawDirect(sub_080A5384_draw_constant0, 3);
     }
-    i = GetMenuSlotForItem(gSave.stats.equipped[SLOT_B]);
+    i = GetMenuSlotForItem(Blend_HudIcon(gSave.stats.equipped[SLOT_B]));
     if (i < MENU_SLOT_COUNT) {
         entry = &gItemMenuTable[i];
         gOamCmd.x = entry->x;
@@ -659,6 +700,12 @@ void sub_080A5594(void) {
                 sub_080A5F48(item, uVar2 * 8 + 0x380);
             }
         }
+    }
+    // the Titan's Mitt takes the Power Bracelets' place, as it upgrades A Link to the Past's Power Glove
+    if (GetInventoryValue(ITEM_TITANS_MITT) == 1) {
+        uVar2 = gItemMetaData[ITEM_POWER_BRACELETS].menuSlot;
+        gGenericMenu.unk10.a[uVar2] = ITEM_TITANS_MITT;
+        sub_080A5F48(ITEM_TITANS_MITT, uVar2 * 8 + 0x380);
     }
     if (GetInventoryValue(ITEM_QST_TINGLE_TROPHY) == 0) {
         iVar5 = 0;
@@ -796,7 +843,7 @@ void sub_080A56A0(void) {
                 item = 0x73;
         }
     }
-    sub_080A6F6C(TEXT_INDEX(TEXT_ITEMS, 0) + item);
+    sub_080A6F6C(item == ITEM_TITANS_MITT ? Blend_MenuItemText(item) : TEXT_INDEX(TEXT_ITEMS, 0) + item);
 }
 
 void sub_080A57F4(void) {

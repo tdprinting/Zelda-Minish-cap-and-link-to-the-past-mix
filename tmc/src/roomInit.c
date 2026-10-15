@@ -5365,6 +5365,7 @@ extern EntityData gUnk_080F5868;
 extern EntityData gUnk_080F5828;
 extern EntityData gUnk_080F5848;
 extern EntityData gUnk_080F5788;
+extern EntityData gBlendShopReviveFairy;
 
 void sub_StateChange_HouseInteriors3_StockwellShop(void) {
     LoadRoomEntityList(&gUnk_080F5758);
@@ -5398,6 +5399,8 @@ void sub_StateChange_HouseInteriors3_StockwellShop(void) {
     if (gSave.stats.hasAllFigurines == 0) {
         LoadRoomEntityList(&gUnk_080F5788);
     }
+    // co-op: Revive Fairies, always in stock
+    LoadRoomEntityList(&gBlendShopReviveFairy);
 }
 
 u32 sub_unk3_HouseInteriors3_Cafe(void) {

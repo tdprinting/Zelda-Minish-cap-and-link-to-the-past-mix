@@ -1709,16 +1709,15 @@ gMoreSpritePtrs:: @ 08003DD4
 	.4byte gSprite_AlttpEnemies10
 	.4byte 00000000
 
-	@ 338: kept for the co-op branch's Revive Fairy (empty here)
+	@ 338: co-op, the Revive Fairy (blend/coop/revive_fairy.py; REVIVE_FAIRY_SPRITE in blendCoop.h)
+	.4byte gSpriteAnimations_ReviveFairy
+	.4byte gSpriteFrames_ReviveFairy
+	.4byte gSprite_ReviveFairy
 	.4byte 00000000
-	.4byte 00000000
-	.4byte 00000000
-	.4byte 00000000
-
-	@ 339: kept for the co-op branch's Twin Stone and Toss Bell (empty here)
-	.4byte 00000000
-	.4byte 00000000
-	.4byte 00000000
+	@ 339: co-op puzzles, the Twin Stone and the Toss Bell (blend/coop/twin_relics.py; TWIN_RELICS_SPRITE)
+	.4byte gSpriteAnimations_TwinRelics
+	.4byte gSpriteFrames_TwinRelics
+	.4byte gSprite_TwinRelics
 	.4byte 00000000
 
 	@ 340: Ganon's Tower's soldiers, wall cannons, flying floor tiles and Sparks

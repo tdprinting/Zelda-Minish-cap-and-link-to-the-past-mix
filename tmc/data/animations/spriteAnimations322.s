@@ -271,6 +271,9 @@ gSpriteAnimations_322_61:: @ 080FDFCB
 gSpriteAnimations_322_62:: @ 080FDFD0
 	.include "animations/gSpriteAnimations_322_62.s"
 
+@ blend: icons for the A Link to the Past items (made by blend/menu/icons.py)
+	.include "custom/gen/menu/icon_anims.inc"
+
 @ subtask2.c, ui.c, pause_menu.c
 gSpriteAnimations_322:: @ 080FDFD8
 	.4byte gSpriteAnimations_322_0
@@ -278,7 +281,7 @@ gSpriteAnimations_322:: @ 080FDFD8
 	.4byte gSpriteAnimations_322_2
 	.4byte gSpriteAnimations_322_3
 	.4byte gSpriteAnimations_322_4
-	.4byte gSpriteAnimations_322_5
+	.4byte gSpriteAnimations_322_BlendIceRod @ blend: was gSpriteAnimations_322_5
 	.4byte gSpriteAnimations_322_6
 	.4byte gSpriteAnimations_322_7
 	.4byte gSpriteAnimations_322_8
@@ -295,11 +298,11 @@ gSpriteAnimations_322:: @ 080FDFD8
 	.4byte gSpriteAnimations_322_19
 	.4byte gSpriteAnimations_322_20
 	.4byte gSpriteAnimations_322_21
-	.4byte gSpriteAnimations_322_22
+	.4byte gSpriteAnimations_322_BlendFireRod @ blend: was gSpriteAnimations_322_22
 	.4byte gSpriteAnimations_322_23
-	.4byte gSpriteAnimations_322_24
-	.4byte gSpriteAnimations_322_25
-	.4byte gSpriteAnimations_322_26
+	.4byte gSpriteAnimations_322_BlendQuake @ blend: was gSpriteAnimations_322_24
+	.4byte gSpriteAnimations_322_BlendEther @ blend: was gSpriteAnimations_322_25
+	.4byte gSpriteAnimations_322_BlendBombos @ blend: was gSpriteAnimations_322_26
 	.4byte gSpriteAnimations_322_5
 	.4byte gSpriteAnimations_322_28
 	.4byte gSpriteAnimations_322_28
@@ -323,8 +326,8 @@ gSpriteAnimations_322:: @ 080FDFD8
 	.4byte gSpriteAnimations_322_47
 	.4byte gSpriteAnimations_322_48
 	.4byte gSpriteAnimations_322_49
-	.4byte gSpriteAnimations_322_5
-	.4byte gSpriteAnimations_322_5
+	.4byte gSpriteAnimations_322_BlendMagicMirror @ blend: was gSpriteAnimations_322_5
+	.4byte gSpriteAnimations_322_BlendMoonPearl @ blend: was gSpriteAnimations_322_5
 	.4byte gSpriteAnimations_322_52
 	.4byte gSpriteAnimations_322_53
 	.4byte gSpriteAnimations_322_54
@@ -391,4 +394,17 @@ gSpriteAnimations_322:: @ 080FDFD8
 	.4byte gSpriteAnimations_322_0
 	.4byte gSpriteAnimations_322_0
 	.4byte gSpriteAnimations_322_0
+	@ blend: the A Link to the Past items (item.h order from ITEM_HOOKSHOT); the Revive Fairy borrows the bottled fairy
+	.4byte gSpriteAnimations_322_BlendHookshot
+	.4byte gSpriteAnimations_322_BlendHammer
+	.4byte gSpriteAnimations_322_BlendCaneOfByrna
+	.4byte gSpriteAnimations_322_BlendMagicPowder
+	.4byte gSpriteAnimations_322_BlendCaneOfSomaria
+	.4byte gSpriteAnimations_322_40
+	.4byte gSpriteAnimations_322_BlendBookOfMudora
+	.4byte gSpriteAnimations_322_BlendMagicCape
+	.4byte gSpriteAnimations_322_BlendBugNet
+	.4byte gSpriteAnimations_322_BlendMushroom
+	.4byte gSpriteAnimations_322_BlendShovel
+	.4byte gSpriteAnimations_322_BlendTitansMitt
 	.4byte 00000000
