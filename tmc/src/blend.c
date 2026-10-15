@@ -1396,7 +1396,8 @@ bool32 Blend_IsLockedBigChest(Entity* e) {
         return FALSE;
     }
     for (i = 0; i < ARRAY_COUNT(sBossRooms); i++) {
-        if (sBossRooms[i].area == gRoomControls.area) {
+        // the Temple of Bonds has no big key: its big chest opens to both players' teamwork
+        if (sBossRooms[i].area == gRoomControls.area && gRoomControls.area != AREA_NULL_3F) {
             return TRUE;
         }
     }
