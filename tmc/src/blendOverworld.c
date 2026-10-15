@@ -30,6 +30,12 @@
 #include "message.h"
 #include "player.h"
 #include "entity.h"
+#include "collision.h"
+#include "tileMap.h"
+#include "menu.h"
+#include "gba/syscall.h"
+
+extern const u8 gMapTileTypeToCollisionData[];
 
 typedef struct {
     u16 cell;   /**< packed room map index: y * room width + x */
@@ -286,6 +292,26 @@ static bool32 IsExteriorMetatile(const BlendExterior* e, u32 m) {
  * The room's own people (the Castle Garden's soldiers on their rounds, say) would walk
  * across a front that now stands where their path was: they step out of the room.
  */
+/** A door's cell in the live map (64 cells to a row; the exterior's own maps go by the room's width). */
+static u32 DoorPos(const BlendExteriorDoor* d) {
+    s32 w = gRoomControls.width >> 4;
+    s32 y = Div(d->cell, w);
+    return y * 64 + d->cell - y * w;
+}
+
+/** Whether a cell is in a door's way in: the door, or the few cells Link walks up to reach it. */
+static bool32 InDoorway(const BlendExterior* e, s32 x, s32 y) {
+    u32 i;
+    for (i = 0; i < e->doorCount; i++) {
+        u32 pos = DoorPos(&e->doors[i]);
+        s32 dx = x - (s32)(pos & 63), dy = y - (s32)(pos >> 6);
+        if (dx >= -1 && dx <= 1 && dy >= 0 && dy <= 3) {
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
+
 static void ClearPeopleOffFront(void) {
     const BlendExterior* e = gBlendExterior.active;
     Entity* ent;
@@ -306,19 +332,52 @@ static void ClearPeopleOffFront(void) {
                 continue;
             }
             cell = y * 64 + x;
-            if (gMapBottom.collisionData[cell] != 0 && IsExteriorMetatile(e, gMapBottom.mapData[cell])) {
+            if ((gMapBottom.collisionData[cell] != 0 && IsExteriorMetatile(e, gMapBottom.mapData[cell])) ||
+                InDoorway(e, x, y)) {
                 DeleteEntity(ent);
             }
         }
     }
 }
 
-/** Every gameplay frame: keeps the front's colors, clears its ground of the room's people, and
- * has Ezlo speak up the first time. */
+/** Puts a metatile on the bottom layer, with its collision, and redraws it. */
+static void PutBottomTile(u32 index, u32 pos) {
+    u32 type = gMapBottom.tileTypes[index];
+    const u16* sub = gMapBottom.subTiles + index * 4;
+    u16* dest;
+    gMapBottom.mapData[pos] = index;
+    gMapBottom.collisionData[pos] = gMapTileTypeToCollisionData[type];
+    gMapBottom.actTiles[pos] = gMapTileTypeToActTile[type];
+    if (!(gRoomControls.scroll_flags & 1)) {
+        dest = gMapDataBottomSpecial + (pos & 0x3f) * 2 + (pos & 0xfc0) * 4;
+        dest[0] = sub[0];
+        dest[1] = sub[1];
+        dest[0x80] = sub[2];
+        dest[0x81] = sub[3];
+        gUpdateVisibleTiles = 1;
+    }
+}
+
+/** Opens a door the moment its way in opens (the element found, the medallion cast), not only on the next visit. */
+static void OpenDoors(void) {
+    const BlendExterior* e = gBlendExterior.active;
+    u32 i;
+    for (i = 0; i < e->doorCount; i++) {
+        const BlendExteriorDoor* d = &e->doors[i];
+        u32 pos = DoorPos(d);
+        if (gMapBottom.mapData[pos] == d->sealed && !IsDoorSealed(d)) {
+            PutBottomTile(e->mapBottom[d->cell], pos);
+        }
+    }
+}
+
+/** Every gameplay frame: opens doors whose way in just opened, keeps the front's colors, clears
+ * its ground and doorways of the room's people, and has Ezlo speak up the first time. */
 void Blend_ExteriorUpdate(void) {
     if (!Blend_ExteriorActive()) {
         return;
     }
+    OpenDoors();
     Blend_ExteriorRefreshColors();
     ClearPeopleOffFront();
     UpdateFrontStory();

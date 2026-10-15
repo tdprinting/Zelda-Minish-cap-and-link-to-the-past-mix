@@ -481,6 +481,34 @@ def find_place(mc, site, solid, want, taken=None):
     return best[1], best[2]
 
 
+STAIRS = {0x22}
+
+
+def door_approach(src, site, door_cells, rect):
+    """The ALttP cells Link walks up to reach a door: straight down from each door cell
+    until open ground, and, beside it, cells with a walkable half (A Link to the Past's
+    entrance stairs often straddle two cells). They are walkable whatever their art."""
+    x0, y0, x1, y1 = rect
+    ok = alttpow.WALKABLE | STAIRS
+    out = set()
+    for dx, dy in door_cells:
+        for y in range(dy + 1, y1):
+            at = src.attrs(dx, y)
+            if all(a in alttpow.WALKABLE for a in at):
+                break
+            out.add((dx, y))
+        for x in (dx - 1, dx + 1):
+            if not x0 <= x < x1:
+                continue
+            for y in range(dy + 1, y1):
+                tl, tr, bl, br = src.attrs(x, y)
+                if (tl in ok and bl in ok) or (tr in ok and br in ok):
+                    out.add((x, y))
+                else:
+                    break
+    return out
+
+
 class Skip(Exception):
     """A set piece that does not fit its room (left out, the rest go on)."""
 
@@ -653,11 +681,12 @@ def _build_site(site, palettes, char_pool, meta_pool=None, log=print, prior=None
             out.types.append(typ)
         return index[key]
 
+    approach = door_approach(src, site, door_cells, (sx0, sy0, sx0 + w, sy0 + h))
     for n, (mx, my, x, y) in enumerate(cells):
         at = src.attrs(sx0 + x, sy0 + y)
         if (sx0 + x, sy0 + y) in door_cells:
             typ = TILE_CAVE_MOUTH
-        elif all(a in alttpow.WALKABLE for a in at):
+        elif (sx0 + x, sy0 + y) in approach or all(a in alttpow.WALKABLE for a in at):
             typ = walk_t
         else:
             typ = solid_t
