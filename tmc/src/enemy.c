@@ -51,6 +51,10 @@ extern const Hitbox gHitbox_AlttpTall;
 extern const Hitbox gHitbox_AlttpCentered;
 extern const Hitbox gHitbox_AlttpLaser;
 extern const Hitbox gHitbox_GiantMoldorm;
+extern const Hitbox gHitbox_HelmasaurKing;
+extern const Hitbox gHitbox_Arrghus;
+extern const Hitbox gHitbox_Mothula;
+extern const EnemyDefinition gEnemyDefinition_BossPart[];
 #include "../custom/gen/alttp_enemies.h"
 /** Swapped gfx: the enemy's frames are copied into this many 16-tile slots as it animates. */
 #define ALTTP_GFX(slots) (0x4000 | ((slots) << 4))
@@ -212,6 +216,41 @@ const EnemyDefinition gEnemyDefinitions[] = {
     { ALTTP_GFX(AS_BARI), 0, { &gHitbox_23 }, ALTTP_ENEMY_SPRITE_2, { 1, 1, 1, 1 }, 4, 64, 25, 139 },
     { ALTTP_GFX(AS_HARDHAT), 0, { &gHitbox_0 }, ALTTP_ENEMY_SPRITE_2, { 1, 1, 1, 1 }, 200, 256, 25, 139 },
     { ALTTP_GFX(AS_BUMPER), 0, { &gHitbox_0 }, ALTTP_ENEMY_SPRITE_2, { 3, 0, 1, 0 }, 0, 0, 72, 139 },
+    // Debirandos, Kodongos, mini Moldorms, fireballs: sprite 330
+    { ALTTP_GFX(AS_DEBPIT), 0, { &gHitbox_0 }, ALTTP_ENEMY_SPRITE_3, { 3, 0, 1, 0 }, 0, 0, 72, 139 },
+    { ALTTP_GFX(AS_DEBIRANDO), 0, { &gHitbox_0 }, ALTTP_ENEMY_SPRITE_3, { 1, 1, 1, 0 }, 4, 0, 25, 139 },
+    { ALTTP_GFX(AS_KFIRE), 0, { &gHitbox_AlttpLaser }, ALTTP_ENEMY_SPRITE_3, { 1, 1, 1, 0 }, 255, 0x200, 72, 139 },
+    { ALTTP_GFX(AS_KODONGO), 0, { &gHitbox_0 }, ALTTP_ENEMY_SPRITE_3, { 1, 1, 1, 1 }, 8, 0x80, 25, 139 },
+    { ALTTP_GFX(AS_MINIMOLD), 0, { &gHitbox_AlttpCentered }, ALTTP_ENEMY_SPRITE_3, { 1, 1, 1, 0 }, 3, 0x180, 25, 139 },
+    { ALTTP_GFX(AS_MINIMOLD), 0, { &gHitbox_AlttpCentered }, ALTTP_ENEMY_SPRITE_3, { 2, 0, 1, 0 }, 0, 0, 72, 139 },
+    // the Dark World dungeons' bosses: sprite 332
+    { ALTTP_GFX(AS_HKUP), 0, { &gHitbox_HelmasaurKing }, ALTTP_ENEMY_SPRITE_5, { 1, 1, 1, 0 }, 24, 0, 86, 139 },
+    MULTI_FORM(gEnemyDefinition_BossPart),
+    { ALTTP_GFX(AS_HKFIRE), 0, { &gHitbox_AlttpLaser }, ALTTP_ENEMY_SPRITE_5, { 1, 1, 1, 0 }, 255, 0, 72, 139 },
+    { ALTTP_GFX(AS_ARRGHUS), 0, { &gHitbox_Arrghus }, ALTTP_ENEMY_SPRITE_5, { 1, 1, 1, 2 }, 24, 0, 86, 139 },
+    { ALTTP_GFX(AS_ARRGHI), 0, { &gHitbox_AlttpCentered }, ALTTP_ENEMY_SPRITE_5, { 1, 1, 1, 0 }, 4, 0, 25, 139 },
+    { ALTTP_GFX(AS_MOTHULA), 0, { &gHitbox_Mothula }, ALTTP_ENEMY_SPRITE_5, { 1, 1, 1, 2 }, 24, 0, 86, 139 },
+    { ALTTP_GFX(AS_MBEAM), 0, { &gHitbox_AlttpLaser }, ALTTP_ENEMY_SPRITE_5, { 1, 1, 1, 0 }, 255, 0, 72, 139 },
+    // the Dark World dungeons' enemies: sprite 331
+    { ALTTP_GFX(AS_SPIKEBLOCK), 0, { &gHitbox_AlttpCentered }, ALTTP_ENEMY_SPRITE_4, { 1, 1, 1, 0 }, 0, 0, 72, 139 },
+    { ALTTP_GFX(AS_MINIHELM), 0, { &gHitbox_0 }, ALTTP_ENEMY_SPRITE_4, { 1, 1, 1, 1 }, 4, 0x100, 25, 139 },
+    { ALTTP_GFX(AS_TERRORPIN), 0, { &gHitbox_0 }, ALTTP_ENEMY_SPRITE_4, { 1, 1, 1, 1 }, 8, 0, 25, 139 },
+    { ALTTP_GFX(AS_HOVER), 0, { &gHitbox_0 }, ALTTP_ENEMY_SPRITE_4, { 1, 1, 1, 1 }, 4, 0, 25, 139 },
+    { ALTTP_GFX(AS_KYAM), 0, { &gHitbox_AlttpCentered }, ALTTP_ENEMY_SPRITE_4, { 1, 0, 1, 0 }, 4, 0, 25, 139 },
+    { ALTTP_GFX(AS_ZOL), 0, { &gHitbox_0 }, ALTTP_ENEMY_SPRITE_4, { 1, 0, 0, 0 }, 4, 0, 25, 139 },
+    { ALTTP_GFX(AS_FIRESNAKE), 0, { &gHitbox_AlttpCentered }, ALTTP_ENEMY_SPRITE_4, { 1, 1, 1, 0 }, 0, 0, 72, 139 },
+    { ALTTP_GFX(AS_FIREBALL), 0, { &gHitbox_0 }, ALTTP_ENEMY_SPRITE_3, { 1, 0, 0, 0 }, 0, 0, 72, 139 },
+};
+
+/** The bosses' parts, by type: the Helmasaur King's lower body, a leg, its face, a
+ * ball of its tail, the mace, a piece of the mask. */
+const EnemyDefinition gEnemyDefinition_BossPart[] = {
+    { ALTTP_GFX(AS_HKLOW), 0, { &gHitbox_0 }, ALTTP_ENEMY_SPRITE_5, { 1, 0, 1, 0 }, 0, 0, 72, 139 },
+    { ALTTP_GFX(AS_HKLEG), 0, { &gHitbox_0 }, ALTTP_ENEMY_SPRITE_5, { 1, 0, 1, 0 }, 0, 0, 72, 139 },
+    { ALTTP_GFX(AS_HKFACE), 0, { &gHitbox_0 }, ALTTP_ENEMY_SPRITE_5, { 1, 0, 1, 0 }, 0, 0, 72, 139 },
+    { ALTTP_GFX(AS_HKTAIL), 0, { &gHitbox_AlttpCentered }, ALTTP_ENEMY_SPRITE_5, { 1, 0, 1, 0 }, 0, 0, 72, 139 },
+    { ALTTP_GFX(AS_HKTAIL), 0, { &gHitbox_AlttpCentered }, ALTTP_ENEMY_SPRITE_5, { 1, 0, 1, 0 }, 0, 0, 72, 139 },
+    { ALTTP_GFX(AS_HKBIT), 0, { &gHitbox_0 }, ALTTP_ENEMY_SPRITE_5, { 1, 0, 1, 1 }, 0, 0, 72, 139 },
 };
 
 const EnemyDefinition gEnemyDefinition_AlttpEyegore[] = {
@@ -599,5 +638,26 @@ void (*const gEnemyFunctions[])(Entity* ent) = {
     [ALTTP_BARI] = AlttpBari,
     [ALTTP_HARDHAT] = AlttpHardhat,
     [ALTTP_BUMPER] = AlttpBumper,
+    [ALTTP_DEBIRANDO_PIT] = AlttpDebirandoPit,
+    [ALTTP_DEBIRANDO] = AlttpDebirando,
+    [ALTTP_FIREBALL] = AlttpFireball,
+    [ALTTP_KODONGO] = AlttpKodongo,
+    [MINI_MOLDORM] = MiniMoldorm,
+    [MINI_MOLDORM_SEGMENT] = MiniMoldormSegment,
+    [HELMASAUR_KING] = HelmasaurKing,
+    [BOSS_PART] = BossPart,
+    [HELMASAUR_FIREBALL] = HelmasaurFireball,
+    [ARRGHUS] = Arrghus,
+    [ARRGHI] = Arrghi,
+    [MOTHULA] = Mothula,
+    [MOTHULA_BEAM] = MothulaBeam,
+    [ALTTP_SPIKE_BLOCK] = AlttpSpikeBlock,
+    [MINI_HELMASAUR] = MiniHelmasaur,
+    [TERRORPIN] = Terrorpin,
+    [HOVER] = Hover,
+    [KYAMERON] = Kyameron,
+    [ZOL] = Zol,
+    [FIRESNAKE] = Firesnake,
+    [ALTTP_SHOOTER] = AlttpShooter,
 };
 // clang-format on

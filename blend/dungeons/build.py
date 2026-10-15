@@ -71,8 +71,10 @@ ALTTP_STALFOS, ALTTP_EYEGORE, ALTTP_POPO, ALTTP_ANTIFAIRY, ARMOS_KNIGHT = 0x67, 
 ALTTP_HINOX, LANMOLA, ALTTP_LEEVER, ALTTP_BEAMOS = 0x6f, 0x71, 0x73, 0x74
 ALTTP_POKEY, ALTTP_GIBDO, GIANT_MOLDORM, ALTTP_BARI, ALTTP_HARDHAT, ALTTP_BUMPER = 0x76, 0x77, 0x78, 0x7a, 0x7b, 0x7c
 # Minish Cap enemies used where A Link to the Past has a close relative
-MC_CHUCHU, MC_HELMASAUR, MC_SPIKED_BEETLE, MC_DARK_NUT, MC_WALL_MASTER, MC_TEKTITE = 0x01, 0x20, 0x1e, 0x05, 0x1a, 0x26
-MC_WIZZROBE_FIRE = 0x28
+MC_WALL_MASTER = 0x1a
+ALTTP_DEBIRANDO_PIT, ALTTP_KODONGO, MINI_MOLDORM = 0x7d, 0x80, 0x81
+HELMASAUR_KING, ARRGHUS, MOTHULA, ALTTP_SPIKE_BLOCK = 0x83, 0x86, 0x88, 0x8a
+MINI_HELMASAUR, TERRORPIN, HOVER, KYAMERON, ZOL, FIRESNAKE, ALTTP_SHOOTER = 0x8b, 0x8c, 0x8d, 0x8e, 0x8f, 0x90, 0x91
 ENEMIES = {
     'A7-Stalfos': ALTTP_STALFOS,
     '105-StalfosDrop': (ALTTP_STALFOS, 1),    # waits in the ceiling and drops on Link
@@ -91,25 +93,33 @@ ENEMIES = {
     '09-Mouldrum': GIANT_MOLDORM,               # zelda3's name for the Moldorm boss
     '26-BlueOrb': ALTTP_HARDHAT,                # sprite 0x26 is the Hardhat Beetle
     '93-RedOrb': ALTTP_BUMPER,                  # sprite 0x93 is the Bumper
-    # Minish Cap stand-ins where there is no blend version yet
-    '18-Moldorm': 0x0d,                         # the small Moldorms
-    '63-SandCrab1': 0x04, '64-SandCrab2': 0x04,  # Debirandos, the sand pit monsters
-    '86-Triceritops': 0x04,                     # Kodongos, the fire-breathing lizards
-    # Palace of Darkness
+    '18-Moldorm': MINI_MOLDORM,                 # the small Moldorms
+    '63-SandCrab1': (ALTTP_DEBIRANDO_PIT, 0),   # a Debirando in its sand pit
+    '64-SandCrab2': (ALTTP_DEBIRANDO_PIT, 1),   # the red one that spits fireballs
+    '86-Triceritops': ALTTP_KODONGO,            # Kodongos, the fire-breathing lizards
+    # the Dark World dungeons
     '23-RedMiri': (ALTTP_BARI, 1),              # zelda3's name for the Baris
     '24-BlueMiri': ALTTP_BARI,
-    '13-MiniHelmasaur': MC_HELMASAUR,           # Minish Cap has its own little Helmasaurs
-    '8E-Shell': MC_SPIKED_BEETLE,               # Terrorpins: flip them, then strike
-    '92-Helmasaur': (MC_DARK_NUT, 2),           # a gold Darknut stands in for the Helmasaur King
-    # Swamp Palace
-    '8F-Blob': MC_CHUCHU,                       # Zols: Minish Cap's Chuchus are their cousins
-    '81-WaterBug': MC_TEKTITE,                  # zelda3's name for the Hover
-    '8C-Arrghus': (ALTTP_BARI, 1),              # a red Bari stands in for Arrghus,
-    '8D-ArrghusFuzz': ALTTP_BARI,               # and blue ones for its puffs
-    # Skull Woods
     '8B-Gibdo': ALTTP_GIBDO,
-    '109-WallMaster': MC_WALL_MASTER,           # grabs Link and drops him at the entrance
-    '88-Mothula': MC_WIZZROBE_FIRE,             # a fire Wizzrobe stands in for Mothula
+    '13-MiniHelmasaur': MINI_HELMASAUR,
+    '8E-Shell': TERRORPIN,                      # Terrorpins: flip them with the Hammer
+    '81-WaterBug': HOVER,                       # Hovers, the water striders
+    '9A-Splash': KYAMERON,                      # Kyamerons, the bouncing water drops
+    '8F-Blob': ZOL,
+    '80-Lanmola': FIRESNAKE,                    # sprite 0x80 is the Firesnake
+    '8A-SpikeBlock': ALTTP_SPIKE_BLOCK,
+    'C5-Shooter': ALTTP_SHOOTER,                # Medusa statues
+    'C6-4WayShooter': (ALTTP_SHOOTER, 1),
+    '92-Helmasaur': HELMASAUR_KING,             # the Palace of Darkness's boss
+    '8C-Arrghus': ARRGHUS,                      # the Swamp Palace's boss
+    '8D-ArrghusFuzz': None,                     # Arrghus brings its own ring of puffs
+    '88-Mothula': MOTHULA,                      # Skull Woods' boss
+    '109-WallMaster': MC_WALL_MASTER,           # grabs Link and carries him to the entrance
+}
+# enemies that live in the walls (statues) or on the water, not on the floor
+ENEMY_CELLS = {
+    'C5-Shooter': None, 'C6-4WayShooter': None,
+    '81-WaterBug': ('~',), '9A-Splash': ('~',), '8C-Arrghus': ('~',),
 }
 
 DOOR_SMALL_KEY = 0x1c
@@ -509,7 +519,8 @@ class Plan:
             if mc is None:
                 continue
             x, y = s[0], s[1]
-            if self.at(x, y) != A.FLOOR:
+            cells = ENEMY_CELLS.get(s[3], ())
+            if self.at(x, y) != A.FLOOR and cells is not None and self.at(x, y) not in cells:
                 continue
             form = 0
             if isinstance(mc, tuple):

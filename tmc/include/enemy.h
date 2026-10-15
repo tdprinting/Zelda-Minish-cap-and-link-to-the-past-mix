@@ -204,6 +204,27 @@ enum {
     /*0x7a*/ ALTTP_BARI,
     /*0x7b*/ ALTTP_HARDHAT,
     /*0x7c*/ ALTTP_BUMPER,
+    /*0x7d*/ ALTTP_DEBIRANDO_PIT,
+    /*0x7e*/ ALTTP_DEBIRANDO,
+    /*0x7f*/ ALTTP_FIREBALL,
+    /*0x80*/ ALTTP_KODONGO,
+    /*0x81*/ MINI_MOLDORM,
+    /*0x82*/ MINI_MOLDORM_SEGMENT,
+    /*0x83*/ HELMASAUR_KING,
+    /*0x84*/ BOSS_PART,
+    /*0x85*/ HELMASAUR_FIREBALL,
+    /*0x86*/ ARRGHUS,
+    /*0x87*/ ARRGHI,
+    /*0x88*/ MOTHULA,
+    /*0x89*/ MOTHULA_BEAM,
+    /*0x8a*/ ALTTP_SPIKE_BLOCK,
+    /*0x8b*/ MINI_HELMASAUR,
+    /*0x8c*/ TERRORPIN,
+    /*0x8d*/ HOVER,
+    /*0x8e*/ KYAMERON,
+    /*0x8f*/ ZOL,
+    /*0x90*/ FIRESNAKE,
+    /*0x91*/ ALTTP_SHOOTER,
 };
 
 void Octorok();
@@ -330,6 +351,27 @@ void MoldormSegment();
 void AlttpBari();
 void AlttpHardhat();
 void AlttpBumper();
+void AlttpDebirandoPit();
+void AlttpDebirando();
+void AlttpFireball();
+void AlttpKodongo();
+void MiniMoldorm();
+void MiniMoldormSegment();
+void HelmasaurKing();
+void BossPart();
+void HelmasaurFireball();
+void Arrghus();
+void Arrghi();
+void Mothula();
+void MothulaBeam();
+void AlttpSpikeBlock();
+void MiniHelmasaur();
+void Terrorpin();
+void Hover();
+void Kyameron();
+void Zol();
+void Firesnake();
+void AlttpShooter();
 
 extern void (*const gUnk_080012C8[])(Entity*);
 

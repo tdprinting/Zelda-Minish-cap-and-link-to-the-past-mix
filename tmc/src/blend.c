@@ -179,6 +179,12 @@ static u32 DarkWorldEnemy(u32 id) {
             return SPINY_CHUCHU;
         case BEETLE:
             return SPIKED_BEETLE;
+        case PEAHAT:
+            // the Dark World's Eastern Hills and Death Mountain (Mt. Crenel) have Hinoxes
+            if (gRoomControls.area == AREA_HYRULE_FIELD || gRoomControls.area == AREA_MT_CRENEL) {
+                return ALTTP_HINOX;
+            }
+            return id;
         default:
             return id;
     }
