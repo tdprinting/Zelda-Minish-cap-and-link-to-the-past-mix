@@ -23,6 +23,8 @@ import yaml
 
 import alttprooms as A
 import autotile
+import calm
+import pegcheck
 import alttpgfx
 import tileset
 
@@ -206,6 +208,10 @@ DIR_N, DIR_S, DIR_W, DIR_E = 0, 1, 2, 3
 # Minish Cap door objects face 0 up, 1 right, 2 down, 3 left
 MC_DIR = {DIR_N: 0, DIR_E: 1, DIR_S: 2, DIR_W: 3}
 
+# the local flag that holds a Dark World dungeon's crystal switch state (their flag banks
+# end at 0x7f, the boss's flag)
+SWITCH_FLAG = 0x7e
+
 # name: labels; area: the Minish Cap area it fills; rooms: A Link to the Past room ids
 # (the first is the entrance, Minish Cap room 0); exit: where the way out leads;
 # links: rooms whose door to the outside leads instead to another room's (a walk
@@ -251,6 +257,7 @@ DUNGEONS = [
         area='AREA_NULL_1D',
         exit=('AREA_HYRULE_FIELD', 'ROOM_HYRULE_FIELD_EASTERN_HILLS_CENTER', 0xa8, 0xb0),
         flag_base=0x10,
+        switch_flag=SWITCH_FLAG,
         # leave out the quarters of its rooms Link never reaches
         trim=True,
     ),
@@ -265,6 +272,7 @@ DUNGEONS = [
         area='AREA_NULL_1E',
         exit=('AREA_CASTOR_WILDS', 'ROOM_CASTOR_WILDS_MAIN', 0x1a8, 0x1b8),
         flag_base=0x10,
+        switch_flag=SWITCH_FLAG,
         trim=True,
     ),
     dict(
@@ -307,6 +315,7 @@ DUNGEONS = [
         # A Link to the Past's Village of Outcasts there)
         exit=('AREA_HYRULE_TOWN', 'ROOM_HYRULE_TOWN_MAIN', 0x98, 0x17c),
         flag_base=0x10,
+        switch_flag=SWITCH_FLAG,
         trim=True,
     ),
     dict(
@@ -324,6 +333,7 @@ DUNGEONS = [
         drops={0xce: 0xde, 0x1e: (0x3e, (24, 4)), 0x7e: 0x9e},
         locks={0xbe: {DIR_S: 'boss'}, 0xce: {DIR_N: 'boss'}},
         flag_base=0x10,
+        switch_flag=SWITCH_FLAG,
         trim=True,
     ),
     dict(
@@ -340,6 +350,7 @@ DUNGEONS = [
         # the cave at the foot of the dark Veil Falls, opened with Ether
         exit=('AREA_VEIL_FALLS', 'ROOM_VEIL_FALLS_MAIN', 0x38, 0x1f8),
         flag_base=0x10,
+        switch_flag=SWITCH_FLAG,
         trim=True,
     ),
     dict(
@@ -352,7 +363,10 @@ DUNGEONS = [
         exit=('AREA_MT_CRENEL', 'ROOM_MT_CRENEL_TOP', 0x328, 0x18),
         # doors to the rooms of the other entrances (0x33, 0xE5), left out, stay shut
         sealed={0x23: (DIR_S,), 0xd5: (DIR_S,)},
+        # the track mazes of 0xB5 and the pipe room 0x14 keep only the bridges Link needs
+        thin=(0xb5, 0x14),
         flag_base=0x10,
+        switch_flag=SWITCH_FLAG,
         trim=True,
     ),
     # Ganon's Tower in the free area 0x3D. A Link to the Past's tower (26 rooms) runs past the
@@ -419,6 +433,7 @@ class Plan:
         self.doors = []      # (kind, cell x, cell y, dir)
         self.stairs = []     # (cell x, cell y, stair index)
         self.chests = []     # (cell x, cell y, alttp item)
+        self.big_chests = set()  # cells of the chests that are big ones (see big_chest)
         self.enemies = []    # (mc enemy, form, pixel x, pixel y, A Link to the Past cell)
         self.drops = []      # (cell x, cell y, room, landing cell): holes, and the way back up
         self.steps_up = []   # cells of steps the blend draws (the way back up from a drop)
@@ -654,6 +669,7 @@ class Plan:
                             if 0x58 <= a <= 0x5d and (a - 0x58) not in found:
                                 found[a - 0x58] = (cx, cy)
         for n, item in enumerate(items):
+            big = isinstance(item, str) and item.endswith('!')
             if isinstance(item, str):
                 item = int(item.rstrip('!'))
             if n in found and self.at(*found[n]) in (A.FLOOR, A.CHEST, A.BIG_CHEST) and \
@@ -665,6 +681,8 @@ class Plan:
                 cx, cy = self.free_floor(*self.middle())
             self.put(cx, cy, A.FLOOR)
             self.chests.append((cx, cy, item))
+            if big:
+                self.big_chests.add((cx, cy))
         # keys an enemy dropped in A Link to the Past wait in a chest where it stood
         # and so do keys lying on the floor, on a statue Link dashes into, or under a pot
         loose = []
@@ -843,6 +861,23 @@ def add_drop(p, q, at=None, land=None):
     q.steps_up.append(up)
 
 
+# Minish Cap's chest object, whose types 2 to 5 are its big chest
+OBJ_CHEST_SPAWNER = 0xc
+
+
+def big_chest(plan, cell):
+    """Where Minish Cap's big chest stands for an A Link to the Past big chest at
+    `cell` (its upper left): (x, y) in pixels, or None where there is no room for it. It
+    is two cells wide, standing on the line between them, a row of cells deep."""
+    cx, cy = cell
+    others = {c[:2] for c in plan.chests} - {cell}
+    for left in (cx, cx - 1):
+        pair = ((left, cy), (left + 1, cy))
+        if all(plan.at(*c) == A.FLOOR and c not in others for c in pair):
+            return (left + 1) * 16, cy * 16 + 8
+    return None
+
+
 def link_cell(plan):
     """The step in a room's door to the outside that takes Link to a linked room: the
     door's last cell but one."""
@@ -887,6 +922,9 @@ def generate():
                 for y in range(y0, y1):
                     for x in range(x0, x1):
                         plans[r].put(x, y, A.FLOOR)
+        # bridges along tracks packed too close for Minish Cap's cells: only the ones Link needs
+        for r in dg.get('thin', ()):
+            calm.thin_tracks(plans[r])
         edges = open_edges(plans)
         for r in ids:
             plans[r].finish(edges[r])
@@ -905,16 +943,30 @@ def generate():
             print('%s: no A Link to the Past room graphics, drawing with Minish Cap tiles' % name)
         elif dg.get('switch_flag'):
             blend.switch_rooms = {r for r in ids if any(a in tileset.PEG_ATTRS for a in plans[r].room.attr)}
+        if blend and dg.get('switch_flag') == SWITCH_FLAG:
+            # in the Dark World (the Tower of Hera's were set by hand), rooms with a switch and
+            # no pegs of their own too; a room whose pegs would shut Link out of anything
+            # keeps them flat (pegcheck)
+            blend.switch_rooms |= {r for r in ids if blend.room_pegs(plans[r])['switches']}
+            for r in sorted(blend.switch_rooms):
+                why = pegcheck.check(plans[r], blend.room_pegs(plans[r]), edges[r])
+                if why:
+                    print('%s: room %03x keeps its pegs flat: %s' % (name, r, why))
+                    blend.switch_rooms.discard(r)
 
         rooms_inc.append('gAreaRoomHeaders_%s::' % name)
         maps_list = []
         area_list = []
         exit_lists = []
-        for r in ids:
+        def mc_map(r):
+            """The room in the Minish Cap metatiles the autotiler picks (their tile types
+            stay; the blend redraws their art)."""
             p = plans[r]
-            i = index[r]
             bottom, top, _ = tiler.draw(p.cells, 32, 32)
+            bigs = {c: big_chest(p, c) for c in p.big_chests}
             for (cx, cy, item) in p.chests:
+                if bigs.get((cx, cy)):
+                    continue  # Minish Cap's big chest object stands on the floor there
                 bottom[cy * 32 + cx] = TILE_CHEST
                 top[cy * 32 + cx] = 0
             for (cx, cy, _) in p.stairs:
@@ -929,8 +981,29 @@ def generate():
                 cx, cy = link_cell(p)
                 bottom[cy * 32 + cx] = TILE_STAIRS
                 top[cy * 32 + cx] = 0
-            if blend:
-                bottom, top = blend.room(p, bottom, top)
+            return bottom, top
+
+        drawn = {}
+        if blend:
+            # the rooms with working pegs last, in a Dark World dungeon: their second look
+            # takes what metatiles the tileset has left (see tileset.Blend.room)
+            for r in sorted(ids, key=lambda r: r in blend.switch_rooms and dg.get('switch_flag') == SWITCH_FLAG):
+                drawn[r] = blend.room(plans[r], *mc_map(r))
+            # the tileset (it may merge metatiles that came out alike: blend.remap)
+            tileset_inc = blend.write(OUT)
+            remap = blend.remap or {}
+            for r in ids:
+                drawn[r] = ([remap.get(m, m) if m < 0x4000 else m for m in drawn[r][0]], drawn[r][1])
+            for r, (switches, swaps) in blend.pegs.items():
+                # (a cell whose two looks came out alike needs no swap)
+                blend.pegs[r] = (switches, [(c, remap.get(m0, m0), remap.get(m1, m1), s0, s1)
+                                            for (c, m0, m1, s0, s1) in swaps
+                                            if remap.get(m0, m0) != remap.get(m1, m1)])
+        for r in ids:
+            p = plans[r]
+            i = index[r]
+            bigs = {c: big_chest(p, c) for c in p.big_chests}
+            bottom, top = drawn[r] if blend else mc_map(r)
             for layer, cells in (('bottom', bottom), ('top', top)):
                 open(os.path.join(OUT, '%s_%02d_%s.bin' % (name, i, layer)), 'wb').write(
                     struct.pack('<%dH' % len(cells), *cells))
@@ -958,6 +1031,15 @@ def generate():
                     param_a = (0x8 | MC_DIR[d['dir']]) if d['kind'] == 'key' else MC_DIR[d['dir']]
                     ents_inc.append('\tobject_raw subtype=0x%x, x=0x%x, y=0x%x, paramA=0x%x, paramC=0x%x' % (
                         sub, x * 16 + 8, y * 16 + 8, param_a, (door_flags[key] << 16) | 0xffff))
+            # big chests: Minish Cap's big chest object, shown from the start (type 4), its
+            # local flag the one its tile entity below gives the item for
+            chest_flags = {}
+            for n, (cx, cy, item) in enumerate(p.chests):
+                chest_flags[(cx, cy)] = flag + n
+                if bigs.get((cx, cy)):
+                    x, y = bigs[(cx, cy)]
+                    ents_inc.append('\tobject_raw subtype=0x%x, x=0x%x, y=0x%x, paramA=0x4, paramB=0x%x' % (
+                        OBJ_CHEST_SPAWNER, x, y, flag + n))
             ents_inc.append('\tentity_list_end\n')
             ents_inc.append('Enemies_%s::' % label)
             for (mc, form, x, y, _) in p.enemies:
@@ -966,8 +1048,14 @@ def generate():
             ents_inc.append('TileEntities_%s::' % label)
             for (cx, cy, item) in p.chests:
                 mc, sub = ITEMS.get(item, (0x56, 0))
-                ents_inc.append('\ttile_entity type=0x2, paramA=0x%x, paramB=0x%x, paramC=0x%x' % (
-                    flag, (sub << 8) | mc, cy * 64 + cx))
+                assert chest_flags[(cx, cy)] == flag
+                if bigs.get((cx, cy)):
+                    # (where the big chest stands, for the dungeon map)
+                    ents_inc.append('\ttile_entity type=0x3, paramA=0x%x, paramB=0x%x, paramC=0x%x, paramD=0x%x' % (
+                        (flag, (sub << 8) | mc) + bigs[(cx, cy)]))
+                else:
+                    ents_inc.append('\ttile_entity type=0x2, paramA=0x%x, paramB=0x%x, paramC=0x%x' % (
+                        flag, (sub << 8) | mc, cy * 64 + cx))
                 flag += 1
             ents_inc.append('\ttile_entity_list_end\n')
             ents_inc.append('Room_%s::\n\t.4byte Entities_%s, 0, Enemies_%s, TileEntities_%s, 0, 0, 0, 0\n' % (
@@ -1039,7 +1127,7 @@ def generate():
         rooms_inc.append('\t.2byte 0xFFFF\n')
         maps_inc.append('')
         if blend:
-            maps_inc += blend.write(OUT)
+            maps_inc += tileset_inc
             if blend.pegs:
                 assert flag <= dg['switch_flag'], '%s: the switch flag is taken' % name
                 pegs.append((name, dg['area'], dg['switch_flag'], {index[r]: v for r, v in blend.pegs.items()}))

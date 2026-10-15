@@ -19,6 +19,7 @@ import numpy as np
 import alttprooms as A
 import alttpgfx
 import blendstyle
+import calm
 import celshade
 import mcrender
 import mctiles
@@ -29,6 +30,9 @@ FREE_TILES = [i for i in range(1, 1024) if i != 512]
 # palette rows for the tileset (row 0 is Minish Cap's own, which its chests use)
 GBA_ROWS = list(range(2, 15))
 MAX_METATILES = 2048
+# while drawing, metatiles stand for the room art before its tiles are merged to fit the
+# character budget; those that come out the same are merged (Blend.write) to fit the above
+MAX_METATILES_DRAWN = 4096
 # the space outside a room's walls
 VOID = (40, 32, 24)
 
@@ -186,6 +190,7 @@ class Blend:
         self.switch_rooms = set()  # rooms whose crystal switches work (see room_pegs)
         self.precious = set()  # colors kept through the palette merges
         self.pegs = {}  # room -> (switch cells, [(cell, metatile 0, metatile 1, solid 0, solid 1)])
+        self.remap = None  # {metatile drawn: metatile written}, where write() had to merge them
 
     # rooms
 
@@ -205,6 +210,24 @@ class Blend:
         return img, empty
 
     def room(self, plan, bottom, top):
+        """room_drawn, but a room whose pegs' second look leaves no metatiles is drawn with
+        its pegs flat."""
+        if plan.id not in self.switch_rooms:
+            return self.room_drawn(plan, bottom, top)
+        saved = (dict(self.meta_b), dict(self.meta_t), dict(self.tiles), set(self.precious))
+        try:
+            out = self.room_drawn(plan, bottom, top)
+        except RuntimeError:
+            out = None
+        if out is not None:
+            return out
+        self.meta_b, self.meta_t, self.tiles, self.precious = saved
+        self.pegs.pop(plan.id, None)
+        self.switch_rooms.discard(plan.id)
+        print('%s: room %03x keeps its pegs flat: no metatiles left for their second look' % (self.name, plan.id))
+        return self.room_drawn(plan, bottom, top)
+
+    def room_drawn(self, plan, bottom, top):
         """Redraws one room: bottom/top are the autotiler's Minish Cap metatiles,
         whose tile types are kept. Returns the room's new bottom and top cells.
 
@@ -275,6 +298,7 @@ class Blend:
                     tile = (slice(t // 64 * 8, t // 64 * 8 + 8), slice(t % 64 * 8, t % 64 * 8 + 8))
                     if black[tile].all():
                         empty[tile] = True
+        drawn = img.copy()
         stoned = self.restone(gfx, plan, img, empty)
         self.center_doorways(plan, (img, empty, stoned))
         if pegs is not None:
@@ -308,6 +332,10 @@ class Blend:
             img[dst] = VOID
             empty[dst] = False
             stoned[dst] = False
+        # the scraps of that space left in the tiles of a diagonal wall
+        calm.void_fringe(plan, drawn, self._void_fill, img, empty, stoned, self.name)
+        # and the pits under Turtle Rock's tracks drawn plain
+        calm.bare_pits(plan, img, empty, stoned)
         if self.trim:
             dark = {i for i in range(1024) if np.all(
                 img[(i // 32) * 16:(i // 32) * 16 + 16, (i % 32) * 16:(i % 32) * 16 + 16] == VOID, axis=-1).mean() > 0.5}
@@ -374,6 +402,7 @@ class Blend:
                 for my in range(max(0, ty - 3), min(64, ty + 4)):
                     for mx in range(max(0, tx - 3), min(64, tx + 4)):
                         chest_mats.add((my // 2) * 32 + mx // 2)
+        redraw = []
         for i in range(1024):
             cell = img[(i // 32) * 16:(i // 32) * 16 + 16, (i % 32) * 16:(i % 32) * 16 + 16]
             dark = np.all(cell == VOID, axis=-1).mean() > 0.5
@@ -382,8 +411,13 @@ class Blend:
             on_peg = i in peg_cells and pegs is None
             mat = i in chest_mats and not stoned[(i // 32) * 16:(i // 32) * 16 + 16, (i % 32) * 16:(i % 32) * 16 + 16].mean() > 0.5
             if plan.cells[i] in PASSABLE and (alttp[i] in REDRAW_AS_FLOOR or dark or on_peg or mat or i in plan.room.tracks) and floor:
+                redraw.append(i)
+        # (the floor each takes: the nearest, or the one it lies in, walking from it)
+        source = calm.floor_sources(plan, redraw, floor, self.name)
+        for i in redraw:
+            if True:
                 cx, cy = i % 32, i // 32
-                sx, sy = min(floor, key=lambda p: abs(p[0] - cx) + abs(p[1] - cy))
+                sx, sy = source[i]
                 dst = (slice(cy * 16, cy * 16 + 16), slice(cx * 16, cx * 16 + 16))
                 src = (slice(sy * 16, sy * 16 + 16), slice(sx * 16, sx * 16 + 16))
                 img[dst] = img[src]
@@ -402,7 +436,7 @@ class Blend:
                 # only where it meets the dark: floor beside an invisible wall stays plain
                 if 0 <= nx < 32 and 0 <= ny < 32:
                     ncell = img[ny * 16:ny * 16 + 16, nx * 16:nx * 16 + 16]
-                    if np.all(ncell == VOID, axis=-1).mean() <= 0.5:
+                    if np.all(ncell == VOID, axis=-1).mean() <= 0.5 and not calm.over_pit(plan, empty, nx, ny):
                         continue
                 edge = {'l': (slice(y0, y0 + 16), slice(x0, x0 + 2)), 'r': (slice(y0, y0 + 16), slice(x0 + 14, x0 + 16)),
                         't': (slice(y0, y0 + 2), slice(x0, x0 + 16)), 'b': (slice(y0 + 14, y0 + 16), slice(x0, x0 + 16))}[side]
@@ -581,6 +615,7 @@ class Blend:
                 if 0 <= nx < 32 and 0 <= ny < 32 and wet[j] and j not in keep:
                     keep.add(j)
                     stack.append(j)
+        keep |= calm.walls_round_pits(plan, keep)
         return {i for i in range(1024) if not near.flat[i] and i not in keep}
 
     def cut_off(self, plan, gone):
@@ -654,6 +689,10 @@ class Blend:
         walk = np.array([plan.cells[(y // 2) * 32 + x // 2] in PASSABLE for y in range(64) for x in range(64)]).reshape(64, 64)
         yy, xx = np.mgrid[0:512, 0:512]
         stoned = np.zeros((512, 512), dtype=bool)
+        # the pixels of the space around the room that turn to darkness (see calm.void_fringe)
+        self._void_fill = np.zeros((512, 512), dtype=bool)
+        # each stone slab pixel's floor color
+        self._slab_base = np.zeros((512, 512, 3))
         for layer, tiles in ((gfx.bg2, on_lo), (gfx.bg1, on_hi)):
             words = np.array(layer).reshape(64, 64) & 0xffff
             comps = []
@@ -684,6 +723,7 @@ class Blend:
             if void_words:
                 rest = np.isin(words, list(void_words)) & (front if layer is gfx.bg1 else empty_hi) & ~tiles
                 mask = rest.repeat(8, axis=0).repeat(8, axis=1) & ~empty
+                self._void_fill |= mask
                 img[mask] = VOID
             # big floors first: a small patch of patterned floor inside one (a big chest's
             # mat, a square of tiles around a floor switch) takes the floor around it
@@ -697,6 +737,7 @@ class Blend:
                 walkable = sum(walk[y, x] for y, x in comp) / len(comp)
                 if walkable < 0.15 and {int(words[y, x]) for y, x in comp} <= void_words:
                     # plain darkness, as around Minish Cap's rooms
+                    self._void_fill |= mask
                     img[mask] = VOID
                     continue
                 if len(comp) < 4:
@@ -720,6 +761,7 @@ class Blend:
                         around = stoned[box] & ~gmask[box]
                         if around.sum() >= 64:
                             base = celshade.snap(np.median(img[box][around], axis=0))
+                    base = calm.slab_color(base, len(group))
                     stone = np.empty((512, 512, 3))
                     stone[:] = base
                     stone[((xx // 16 + yy // 16) % 2) == 1] = celshade.snap(base * 0.95)
@@ -727,6 +769,9 @@ class Blend:
                     stone[(xx % 16 == 15) | (yy % 16 == 15)] = celshade.snap(base * 0.82)
                     img[gmask] = stone[gmask]
                     stoned |= gmask
+                    self._slab_base[gmask] = base
+        calm.flatten_conveyors(plan, img, empty, stoned, self._slab_base)
+        calm.specks(plan, img, empty, stoned, self._slab_base, self.name)
         if plan.id in A.THIN_WALL_ROOMS:
             # around a maze, the pattern that fills the room's border is the space outside
             words = np.array(gfx.bg2).reshape(64, 64) & 0xffff
@@ -744,8 +789,8 @@ class Blend:
 
     def metatile(self, table, key):
         if key not in table:
-            if len(table) >= MAX_METATILES:
-                raise RuntimeError('%s: more than %d metatiles' % (self.name, MAX_METATILES))
+            if len(table) >= MAX_METATILES_DRAWN:
+                raise RuntimeError('%s: more than %d metatiles' % (self.name, MAX_METATILES_DRAWN))
             table[key] = len(table)
         return table[key]
 
@@ -891,6 +936,23 @@ class Blend:
             else:
                 tiles_b += [entry_of[t] for t in key]
             types_b.append(ty)
+        if len(meta_b) > MAX_METATILES:
+            # more than the game holds: merge the metatiles that look the same now that
+            # their tiles are merged (the rooms' maps are remapped, see self.remap)
+            seen, self.remap = {}, {}
+            new_tiles, new_types = [], []
+            for k in range(len(types_b)):
+                look = (tuple(tiles_b[k * 4:k * 4 + 4]), types_b[k])
+                if look not in seen:
+                    seen[look] = len(new_types)
+                    new_tiles += tiles_b[k * 4:k * 4 + 4]
+                    new_types.append(types_b[k])
+                self.remap[k] = seen[look]
+            print('%s: %d metatiles merged into %d' % (name, len(types_b), len(new_types)))
+            tiles_b, types_b = new_tiles, new_types
+            if len(types_b) > MAX_METATILES:
+                raise RuntimeError('%s: more than %d metatiles' % (name, MAX_METATILES))
+            meta_b = [None] * len(types_b)
         meta_t = sorted(self.meta_t.items(), key=lambda kv: kv[1])
         tiles_t = [0] * (4 * len(meta_t))
         types_t = [ty for ty, _ in meta_t]

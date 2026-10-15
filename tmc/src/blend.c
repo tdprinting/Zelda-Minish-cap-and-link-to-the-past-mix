@@ -1679,14 +1679,14 @@ static void UpdatePegs(void) {
     MapLayer* layer;
     u32 state, i, swing;
     const u16* mark;
-    if (r == NULL || r->swapCount == 0) {
+    if (r == NULL || (r->swapCount == 0 && r->switchCount == 0)) {
         gBlendPegs.swinging = 0;
         return;
     }
     state = CheckLocalFlag(r->flag) ? 1 : 0;
     layer = GetLayerByIndex(LAYER_BOTTOM);
     // a cell no peg rises on tells which look the room's map has: a room loads the way
-    // the blend drew it, the blue pegs up
+    // the blend drew it, the blue pegs up (a room may have a switch and no pegs)
     mark = r->swaps;
     for (i = 0; i < r->swapCount; i++) {
         if ((r->swaps[i * 4 + 3] & 3) != 1 && (r->swaps[i * 4 + 3] & 3) != 2) {
@@ -1694,7 +1694,9 @@ static void UpdatePegs(void) {
             break;
         }
     }
-    if (layer->mapData[mark[0]] != mark[1 + state]) {
+    if (r->swapCount == 0) {
+        // a switch and no pegs here (the Palace of Darkness's 0x2B): it flips the others
+    } else if (layer->mapData[mark[0]] != mark[1 + state]) {
         ShowPegs(r, state);
     } else {
         for (i = 0; i < r->swapCount && i < 8 * sizeof(gBlendPegs.pending); i++) {
