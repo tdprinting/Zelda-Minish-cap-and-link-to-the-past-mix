@@ -69,6 +69,13 @@ manifest, or `github:you/your-private-repo` with a read-only `token`, for the la
 release of a private GitHub repo. `check = 0` turns checks off, `ask = 0` installs
 without asking, and `--no-update` skips the check once.
 
+On Android, open the downloaded `picori-seal-vX.Y.zip` with the game (or let it check
+a folder you pick once, or a private source, under the app's **Update settings**
+shortcut). It puts the new game file in its own files folder, keeps the saves (with a
+copy in `previous`), and restarts. A new `picori-seal-vX.Y.apk` is only needed when
+the app itself changes; the game installs it through Android's installer. Every APK
+must be signed with the same key, or Android won't update over the installed game.
+
 ## Building
 
 ROMs and anything built from them stay on your machine; `.gitignore` blocks them.
@@ -101,6 +108,7 @@ make -C blend/host                               # needs libsdl2-dev, libmgba-de
 | `blend/overworld/`, `tmc/src/blendShadows.c` | The blended overworld: `build.py` restyles every overworld palette toward A Link to the Past's Light World colors and draws soft shadow maps; `blendShadows.c` shows the shadows on background 3. Run by `build.sh`; output goes to `tmc/custom/gen/ow` |
 | `blend/host/coop.c` | Split-screen co-op player (SDL2 + libmgba) |
 | `blend/host/updater.c` | The Windows player's auto updater: finds, checks (sha256, zip CRCs, ROM header), installs and restarts into newer builds |
+| `blend/android/src/com/picoriseal/game/Updater.java` | The Android app's auto updater: the same sources and checks; installs the zip's game file, or an APK through Android's installer. `updater-test/run.sh` tests it on a desktop JVM |
 | `blend/harness/harness.c` | Headless test runner used to check builds |
 
 The shared state block `gBlendLink` sits at a fixed address, `0x0203F000`, so the
