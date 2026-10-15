@@ -4,6 +4,7 @@
  * @brief Game Utils
  */
 #include "area.h"
+#include "blend.h"
 #include "backgroundAnimations.h"
 #include "entity.h"
 #include "fade.h"
@@ -560,7 +561,7 @@ void InitRoomResInfo(RoomResInfo* info, RoomHeader* r_hdr, u32 area, u32 room) {
     info->pixel_height = r_hdr->pixel_height;
     info->tileSet = *(gAreaTileSets[area] + r_hdr->tileSet_id);
     info->map = *(gAreaRoomMaps[area] + room);
-    info->tiles = gAreaTiles[area];
+    info->tiles = Blend_RoomTiles(area, room);
     info->bg_anim = (void*)gUnk_080B755C[area];
     info->exits = gExitLists[area][room];
     if (gAreaTable[area] != NULL) {
@@ -664,7 +665,7 @@ void sub_08052FF4(u32 area, u32 room) {
     gArea.currentRoomInfo.pixel_height = r_hdr->pixel_height;
     gArea.currentRoomInfo.tileSet = *(gAreaTileSets[area] + r_hdr->tileSet_id);
     gArea.currentRoomInfo.map = *(gAreaRoomMaps[area] + room);
-    gArea.currentRoomInfo.tiles = gAreaTiles[area];
+    gArea.currentRoomInfo.tiles = Blend_RoomTiles(area, room);
     gArea.currentRoomInfo.bg_anim = (void*)gUnk_080B755C[area];
 }
 

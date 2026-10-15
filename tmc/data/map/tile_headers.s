@@ -393,7 +393,7 @@ gAreaTiles:: @ 0810309C
 	.4byte gAreaTiles_TurtleRock               @ 0x3C (A Link to the Past)
 	.4byte gAreaTiles_GanonsTower               @ 0x3D (A Link to the Past)
 	.4byte gAreaTiles_Unused                  @ 0x3E
-	.4byte gAreaTiles_Unused                  @ 0x3F
+	.4byte gAreaTiles_TempleOfBonds_R00               @ 0x3F (the blend's co-op temple; each room has its own, see Blend_RoomTiles)
 	.4byte gAreaTiles_HyruleTownUnderground   @ 0x40
 	.4byte gAreaTiles_HyruleTownUnderground   @ 0x41
 	.4byte gAreaTiles_HyruleTownUnderground   @ 0x42

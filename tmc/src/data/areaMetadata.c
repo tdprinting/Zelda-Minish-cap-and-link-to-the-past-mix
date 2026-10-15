@@ -73,7 +73,7 @@ const AreaHeader gAreaMetadata[] = {
     { AR_HAS_KEYS | AR_IS_DUNGEON, 40, LOCAL_BANK_19, BGM_PALACE_OF_WINDS }, // Turtle Rock
     { AR_HAS_KEYS | AR_IS_DUNGEON, 41, LOCAL_BANK_20, BGM_DARK_HYRULE_CASTLE }, // Ganon's Tower
     { 0, 0, 0, 0 },
-    { 0, 0, 0, 0 },
+    { AR_HAS_KEYS | AR_IS_DUNGEON, 42, LOCAL_BANK_21, BGM_FORTRESS_OF_WINDS }, // the Temple of Bonds (co-op only)
     { 0, 0, 0, 0 },
     { AR_IS_DUNGEON, 0, LOCAL_BANK_3, BGM_DUNGEON },
     { AR_IS_DUNGEON, 0, LOCAL_BANK_3, BGM_DUNGEON },

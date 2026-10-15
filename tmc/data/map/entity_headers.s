@@ -1277,7 +1277,7 @@ gAreaTable:: @ 080D50FC
 	.4byte Area_TurtleRock               @ 0x3C (A Link to the Past)
 	.4byte Area_GanonsTower               @ 0x3D (A Link to the Past)
 	.4byte 0x0                                       @ 0x3E
-	.4byte 0x0                                       @ 0x3F
+	.4byte Area_TempleOfBonds               @ 0x3F (the blend's co-op temple)
 	.4byte Area_40                      @ 0x40
 	.4byte Area_HyruleTownUnderground   @ 0x41
 	.4byte Area_GardenFountains         @ 0x42

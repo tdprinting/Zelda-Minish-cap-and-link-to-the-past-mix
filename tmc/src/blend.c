@@ -1259,6 +1259,9 @@ static void OpenMedallionGate(u32 medallion) {
 /** Whether a way out of the current room is shut: a Dark World dungeon's, away from the Dark World. */
 bool32 Blend_IsTransitionClosed(const Transition* t) {
     const DarkDungeon* d;
+    if (Blend_ShrineClosed(t)) {
+        return TRUE;
+    }
     if (!(gArea.areaMetadata & AR_IS_OVERWORLD)) {
         return FALSE;
     }
@@ -1338,6 +1341,7 @@ static const BossRoom sBossRooms[] = {
     { AREA_NULL_3B, 13, 0x7f, 0x78, 0x188 },  // Misery Mire: Vitreous
     { AREA_NULL_3C, 16, 0x7f, 0x88, 0x188 },  // Turtle Rock: Trinexx
     { AREA_NULL_3D, 20, 0x7f, 0x78, 0x178 },  // Ganon's Tower: Agahnim (for now a gold Darknut stands in)
+    { AREA_NULL_3F, 9, 0x7f, 0x108, 0x108 }, // the Temple of Bonds: Ganon's Tower's arena, the Armos Knights and a Lanmola
 };
 
 static void UpdateBossRoom(void) {
@@ -1732,6 +1736,7 @@ static void UpdatePegs(void) {
 void Blend_GameUpdate(void) {
     if (gBlendLink.magic != BLEND_MAGIC) {
         MemClear(&gBlendLink, sizeof(gBlendLink));
+        MemClear(gBlendPegsState, 0x100); // the pegs' and the Temple of Bonds' state
         gBlendLink.magic = BLEND_MAGIC;
     }
     // the game's own record of pressed keys loses the keys the blend hides, so keep a true one
@@ -1748,6 +1753,7 @@ void Blend_GameUpdate(void) {
     UpdateByrna();
     UpdateFrozen();
     UpdateMirror();
+    Blend_ShrineUpdate();
     PublishSelf();
     UpdatePartner();
 }

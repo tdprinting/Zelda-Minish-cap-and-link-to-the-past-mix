@@ -872,6 +872,7 @@ SECTIONS {
         *libc.a:memcpy.o(.text);
         src/blend.o(.text);
         src/blendShadows.o(.text);
+        src/blendShrine.o(.text);
         /* handwritten assembly in arm mode */
         asm/src/intr.o(.text);
 
@@ -1706,6 +1707,7 @@ SECTIONS {
         src/blend.o(.rodata);
         data/gfx/alttp_enemies.o(.rodata);
         src/blendShadows.o(.rodata);
+        src/blendShrine.o(.rodata);
     } >rom
 
     /* DWARF 2 sections */

@@ -309,6 +309,6 @@ void BombableWallManager_DestroyWall4(u32 tilePos, u32 layer) {
 }
 
 u32 getArchwayType(void) {
-    static const u8 archwayTypes[] = { 0xd, 0xd, 0xd, 0x19, 0x1a, 0xd, 0x21, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+    static const u8 archwayTypes[] = { 0xd, 0xd, 0xd, 0x19, 0x1a, 0xd, 0x21, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
     return archwayTypes[gArea.dungeon_idx];
 }

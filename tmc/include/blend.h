@@ -37,7 +37,7 @@ typedef struct {
     /*0x1f*/ s8 itemHitboxY;
     /*0x20*/ u8 itemHitboxWidth;
     /*0x21*/ u8 itemHitboxHeight;
-    /*0x22*/ u16 pad;
+    /*0x22*/ u16 shrine; /**< Temple of Bonds: low 12 bits the puzzles solved, top 4 the seal just struck (+1) */
 } BlendPlayerSync;
 
 typedef struct {
@@ -135,5 +135,11 @@ void Blend_ShadowUpdate(void);
 void Blend_ShadowRestore(void);
 /** The current room has a shadow layer, so the game's own background 3 overlays stay off. */
 bool32 Blend_RoomHasShadows(void);
+/** The Temple of Bonds, the co-op temple (blendShrine.c): its plates, gates, seals and guard. */
+void Blend_ShrineUpdate(void);
+/** Whether a way in to the Temple of Bonds is shut: it is unless two players are playing. */
+bool32 Blend_ShrineClosed(const struct Transition* t);
+/** A room's metatiles: each of the Temple of Bonds' rooms has its own, the other areas share theirs. */
+void* Blend_RoomTiles(u32 area, u32 room);
 
 #endif // BLEND_H

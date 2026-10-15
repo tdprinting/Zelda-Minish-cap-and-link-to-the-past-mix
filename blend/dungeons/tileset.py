@@ -251,6 +251,8 @@ class Blend:
             looks = [self.paint(plan, gfx, pegs, 0),
                      self.paint(plan, alttpgfx.swapped_pegs(alttpgfx.RoomGfx(plan.id)), pegs, 1)]
         img, empty = looks[0]
+        # (kept for whoever draws more on the room: the Temple of Bonds's co-op devices)
+        self.last_look = looks[0]
         solid = [self.raised_cells(pegs, s) for s in range(len(looks))]
         new_b, new_t = [], []
         swaps = []
@@ -890,6 +892,30 @@ class Blend:
 
     def write(self, out_dir):
         """Writes the binaries; returns maps.inc lines with the tileset and tile headers."""
+        lines, tiles = self.write_parts(out_dir)
+        name = self.name
+        files = {}
+        for k in ('tiles_bottom', 'tiles_top', 'types_bottom', 'types_top'):
+            files[k] = struct.pack('<%dH' % len(tiles[k]), *tiles[k])
+            open(os.path.join(out_dir, '%s_%s.bin' % (name, k)), 'wb').write(files[k])
+            lines.append('\t.align 2\ng%sTiles_%s::\n\t.incbin "custom/gen/%s_%s.bin"' % (name, k, name, k))
+        lab = lambda k: '(g%sTiles_%s - gMapData)' % (name, k)
+        lines += [
+            '\t.align 2',
+            'gAreaTileSets_%s::' % name,
+            '\t.4byte gAreaTileSet_%s_0' % name,
+            'gAreaTiles_%s::' % name,
+            '\ttiles_bottom %s, 0x%x, 0' % (lab('tiles_bottom'), len(tiles['tiles_bottom']) * 2),
+            '\ttiles_top %s, 0x%x, 0' % (lab('tiles_top'), len(tiles['tiles_top']) * 2),
+            '\ttile_types_bottom %s, 0x%x, 0' % (lab('types_bottom'), len(tiles['types_bottom']) * 2),
+            '\ttile_types_top %s, 0x%x, 0, 1' % (lab('types_top'), len(tiles['types_top']) * 2),
+        ]
+        return lines
+
+    def write_parts(self, out_dir):
+        """Writes the characters and palette; returns (maps.inc lines with the tileset that
+        loads them as gAreaTileSet_<name>_0, {tiles_bottom, tiles_top, types_bottom,
+        types_top: lists}) so that several tilesets can share one area's metatile tables."""
         name = self.name
         mc_count = len({e & 0x3ff for (key, _) in self.meta_b if key[0] == 'mc'
                         for e in self.mc_meta[key[1] * 4:key[1] * 4 + 4]})
@@ -964,10 +990,6 @@ class Blend:
         files = {
             'chars': chars,
             'pal': struct.pack('<%dH' % len(pal), *pal),
-            'tiles_bottom': struct.pack('<%dH' % len(tiles_b), *tiles_b),
-            'tiles_top': struct.pack('<%dH' % len(tiles_t), *tiles_t),
-            'types_bottom': struct.pack('<%dH' % len(types_b), *types_b),
-            'types_top': struct.pack('<%dH' % len(types_t), *types_t),
         }
         lines = []
         for k, data in files.items():
@@ -981,17 +1003,10 @@ class Blend:
             '\ttileSet_palette_set 37',
             '\ttileSet_tiles %s, 0x6000000, 0x%x, 0' % (lab('chars'), len(chars)),
             '\tmap_data %s, gPaletteBuffer+0x%x, 0x%x, 0, 1' % (lab('pal'), GBA_ROWS[0] * 32, len(pal) * 2),
-            'gAreaTileSets_%s::' % name,
-            '\t.4byte gAreaTileSet_%s_0' % name,
-            'gAreaTiles_%s::' % name,
-            '\ttiles_bottom %s, 0x%x, 0' % (lab('tiles_bottom'), len(tiles_b) * 2),
-            '\ttiles_top %s, 0x%x, 0' % (lab('tiles_top'), len(tiles_t) * 2),
-            '\ttile_types_bottom %s, 0x%x, 0' % (lab('types_bottom'), len(types_b) * 2),
-            '\ttile_types_top %s, 0x%x, 0, 1' % (lab('types_top'), len(types_t) * 2),
         ]
         print('%s tileset: %d tiles drawn as %d characters, %d bottom metatiles, %d palette rows, %d colors merged' % (
             name, len(self.tiles), 1024 - len(free), len(meta_b), len(pals), len(merged)))
-        return lines
+        return lines, {'tiles_bottom': tiles_b, 'tiles_top': tiles_t, 'types_bottom': types_b, 'types_top': types_t}
 
 
 def peg_header(dungeons):

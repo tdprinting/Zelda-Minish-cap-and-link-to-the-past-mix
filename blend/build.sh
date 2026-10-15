@@ -16,7 +16,7 @@ fi
 [ "$ROM" -ef "$ROOT/tmc/baserom.gba" ] || cp "$ROM" "$ROOT/tmc/baserom.gba"
 cd "$ROOT/tmc"
 make tools
-make -j"$(nproc)" CUSTOM=1 build_assets
+make -f GBA.mk -j"$(nproc)" CUSTOM=1 GAME_VERSION=USA build_assets
 if [ -n "$2" ]; then
     "$ROOT/blend/dungeons/make-dungeons.sh" "$2"
 elif [ ! -f custom/gen/maps.inc ] || [ ! -f custom/gen/blend_link.inc ]; then
