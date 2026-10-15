@@ -43,6 +43,20 @@ BACKDROP_ROOMS = {0x53, 0x29}
 # The Swamp Palace's room 0x54 has the swamp's water surface there, over a basin the
 # blend keeps drained like the others (its busy ripple would cover the whole floor)
 COVER_ROOMS = {0x1b, 0x54}
+# the Desert Palace's room 0x43 hides its north-west corner, the way up to the Lanmolas,
+# under a cover of sand and wall the same way
+COVER_ROOMS |= {0x43}
+# the Palace of Darkness's room 0x2b keeps the whole room (walls, chest, crystal switch,
+# the octagon's dais) on its second layer and fills the first with plain floor, which
+# would leave the room's lower half without walls: the first is the backdrop there
+BACKDROP_ROOMS |= {0x2b}
+
+
+# A Link to the Past's entrance mat with the daylight falling in through the door: a
+# herringbone in a dark tone with a pale cone over it, drawn with color math. Without the
+# blending the cone is a pale diagonal smear, so the blend lays the mat in one calm tone
+ENTRANCE_LIGHT = (0xc0, 0xc2, 0xc3, 0xc4, 0xc5, 0xd1, 0xe8, 0xf8)
+ENTRANCE_LIGHT_PAL = 5
 
 
 def layer_mode(room_id):
@@ -75,6 +89,12 @@ class RoomGfx:
         key = entry & 0xdfff
         if key not in self._cache:
             idx, pal = entry & 0x3ff, (entry >> 10) & 7
+            if pal == ENTRANCE_LIGHT_PAL and idx in ENTRANCE_LIGHT:
+                # the light falling in at an entrance: a flat mat in the herringbone's own tone
+                base = [c for r in snes_tile(self.chars, ENTRANCE_LIGHT[0]) for c in r if c]
+                c = max(set(base), key=base.count) if base else 0
+                self._cache[key] = [[pal * 16 + c if c else 0] * 8 for _ in range(8)]
+                return self._cache[key]
             pix = snes_tile(self.chars, idx) if idx < 512 else [[0] * 8 for _ in range(8)]
             if entry & 0x8000:
                 pix = pix[::-1]

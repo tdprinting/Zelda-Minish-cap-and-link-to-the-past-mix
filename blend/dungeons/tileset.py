@@ -41,10 +41,15 @@ PASSABLE = (A.FLOOR, '+')
 # what casts a shadow, and what a shadow falls on
 CASTS = (A.SOLID, A.TORCH, A.BLOCK, A.POT, A.LOCKED, A.SHUTTER)
 RECEIVES = (A.FLOOR, A.STAIRS)
+# A Link to the Past's crystal switch pegs (0x66 orange, 0x67 blue)
+PEG_ATTRS = (0x66, 0x67)
 # the color of a drained basin's floor
 BASIN = (58, 70, 84)
 # how far from where Link can walk a dungeon with `trim` still draws A Link to the Past's art
 TRIM_REACH = 3
+# how much more a change in a tile's overall color counts than the same change in a
+# few of its pixels, when tiles are merged to fit the character budget
+MEAN_WEIGHT = int(os.environ.get('BLEND_MEAN_WEIGHT', '6'))
 
 
 def gba_tile(pix):
@@ -89,6 +94,78 @@ def pack_palettes(sets, rows, size=15):
     return pals, where
 
 
+def wall_doors(room_id, lower=False):
+    """(x, y, side) in 8px tiles of the doors A Link to the Past puts in a room's walls,
+    on the layer the room is planned from (see build.read_room)."""
+    data = open(os.path.join(A.ROOMS, '%03x.bin' % room_id), 'rb').read()
+    o = 0x2000 + 0x4000 + 5 + 12
+    types = struct.unpack('<16H', data[o:o + 32])
+    addrs = struct.unpack('<16H', data[o + 32:o + 64])
+    dirs = struct.unpack('<16H', data[o + 64:o + 96])
+    out = []
+    for t, a, d in zip(types, addrs, dirs):
+        if t == 0 and a == 0:
+            continue
+        word = a >> 1
+        if (word >= 0x1000) != lower:
+            continue
+        word &= 0xfff
+        out.append((word % 64, word // 64, 'nswe'[d & 3]))
+    return out
+
+
+# how far apart (RGB) two neighboring 8px tiles' average colors are before a floor
+# counts as two floors
+FLOOR_SPLIT = 56
+# a stretch of patterned floor this small (8px tiles) inside another floor takes its color
+SMALL_FLOOR = 24
+
+
+def split_by_color(comp, img, empty):
+    """Splits one stretch of patterned floor (8px tile cells) into the floors it holds:
+    neighbors stay together while their average colors are close. Groups too small to
+    be a floor (a mark, a seam) join the group they touch most."""
+    means = {}
+    for y, x in comp:
+        e = ~empty[y * 8:y * 8 + 8, x * 8:x * 8 + 8]
+        means[(y, x)] = img[y * 8:y * 8 + 8, x * 8:x * 8 + 8][e].mean(axis=0) if e.any() else None
+    cells = set(comp)
+    group_of, groups = {}, []
+    for start in comp:
+        if start in group_of:
+            continue
+        g, stack = [], [start]
+        group_of[start] = len(groups)
+        while stack:
+            p = stack.pop()
+            g.append(p)
+            for q in ((p[0] + 1, p[1]), (p[0] - 1, p[1]), (p[0], p[1] + 1), (p[0], p[1] - 1)):
+                if q in cells and q not in group_of:
+                    a, b = means[p], means[q]
+                    if a is None or b is None or np.sqrt(((a - b) ** 2).sum()) < FLOOR_SPLIT:
+                        group_of[q] = group_of[start]
+                        stack.append(q)
+        groups.append(g)
+    if len(groups) == 1:
+        return groups
+    big = [i for i, g in enumerate(groups) if len(g) >= 8]
+    if not big:
+        return [comp]
+    out = {i: list(groups[i]) for i in big}
+    for i, g in enumerate(groups):
+        if i in out:
+            continue
+        touch = {}
+        for p in g:
+            for q in ((p[0] + 1, p[1]), (p[0] - 1, p[1]), (p[0], p[1] + 1), (p[0], p[1] - 1)):
+                j = group_of.get(q)
+                if j in out:
+                    touch[j] = touch.get(j, 0) + 1
+        j = max(touch, key=touch.get) if touch else max(out, key=lambda k: len(out[k]))
+        out[j] += g
+    return list(out.values())
+
+
 class Blend:
     def __init__(self, name, tileset_area='043', trim=False):
         self.name = name
@@ -101,6 +178,7 @@ class Blend:
         self.meta_b, self.meta_t = {}, {}   # key -> metatile index
         self.colors = None
         self.tones = None
+        self.switch_rooms = set()  # rooms whose crystal switches work (see pegs)
 
     # rooms
 
@@ -135,6 +213,7 @@ class Blend:
         alttp = plan.room.cells
         img, empty = self.compose(gfx)
         stoned = self.restone(gfx, plan, img, empty)
+        self.center_doorways(plan, (img, empty, stoned))
         # floor Link can't reach that runs out to the room's edge is the space around
         # the room, however A Link to the Past patterned it
         def floorlike(i):
@@ -187,10 +266,25 @@ class Blend:
         cls = np.array([[A.attr_class(plan.room.attr[y * 64 + x]) for x in range(64)] for y in range(64)])
         cls = cls.repeat(8, axis=0).repeat(8, axis=1)
         carved = []
+        # crystal switch pegs, which only the rooms with working switches keep: elsewhere
+        # they are the plain floor Link walks over
+        peg_cells = {(t // 64 // 2) * 32 + (t % 64) // 2 for t in range(4096) if plan.room.attr[t] in PEG_ATTRS}
+        # the mat an A Link to the Past chest stands on (a framed square of other tiles):
+        # its chest is a Minish Cap one on the 16px grid now, so the mat would be left
+        # around nothing, half a cell off; the floor runs on under the chest instead
+        chest_mats = set()
+        for t in range(4096):
+            if A.attr_class(plan.room.attr[t]) == A.CHEST:
+                tx, ty = t % 64, t // 64
+                for my in range(max(0, ty - 3), min(64, ty + 4)):
+                    for mx in range(max(0, tx - 3), min(64, tx + 4)):
+                        chest_mats.add((my // 2) * 32 + mx // 2)
         for i in range(1024):
             cell = img[(i // 32) * 16:(i // 32) * 16 + 16, (i % 32) * 16:(i % 32) * 16 + 16]
             dark = np.all(cell == VOID, axis=-1).mean() > 0.5
-            if plan.cells[i] in PASSABLE and (alttp[i] in REDRAW_AS_FLOOR or dark) and floor:
+            pegs = i in peg_cells and plan.id not in self.switch_rooms
+            mat = i in chest_mats and not stoned[(i // 32) * 16:(i // 32) * 16 + 16, (i % 32) * 16:(i % 32) * 16 + 16].mean() > 0.5
+            if plan.cells[i] in PASSABLE and (alttp[i] in REDRAW_AS_FLOOR or dark or pegs or mat) and floor:
                 cx, cy = i % 32, i // 32
                 sx, sy = min(floor, key=lambda p: abs(p[0] - cx) + abs(p[1] - cy))
                 dst = (slice(cy * 16, cy * 16 + 16), slice(cx * 16, cx * 16 + 16))
@@ -200,6 +294,7 @@ class Blend:
                 stoned[dst] = True
                 cls[dst] = A.FLOOR
                 carved.append((cx, cy))
+        self._dbg = (carved, outside)
         # a passage cut through a wall or across the dark gets edges, so it reads as a
         # walkway rather than a smear of floor
         for cx, cy in carved:
@@ -235,7 +330,16 @@ class Blend:
         receive = np.isin(cls, RECEIVES) & walk
         # floor never casts, even where A Link to the Past has an invisible wall on it
         cast = np.isin(cls, CASTS) & ~walk & ~stoned
-        img = celshade.shade(img, empty, receive, cast)
+        # a ring of spikes (Mothula's lair), wall here: the cel-shading's outlines and rim
+        # light turn its rows of studs into thin black-and-white columns, so it is shaded
+        # softly instead, a calm studded border
+        soft = None
+        if plan.id in A.SPIKE_RING_ROOMS:
+            spikes = np.isin(np.frombuffer(bytes(plan.room.attr), dtype=np.uint8), A.SPIKE_ATTRS).reshape(64, 64)
+            soft = spikes.repeat(8, axis=0).repeat(8, axis=1) & ~empty
+            mean = img[soft].mean(axis=0)
+            img[soft] = celshade.snap(mean + (img[soft] - mean) * 0.6)
+        img = celshade.shade(img, empty, receive, cast, soft)
 
         new_b, new_t = [], []
         for i in range(1024):
@@ -259,6 +363,38 @@ class Blend:
                 self.metatile(self.meta_b, (('mc', b), 0x74))
                 break
         return new_b, new_t
+
+    def center_doorways(self, plan, arrays):
+        """A Link to the Past's doors in a north or south wall are 16px openings 8px off
+        Minish Cap's 16px grid, so the one-cell way through the wall the plan cuts would
+        run beside the opening, half through the door frame. Moves each such door's art
+        (opening, frames and the statues beside it) 8px left onto the way through; the wall beyond closes the gap."""
+        attr = plan.room.attr
+        door_cls = (A.DOOR, A.LOCKED, A.SHUTTER, A.ENTRANCE)
+        for x, y, side in wall_doors(plan.id, plan.lower):
+            if side not in ('n', 's') or x % 2 or not 2 <= x <= 58:
+                continue
+            col = x + 1
+            rows = [r for r in range(max(0, y - 6), min(64, y + 7)) if A.attr_class(attr[r * 64 + col]) in door_cls]
+            if not rows:
+                continue
+            r0, r1 = min(rows), max(rows) + 1
+            cx = x // 2
+            way = [r for r in range(r0, r1) if plan.cells[(r // 2) * 32 + cx] in PASSABLE]
+            beside = [r for r in range(r0, r1) if plan.cells[(r // 2) * 32 + cx + 1] in PASSABLE]
+            if not way or beside:
+                continue
+            # the door's art reaches a tile past its attributes; floor slabs stay put
+            y0, y1, x0, x1 = max(0, r0 - 1) * 8, min(64, r1 + 1) * 8, max(1, x - 4) * 8, min(63, x + 8) * 8
+            img, empty, stoned = arrays
+            keep = stoned[y0:y1, x0 - 8:x1].copy()
+            keep[:, :-8] &= stoned[y0:y1, x0:x1]
+            keep[:, -8:] &= stoned[y0:y1, x1:x1 + 8]
+            for a in arrays:
+                old = a[y0:y1, x0 - 8:x1].copy()
+                a[y0:y1, x0 - 8:x1 - 8] = a[y0:y1, x0:x1].copy()
+                a[y0:y1, x1 - 8:x1] = a[y0:y1, x1:x1 + 8].copy()
+                a[y0:y1, x0 - 8:x1][keep] = old[keep]
 
     def unreached(self, plan):
         """Cells more than TRIM_REACH cells from anywhere Link can walk: the parts of A Link
@@ -366,7 +502,9 @@ class Blend:
                 rest = np.isin(words, list(void_words)) & (front if layer is gfx.bg1 else empty_hi) & ~tiles
                 mask = rest.repeat(8, axis=0).repeat(8, axis=1) & ~empty
                 img[mask] = VOID
-            for comp in comps:
+            # big floors first: a small patch of patterned floor inside one (a big chest's
+            # mat, a square of tiles around a floor switch) takes the floor around it
+            for comp in sorted(comps, key=len, reverse=True):
                 part = np.zeros((64, 64), dtype=bool)
                 for y, x in comp:
                     part[y, x] = True
@@ -380,15 +518,32 @@ class Blend:
                     continue
                 if len(comp) < 4:
                     continue
-                # each stretch of floor gets its own color
-                base = celshade.snap(np.median(img[mask], axis=0))
-                stone = np.empty((512, 512, 3))
-                stone[:] = base
-                stone[((xx // 16 + yy // 16) % 2) == 1] = celshade.snap(base * 0.95)
-                stone[(xx % 16 == 0) | (yy % 16 == 0)] = celshade.snap(base + (255 - base) * 0.16)
-                stone[(xx % 16 == 15) | (yy % 16 == 15)] = celshade.snap(base * 0.82)
-                img[mask] = stone[mask]
-                stoned |= mask
+                # each stretch of floor gets its own color: one pattern can lay two floors
+                # (the Palace of Darkness's turtle hall has green flagstones above its blue
+                # tiles), so the stretch is split where the floor's own color changes
+                for group in split_by_color(comp, img, empty):
+                    part = np.zeros((64, 64), dtype=bool)
+                    for y, x in group:
+                        part[y, x] = True
+                    gmask = part.repeat(8, axis=0).repeat(8, axis=1) & ~empty
+                    if not gmask.any():
+                        continue
+                    base = celshade.snap(np.median(img[gmask], axis=0))
+                    if len(group) < SMALL_FLOOR:
+                        ys = [y for y, x in group]
+                        xs = [x for y, x in group]
+                        box = (slice(max(0, min(ys) - 2) * 8, min(64, max(ys) + 3) * 8),
+                               slice(max(0, min(xs) - 2) * 8, min(64, max(xs) + 3) * 8))
+                        around = stoned[box] & ~gmask[box]
+                        if around.sum() >= 64:
+                            base = celshade.snap(np.median(img[box][around], axis=0))
+                    stone = np.empty((512, 512, 3))
+                    stone[:] = base
+                    stone[((xx // 16 + yy // 16) % 2) == 1] = celshade.snap(base * 0.95)
+                    stone[(xx % 16 == 0) | (yy % 16 == 0)] = celshade.snap(base + (255 - base) * 0.16)
+                    stone[(xx % 16 == 15) | (yy % 16 == 15)] = celshade.snap(base * 0.82)
+                    img[gmask] = stone[gmask]
+                    stoned |= gmask
         if plan.id in A.THIN_WALL_ROOMS:
             # around a maze, the pattern that fills the room's border is the space outside
             words = np.array(gfx.bg2).reshape(64, 64) & 0xffff
@@ -438,6 +593,12 @@ class Blend:
                     better = d < dist[i:i + 128]
                     dist[i:i + 128][better] = d[better]
                     how[i:i + 128][better] = f
+            # a whole tile turning lighter or darker shows far more than a few pixels
+            # changing: a floor slab swapped for its shaded twin reads as a checker or a
+            # patch across the room, so a change in a tile's overall color costs extra
+            mean = arr.reshape(n, 64, 3).mean(axis=1)
+            for i in range(0, n, 256):
+                dist[i:i + 256] += MEAN_WEIGHT * 64 * ((mean[i:i + 256, None, :] - mean[None, :, :]) ** 2).sum(-1)
             np.fill_diagonal(dist, np.inf)
             alive = np.ones(n, dtype=bool)
             weight = np.array([use[c] for c in kept], dtype=np.float64)
@@ -469,9 +630,13 @@ class Blend:
             final[t] = (k, bits ^ f)
         return kept, final
 
-    def quantize(self, kept):
-        """Fits the colors into the palette rows, merging the closest tones until they fit."""
+    def quantize(self, kept, usage=None):
+        """Fits the colors into the palette rows, merging tones until they fit: the pair
+        whose merge changes the fewest pixels the least goes first, and the rarer color
+        takes the commoner one, so a floor keeps its own tones (merging toward the darker
+        color turned the half of a floor's slabs into a checker). usage: {color: pixels}."""
         merged = {}
+        use = dict(usage or {})
         while True:
             sets = [frozenset(merged.get(c, c) for r in t for c in r if c is not None) for t in kept]
             packed = pack_palettes(sets, len(GBA_ROWS))
@@ -481,15 +646,19 @@ class Blend:
             best = None
             for i, a in enumerate(colors):
                 for b in colors[i + 1:]:
-                    d = color_distance(a, b)
+                    d = color_distance(a, b) * (min(use.get(a, 1), use.get(b, 1)) if usage else 1)
                     if best is None or d < best[0]:
                         best = (d, a, b)
             _, a, b = best
-            keep, drop = (a, b) if sum(a) < sum(b) else (b, a)
+            if usage:
+                keep, drop = (a, b) if use.get(a, 1) >= use.get(b, 1) else (b, a)
+            else:
+                keep, drop = (a, b) if sum(a) < sum(b) else (b, a)
             for c, m in list(merged.items()):
                 if m == drop:
                     merged[c] = keep
             merged[drop] = keep
+            use[keep] = use.get(keep, 1) + use.pop(drop, 1)
 
     def write(self, out_dir):
         """Writes the binaries; returns maps.inc lines with the tileset and tile headers."""
@@ -497,7 +666,15 @@ class Blend:
         mc_count = len({e & 0x3ff for (key, _) in self.meta_b if key[0] == 'mc'
                         for e in self.mc_meta[key[1] * 4:key[1] * 4 + 4]})
         kept, final = self.reduce(len(FREE_TILES) - mc_count)
-        merged, sets, (pals, where) = self.quantize(kept)
+        # how many pixels of the rooms show each color, after the tile merges
+        usage = {}
+        for t, n in self.tiles.items():
+            k, _ = final[t]
+            for r in k:
+                for c in r:
+                    if c is not None:
+                        usage[c] = usage.get(c, 0) + n
+        merged, sets, (pals, where) = self.quantize(kept, usage)
         pal_lists = [sorted(p) for p in pals]
         chars = [None] * 1024
         chars[0] = chars[512] = bytes(32)

@@ -91,9 +91,10 @@ def shadows(img, receive, cast):
     return snap(out)
 
 
-def shade(img, empty, receive, cast):
+def shade(img, empty, receive, cast, soft=None):
     """img: HxWx3 RGB floats (already flattened into bands), empty: pixels with no
-    color. receive/cast: where shadows fall and what casts them."""
+    color. receive/cast: where shadows fall and what casts them. soft: pixels that get
+    no outlines or rim light (fine studded detail they would turn busy)."""
     h, w = empty.shape
     img = img.copy()
 
@@ -121,11 +122,15 @@ def shade(img, empty, receive, cast):
         other = _shift(lit, dx, dy, 0)
         edge |= (other - lit > 0.28)
     edge &= ~empty & (lit > 0.13)
+    if soft is not None:
+        edge &= ~soft
     img[edge] = OUTLINE
 
     # rim light where a lit surface meets an outline above or to its left
     lit = lightness(img)
     is_line = np.all(img == OUTLINE, axis=-1)
     rim = (_shift(is_line, 0, 1, False) | _shift(is_line, 1, 0, False)) & ~is_line & ~empty & (lit > 0.4)
+    if soft is not None:
+        rim &= ~soft
     img[rim] = snap(img[rim] + (255 - img[rim]) * 0.45)
     return img
