@@ -1111,7 +1111,19 @@
         "{Sound:00:8E}That hand is a real pain, {Player}.\n\nPerhaps one of those gizmos you carry\naround can do something to it!",
         "{Sound:00:8D}Ugh... So this is the {Color:Green}Dark World{Color:White}!\nThe thief of shadow, {Color:Green}Ganon{Color:White},\nwas sealed here long ago.\nNow {Color:Green}Vaati{Color:White} and his servant\n{Color:Green}Agahnim{Color:White} feed on his power!\n{Sound:00:92}The seven sages' maidens\nhold the seal. If we free them,\nwe can break their hold on\nboth worlds, {Player}!",
         "Halt! Beyond lies the {Color:Green}Temple of\nBonds{Color:White}. Its gates answer only to\ntwo heroes standing as one.\nCome back with a partner, and I'll\nlet you through.",
-        "Two heroes, side by side! The\n{Color:Green}Temple of Bonds{Color:White} is open to you.\nHold its plates for each other and\nstrike its twin seals as one.\nGood luck in there!"
+        "Two heroes, side by side! The\n{Color:Green}Temple of Bonds{Color:White} is open to you.\nHold its plates for each other and\nstrike its twin seals as one.\nGood luck in there!",
+        "{Sound:00:8E}Look at those stone guardians!\nThis is the {Color:Green}Eastern Palace{Color:White},\nwhere the knights of old kept watch.\nIts seal answers only to one who\ncarries the {Color:Red}Earth Element{Color:White}, {Player}!",
+        "{Sound:00:8E}A great face carved in the cliff...\nThe {Color:Green}Desert Palace{Color:White}! Its seal gives\nway to whoever carries the\n{Color:Red}Fire Element{Color:White}. Old Hylian secrets\nsleep under that sand.",
+        "{Sound:00:91}The {Color:Green}Tower of Hera{Color:White}, way up here!\nUgh, heights again...\nThe {Color:Red}Ocarina{Color:White}'s song should break its\nseal. They say a great worm\ncoils at the very top.",
+        "{Sound:00:8D}Where the Eastern Palace stood,\nthe {Color:Green}Palace of Darkness{Color:White}...\nOne of the seven maidens is held\ninside. Only the {Color:Red}Moon Pearl{Color:White} lets\nus walk in there, {Player}.",
+        "{Sound:00:90}A palace sunk into the wilds...\nThe {Color:Green}Swamp Palace{Color:White}! We'll need\nthe {Color:Red}Flippers{Color:White} for what's inside.\nAnother maiden is waiting there.",
+        "{Sound:00:92}A skull in the woods. How cheerful.\nThis is {Color:Green}Skull Woods{Color:White}. Something in\nthere hates fire, {Player}.\nThe {Color:Red}Fire Rod{Color:White} should do nicely!",
+        "{Sound:00:90}Brrr! The {Color:Green}Ice Palace{Color:White}...\nNothing but ice and a cold heart.\nWe'll need the {Color:Red}Flippers{Color:White} and the\n{Color:Red}Fire Rod{Color:White} to melt our way in.",
+        "{Sound:00:8E}{Color:Green}Misery Mire{Color:White}! Its door is shut\nby an old spell of the sky.\nThe {Color:Red}Ether Medallion{Color:White} might stir up\nenough storm to open it...",
+        "{Sound:00:91}A turtle of stone on the summit!\n{Color:Green}Turtle Rock{Color:White} sleeps until the\nground shakes. Try the {Color:Red}Quake\nMedallion{Color:White} here, and bring the\n{Color:Red}Cane of Somaria{Color:White} inside.",
+        "{Sound:00:8D}{Color:Green}Ganon's Tower{Color:White}... Agahnim waits\nat the very top. Its seal breaks\nonly for the {Color:Red}seven crystals{Color:White},\nonce every maiden is free.",
+        "{Sound:00:8E}That gargoyle gives me the creeps...\nThis is {Color:Green}Thieves' Town{Color:White}.\nIts way in is under that statue.\nA good {Color:Red}Hammer{Color:White} swing should\nshake it loose, {Player}.",
+        "{Sound:00:8D}The {Color:Green}Pyramid of Power{Color:White}...\nGanon's hall lies beneath it.\nIt won't open while {Color:Green}Agahnim{Color:White}\nstill stands atop {Color:Green}Ganon's Tower{Color:White}."
     ],
     [
         "{Sound:00:8D}What!? I haven't even had time to\nsettle in, and you're bothering me?\n{Color:Green}Deepwood Shrine{Color:White} lies, obviously enough,\ndeep in the heart of these woods!\nSo says my superior intuitive sense.\n{01:05}Now, get a move on!",

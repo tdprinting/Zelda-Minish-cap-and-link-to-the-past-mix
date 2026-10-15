@@ -256,6 +256,7 @@ static void GameMain_Update(void) {
     DrawUI();
     UpdateManagers();
     Blend_ShadowUpdate();
+    Blend_ExteriorUpdate();
     DrawUIElements();
     UpdateCarriedObject();
     DrawEntities();

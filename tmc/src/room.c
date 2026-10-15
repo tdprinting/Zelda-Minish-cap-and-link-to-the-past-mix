@@ -181,6 +181,7 @@ void CallRoomProp5And7(void) {
         func();
     }
     sub_0804B16C();
+    Blend_ExteriorRefreshColors(); // a room's own setup may have loaded a palette group over the exterior's rows
 }
 
 void LoadRoom(void) {
