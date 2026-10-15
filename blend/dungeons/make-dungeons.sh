@@ -23,6 +23,11 @@ done
 gcc -c -O1 -w -I. $(sdl2-config --cflags) "$ROOT/blend/dungeons/dumprooms.c" -o obj/dumprooms.o
 gcc obj/*.o -o dumprooms $(sdl2-config --libs) -lm
 ./dumprooms rooms
+# and its overworld, for the dungeon fronts on Minish Cap's overworld (blend/overworld/exteriors.py)
+mkdir -p owobj ow
+gcc -c -O1 -w -I. $(sdl2-config --cflags) "$ROOT/blend/overworld/dumpow.c" -o owobj/dumpow.o
+gcc $(ls obj/*.o | grep -v dumprooms.o) owobj/dumpow.o -o dumpow $(sdl2-config --libs) -lm
+./dumpow ow
 # each dungeon's background graphics and colors, for the blended tileset
 mkdir -p gfx
 python3 "$ROOT/blend/dungeons/build.py" --rooms | while read -r rooms; do ./dumprooms gfx gfx $rooms; done

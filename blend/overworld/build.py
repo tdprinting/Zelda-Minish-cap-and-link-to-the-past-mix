@@ -120,10 +120,12 @@ def main():
             for ts in plan.tilesets:
                 for row, cols in ts.rows.items():
                     palettes[ts.pids[row]] = cols
-            pool = list(range(1024))
-            for site in exteriors.SITES:
-                if site.area == index:
-                    fronts.append(exteriors.build_site(site, palettes, pool, log=log))
+            pool, meta_pool = [], []
+            here = [exteriors.build_site(site, palettes, pool, meta_pool, log=log)
+                    for site in exteriors.SITES if site.area == index]
+            if here:
+                exteriors.patch_plan(plan, here)
+            fronts += here
         if want_shadows:
             make_shadows(plan, sets, rooms, log)
         for ts in plan.tilesets:
@@ -171,14 +173,16 @@ def make_shadows(plan, sets, rooms, log):
         sets.append((row, [s - 1024 for s in slots], name, plan.label, tsi))
         log('  tileset %d: %d shadow characters, colors in row %d slots %s: %s'
             % (tsi, len(chars), row, idx, colors))
-        for room, (rtsi, w, h, C) in sorted(area.rooms.items()):
+        for key, (rtsi, w, h, C) in sorted(area.rooms.items(), key=lambda kv: str(kv[0])):
             if rtsi != tsi:
                 continue
-            cm = area.cell_map(room)
+            # a room with a dungeon front is shaded once per world (exteriors.patch_plan)
+            room, world = key if isinstance(key, tuple) else (key, 0)
+            cm = area.cell_map(key)
             cells = (cm[..., 0] | (cm[..., 1] << 6) | (cm[..., 2] << 7)).astype(np.uint8)
-            fname = 'shadow_%02x_%02x.bin' % (plan.index, room)
+            fname = 'shadow_%02x_%02x%s.bin' % (plan.index, room, '_w%d' % world if world else '')
             open(os.path.join(OUT, fname), 'wb').write(cells.tobytes())
-            rooms.append((plan.index, room, set_no, w * 2, h * 2, fname))
+            rooms.append((plan.index, room, set_no, w * 2, h * 2, fname, world))
 
 
 def write_inc(sets, rooms):
@@ -189,18 +193,18 @@ def write_inc(sets, rooms):
         L.append('\t.byte %d, %d, 0, 0' % (row, len(slots)))
         L.append('\t.4byte gBlendShadowSlots_%d, gBlendShadowGfx_%d' % (n, n))
     L += ['\t.align 2', 'gBlendShadowRooms::']
-    for area, room, set_no, w, h, fname in rooms:
-        L.append('\t.byte 0x%02x, 0x%02x, %d, 0' % (area, room, set_no))
+    for area, room, set_no, w, h, fname, world in rooms:
+        L.append('\t.byte 0x%02x, 0x%02x, %d, %d' % (area, room, set_no, world))
         L.append('\t.2byte %d, %d' % (w, h))
-        L.append('\t.4byte gBlendShadowCells_%02x_%02x' % (area, room))
+        L.append('\t.4byte gBlendShadowCells_%s' % fname[7:-4])
     L.append('\t.byte 0xff, 0xff, 0, 0')
     L.append('\t.2byte 0, 0')
     L.append('\t.4byte 0')
     for n, (row, slots, name, label, tsi) in enumerate(sets):
         L += ['\t.align 2', 'gBlendShadowSlots_%d::' % n, '\t.2byte ' + ', '.join(str(s) for s in slots)]
         L += ['\t.align 2', 'gBlendShadowGfx_%d::' % n, '\t.incbin "custom/gen/ow/%s"' % name]
-    for area, room, set_no, w, h, fname in rooms:
-        L += ['gBlendShadowCells_%02x_%02x::' % (area, room), '\t.incbin "custom/gen/ow/%s"' % fname]
+    for area, room, set_no, w, h, fname, world in rooms:
+        L += ['gBlendShadowCells_%s::' % fname[7:-4], '\t.incbin "custom/gen/ow/%s"' % fname]
     L.append('\t.align 2')
     open(os.path.join(OUT, 'shadows.inc'), 'w').write('\n'.join(L) + '\n')
 

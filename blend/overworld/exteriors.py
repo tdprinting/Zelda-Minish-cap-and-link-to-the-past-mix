@@ -43,7 +43,7 @@ LIGHT, DARK, BOTH = 1, 2, 3
 
 class Site:
     def __init__(self, name, area, room, world, door, src, src_door, dungeon=0, cave_flag=0,
-                 drop=(), keep=(), ground=8, rows=2, door_cells=None, sealed_from=None, shade=True):
+                 drop=(), keep=(), ground=8, rows=2, door_cells=None, sealed_from=None, shade=True, ground_share=0.85):
         self.name = name
         self.area, self.room, self.world = area, room, world
         self.door = door                  # the transition's (x, y) in the room, pixels
@@ -58,13 +58,34 @@ class Site:
         self.door_cells = door_cells      # ALttP cells that form the doorway (default: the door cell)
         self.sealed_from = sealed_from    # ALttP cell whose art closes the doorway while sealed
         self.shade = shade                # cel-shade the art (outlines, rim light)
+        self.ground_share = ground_share  # how much of a cell must be ground colors to count as ground
 
 
 # Where each A Link to the Past dungeon meets the Minish Cap overworld. The doors are
 # the transitions in tmc/src/data/transitions.c that lead into the dungeon areas.
 SITES = [
-    Site('EasternPalace', 0x03, 3, LIGHT, (0xa8, 0x98), (0x1e, 46, 0, 61, 7), (53, 3),
+    # the Light World's three: behind the cracked caves Minish Cap's milestones open
+    Site('EasternPalace', 0x03, 3, LIGHT, (0xa8, 0x98), (0x1e, 46, 1, 61, 7), (53, 3),
          dungeon=0x0e, cave_flag=0x70),
+    Site('DesertPalace', 0x03, 7, LIGHT, (0x88, 0x222), (0x30, 14, 7, 23, 13), (18, 11),
+         dungeon=0x1b, cave_flag=0x90),
+    Site('TowerOfHera', 0x06, 3, LIGHT, (0x348, 0x58), (0x03, 44, 1, 51, 9), (47, 7),
+         dungeon=0x1c, cave_flag=0x44),
+    # the Dark World's: where its dungeons stand in A Link to the Past's Dark World
+    Site('PalaceOfDarkness', 0x03, 3, DARK, (0xa8, 0x98), (0x5e, 46, 0, 61, 8), (53, 3),
+         dungeon=0x1d),
+    Site('SwampPalace', 0x04, 0, DARK, (0x1a8, 0x1a2), (0x7b, 20, 11, 27, 19), (23, 14),
+         dungeon=0x1e),
+    Site('SkullWoods', 0x00, 0, DARK, (0x70, 0x48), (0x40, 6, 10, 14, 17), (9, 12),
+         dungeon=0x1f),
+    Site('IcePalace', 0x0b, 0, DARK, (0x148, 0x374), (0x75, 39, 24, 48, 32), (43, 28),
+         dungeon=0x3a),
+    Site('MiseryMire', 0x0a, 0, DARK, (0x38, 0x1e2), (0x70, 15, 11, 22, 18), (18, 13),
+         dungeon=0x3b),
+    Site('TurtleRock', 0x06, 0, DARK, (0x328, 0x34), (0x47, 12, 18, 21, 24), (16, 19),
+         dungeon=0x3c),
+    Site('GanonsTower', 0x06, 3, DARK, (0x348, 0x58), (0x43, 42, 0, 53, 8), (47, 3),
+         dungeon=0x3d),
 ]
 
 
@@ -239,6 +260,39 @@ def quantize(chars, nrows, max_colors=15):
 
 # ---------------------------------------------------------------- building a site
 
+def sealed_art(door, art):
+    """The doorway shut: its dark opening filled with the front's own stone, set with a
+    gold seal (A Link to the Past's sealed doors carry a crest)."""
+    lit = celshade.lightness(door.astype(float))
+    flat = art.reshape(-1, 3)
+    L = celshade.lightness(flat.astype(float))
+    mid = flat[(L > 0.45) & (L < 0.8)]
+    stone = np.median(mid, axis=0) if len(mid) else np.array([160, 152, 128])
+    shade = stone * 0.72
+    out = door.copy()
+    dark = lit < 0.3
+    ys, xs = np.nonzero(dark)
+    if len(ys) == 0:
+        return out
+    y0, y1, x0, x1 = ys.min(), ys.max(), xs.min(), xs.max()
+    out[dark] = celshade.snap(stone)
+    # stone courses
+    for y in range(y0, y1 + 1):
+        if (y - y0) % 5 == 4:
+            out[y, x0:x1 + 1][dark[y, x0:x1 + 1]] = celshade.snap(shade)
+    # outline round the filled opening
+    edge = dark & ~(np.roll(dark, 1, 0) & np.roll(dark, -1, 0) & np.roll(dark, 1, 1) & np.roll(dark, -1, 1))
+    out[edge] = celshade.OUTLINE
+    # the seal: a small gold diamond in the middle
+    cy, cx = (y0 + y1) // 2, (x0 + x1) // 2
+    for dy in range(-3, 4):
+        for dx in range(-3, 4):
+            y, x = cy + dy, cx + dx
+            if 0 <= y < 16 and 0 <= x < 16 and abs(dy) + abs(dx) <= 3:
+                out[y, x] = celshade.OUTLINE if abs(dy) + abs(dx) == 3 else (248, 208, 64)
+    return out
+
+
 class Built:
     """One site's output: what blendOverworld.c lays over the room."""
 
@@ -256,14 +310,24 @@ class Built:
 
 
 def ground_cells(src, site, x0, y0, w, h):
-    """ALttP cells in the crop that are plain ground (left out, so Minish Cap's ground shows)."""
+    """ALttP cells in the crop that are plain ground (left out, so Minish Cap's ground
+    shows): cells drawn almost only in the colors of the area's commonest cells."""
     common = src.common_map16(site.ground)
+    colors = set()
+    for my in range(src.size):
+        for mx in range(src.size):
+            if int(src.map[my, mx]) in common:
+                px = src.render(mx, my, 1, 1).reshape(-1, 3)
+                colors |= set(map(tuple, px.tolist()))
+                common.discard(int(src.map[my, mx]))
+    img = src.render(x0, y0, w, h)
     g = np.zeros((h, w), dtype=bool)
     for y in range(h):
         for x in range(w):
-            m = int(src.map[y0 + y, x0 + x])
+            px = img[y * 16:y * 16 + 16, x * 16:x * 16 + 16].reshape(-1, 3).tolist()
+            share = sum(1 for c in px if tuple(c) in colors) / 256.0
             at = src.attrs(x0 + x, y0 + y)
-            g[y, x] = m in common and all(a in alttpow.WALKABLE for a in at)
+            g[y, x] = share >= site.ground_share and all(a in alttpow.WALKABLE for a in at)
     for rx0, ry0, rx1, ry1 in site.drop:
         g[max(0, ry0 - y0):max(0, ry1 - y0), max(0, rx0 - x0):max(0, rx1 - x0)] = True
     for rx0, ry0, rx1, ry1 in site.keep:
@@ -289,7 +353,7 @@ def pick_types(mc):
     return w, s
 
 
-def build_site(site, palettes, char_pool, log=print):
+def build_site(site, palettes, char_pool, meta_pool=None, log=print):
     mc = McRoom(site.area, site.room, palettes)
     out = Built(site, mc)
     scr, sx0, sy0, sx1, sy1 = site.src
@@ -314,12 +378,18 @@ def build_site(site, palettes, char_pool, log=print):
             mx, my = ox + x, oy + y
             if 0 <= mx < mc.w and 0 <= my < mc.h:
                 cells.append((mx, my, x, y))
-    # characters of every placed cell
+    door_cells = list(site.door_cells or [site.src_door])
+    # characters of every placed cell, then of the sealed doorway
+    def cell_art(x, y):
+        return art[y * 16:y * 16 + 16, x * 16:x * 16 + 16]
+    blocks = [cell_art(x, y) for mx, my, x, y in cells]
+    sealed_blocks = [sealed_art(cell_art(dx - sx0, dy - sy0), art) for dx, dy in door_cells] \
+        if (site.dungeon or site.cave_flag) else []
     tiles = []
-    for mx, my, x, y in cells:
+    for blk in blocks + sealed_blocks:
         for k in range(4):
-            py, px = y * 16 + (k >> 1) * 8, x * 16 + (k & 1) * 8
-            tiles.append(art[py:py + 8, px:px + 8])
+            py, px = (k >> 1) * 8, (k & 1) * 8
+            tiles.append(blk[py:py + 8, px:px + 8])
     used_chars, used_rows = mc.used(mc.neighbours)
     used_chars |= mc.reserved_chars()
     free_rows = [r for r in range(2, 15) if r not in used_rows]
@@ -331,9 +401,13 @@ def build_site(site, palettes, char_pool, log=print):
     for r, p in zip(rows, pals):
         cols = [owdata.rgb_to_gba(c) for c in p]
         out.rows[r] = [0] + cols + [0] * (15 - len(cols))
-    # dedupe characters (mirrored ones too) and give each a free slot
+    # dedupe characters (mirrored ones too) and give each a free slot; fronts in rooms
+    # next to this one (or in this room, in the same world) keep theirs
     store = {}
-    free_slots = [c for c in char_pool if c not in used_chars and c < 1024]
+    for room, world, slots in char_pool:
+        if room in mc.neighbours and (room != site.room or world & site.world):
+            used_chars |= slots
+    free_slots = [c for c in range(1024) if c not in used_chars]
     entries = []
     for t, g in zip(idx, group):
         t = t.astype(np.uint8)
@@ -342,9 +416,8 @@ def build_site(site, palettes, char_pool, log=print):
             for vf in (0, 1):
                 v = t[:, ::-1] if hf else t
                 v = v[::-1, :] if vf else v
-                key = v.tobytes()
-                if key in store:
-                    hit = (store[key], hf, vf)
+                if v.tobytes() in store:
+                    hit = (store[v.tobytes()], hf, vf)
                     break
             if hit:
                 break
@@ -352,19 +425,34 @@ def build_site(site, palettes, char_pool, log=print):
             if not free_slots:
                 raise SystemExit('%s: out of character slots' % site.name)
             slot = free_slots.pop(0)
-            char_pool.remove(slot)
             store[t.tobytes()] = slot
             out.char_slots.append(slot)
             out.chars.append(t)
             hit = (slot, 0, 0)
         slot, hf, vf = hit
         entries.append(slot | (hf << 10) | (vf << 11) | (rows[g] << 12))
+    char_pool.append((site.room, site.world, set(out.char_slots)))
     # metatiles into the filler slots
     tb = mc.area.types['bottom']
     filler = [i for i in range(len(mc.area.meta['bottom']) // 4) if i < len(tb) and tb[i] == FILLER_TYPE and i > 0]
-    door_cells = set(site.door_cells or [site.src_door])
+    if meta_pool is not None:
+        if not meta_pool:
+            meta_pool.extend(filler)
+        filler = meta_pool
+    index = {}
+
+    def metatile(ent, typ):
+        key = (tuple(ent), typ)
+        if key not in index:
+            if not filler:
+                raise SystemExit('%s: out of metatile slots' % site.name)
+            index[key] = filler.pop(0)
+            out.meta_slots.append(index[key])
+            out.metas.append(list(ent))
+            out.types.append(typ)
+        return index[key]
+
     for n, (mx, my, x, y) in enumerate(cells):
-        ent = entries[n * 4:n * 4 + 4]
         at = src.attrs(sx0 + x, sy0 + y)
         if (sx0 + x, sy0 + y) in door_cells:
             typ = TILE_CAVE_MOUTH
@@ -372,43 +460,26 @@ def build_site(site, palettes, char_pool, log=print):
             typ = walk_t
         else:
             typ = solid_t
-        key = (tuple(ent), typ)
-        if key in out.metas_index if hasattr(out, 'metas_index') else False:
-            m = out.metas_index[key]
-        else:
-            if not hasattr(out, 'metas_index'):
-                out.metas_index = {}
-            m = filler.pop(0)
-            out.metas_index[key] = m
-            out.meta_slots.append(m)
-            out.metas.append(ent)
-            out.types.append(typ)
+        m = metatile(entries[n * 4:n * 4 + 4], typ)
         out.bottom[my * mc.w + mx] = m
         out.top[my * mc.w + mx] = 0
-    # the sealed doorway: the art of the cell the site names, solid
-    if site.dungeon or site.cave_flag:
-        sx, sy = site.sealed_from or (site.src_door[0], site.src_door[1] - 1)
-        sealed = int(out.bottom[(oy + sy - sy0) * mc.w + ox + sx - sx0])
-        sealed_key = None
-        for key, m in out.metas_index.items():
-            if m == sealed:
-                sealed_key = key
-        if sealed_key is not None:
-            m = filler.pop(0)
-            out.meta_slots.append(m)
-            out.metas.append(list(sealed_key[0]))
-            out.types.append(solid_t)
-            for dx, dy in door_cells:
-                cell = (oy + dy - sy0) * mc.w + ox + dx - sx0
-                out.doors.append((cell, m))
+    # the sealed doorway: closed art, solid
+    base = len(cells) * 4
+    for k, (dx, dy) in enumerate(door_cells if sealed_blocks else []):
+        m = metatile(entries[base + k * 4:base + k * 4 + 4], solid_t)
+        out.doors.append(((oy + dy - sy0) * mc.w + ox + dx - sx0, m))
     log('  %s: %d cells, %d characters, %d metatiles, rows %s' % (
         site.name, len(cells), len(out.chars), len(out.metas), rows))
     return out
 
 
-def preview(built):
+def preview(built, sealed=False):
     """RGB of the room as the site makes it (for screenshot sheets and checks)."""
     mc = built.mc
+    bottom = built.bottom.copy()
+    if sealed:
+        for cell, m in built.doors:
+            bottom[cell] = m
     chars = mc.area.chars.copy()
     for slot, t in zip(built.char_slots, built.chars):
         chars[slot] = t
@@ -418,7 +489,7 @@ def preview(built):
     pal = mc.palette()
     for r, cols in built.rows.items():
         pal[r] = [owdata.gba_to_rgb(c) for c in cols]
-    return owdata.render_room(mc.area, built.bottom, built.top, mc.w, mc.h, pal, chars=chars, meta_b=meta)
+    return owdata.render_room(mc.area, bottom, built.top, mc.w, mc.h, pal, chars=chars, meta_b=meta)
 
 
 # ---------------------------------------------------------------- output
@@ -466,3 +537,35 @@ def write(builts, out_dir, log=print):
     L.append('\t.align 2')
     open(os.path.join(out_dir, 'exteriors.inc'), 'w').write('\n'.join(L) + '\n')
     log('Wrote %d dungeon fronts to %s' % (len(builts), out_dir))
+
+
+def patch_plan(plan, builts):
+    """Lets the shadow pass see the fronts: their metatiles and characters go into the
+    area plan's copies, and each room with a front is shaded once per world."""
+    plan.meta = {k: v.copy() for k, v in plan.meta.items()}
+    plan.types = {k: v.copy() for k, v in plan.types.items()}
+    for b in builts:
+        for m, ent, typ in zip(b.meta_slots, b.metas, b.types):
+            plan.meta['bottom'][m * 4:m * 4 + 4] = ent
+            plan.types['bottom'][m] = typ
+        for ts in plan.tilesets:
+            if ts.ts_index == b.mc.ts:
+                ts.chars = ts.chars.copy()
+                for slot, t in zip(b.char_slots, b.chars):
+                    ts.chars[slot] = t
+    by_room = {}
+    for b in builts:
+        by_room.setdefault(b.site.room, []).append(b)
+    for ts in plan.tilesets:
+        rooms = []
+        for i, w, h, bm, tm in ts.rooms:
+            if i not in by_room:
+                rooms.append((i, w, h, bm, tm))
+                continue
+            for world in (LIGHT, DARK):
+                f = [b for b in by_room[i] if b.site.world & world]
+                if f:
+                    rooms.append(((i, world), w, h, f[0].bottom, f[0].top))
+                else:
+                    rooms.append(((i, world), w, h, bm, tm))
+        ts.rooms = rooms
