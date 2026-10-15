@@ -29,6 +29,7 @@
 #include "save.h"
 #include "message.h"
 #include "player.h"
+#include "entity.h"
 
 typedef struct {
     u16 cell;   /**< packed room map index: y * room width + x */
@@ -271,11 +272,54 @@ static void UpdateFrontStory(void) {
     MessageFromTarget(TEXT_INDEX(TEXT_EZLO, sFrontStories[i].text));
 }
 
-/** Every gameplay frame: keeps the front's colors, and has Ezlo speak up the first time. */
+static bool32 IsExteriorMetatile(const BlendExterior* e, u32 m) {
+    u32 i;
+    for (i = 0; i < e->metaCount; i++) {
+        if (e->metaSlots[i] == m) {
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
+
+/**
+ * The room's own people (the Castle Garden's soldiers on their rounds, say) would walk
+ * across a front that now stands where their path was: they step out of the room.
+ */
+static void ClearPeopleOffFront(void) {
+    const BlendExterior* e = gBlendExterior.active;
+    Entity* ent;
+    Entity* next;
+    u32 i;
+    for (i = 0; i < ARRAY_COUNT(gEntityLists); i++) {
+        LinkedList* list = &gEntityLists[i];
+        for (ent = list->first; (u32)ent != (u32)list; ent = next) {
+            s32 x, y;
+            u32 cell;
+            next = ent->next;
+            if (ent->kind != NPC) {
+                continue;
+            }
+            x = (ent->x.HALF.HI - gRoomControls.origin_x) >> 4;
+            y = (ent->y.HALF.HI - gRoomControls.origin_y) >> 4;
+            if (x < 0 || y < 0 || x >= 64 || y >= 64) {
+                continue;
+            }
+            cell = y * 64 + x;
+            if (gMapBottom.collisionData[cell] != 0 && IsExteriorMetatile(e, gMapBottom.mapData[cell])) {
+                DeleteEntity(ent);
+            }
+        }
+    }
+}
+
+/** Every gameplay frame: keeps the front's colors, clears its ground of the room's people, and
+ * has Ezlo speak up the first time. */
 void Blend_ExteriorUpdate(void) {
     if (!Blend_ExteriorActive()) {
         return;
     }
     Blend_ExteriorRefreshColors();
+    ClearPeopleOffFront();
     UpdateFrontStory();
 }

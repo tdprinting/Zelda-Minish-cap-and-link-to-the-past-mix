@@ -107,6 +107,50 @@ SITES = [
     # the lumberjacks' cabin, in the Western Woods
     Site('LumberjacksCabin', 0x03, 8, LIGHT, (0xf0, 0x140), (0x02, 18, 9, 26, 17), (22, 16),
          landmark=True, place=(0, 0, 30, 40)),
+    # Light World: A Link to the Past's Hyrule about Minish Cap's
+    # the blacksmiths' forge, in North Hyrule Field
+    Site('Smithy', 0x03, 6, LIGHT, (0x200, 0x200), (0x22, 11, 3, 17, 10), (14, 9),
+         landmark=True, place=(0, 0, 64, 64)),
+    # the fortune teller's house, by Lon Lon Ranch
+    Site('FortuneTeller', 0x03, 5, LIGHT, (0x200, 0x200), (0x11, 13, 13, 19, 20), (16, 19),
+         landmark=True, place=(0, 0, 64, 64)),
+    # Link's uncle's house, in the Royal Valley woods
+    Site('UnclesHouse', 0x09, 0, LIGHT, (0x200, 0x200), (0x2c, 9, 11, 15, 18), (12, 17),
+         landmark=True, place=(0, 0, 64, 64)),
+    # Kakariko's library, in the Eastern Hills
+    Site('Library', 0x03, 4, LIGHT, (0x200, 0x200), (0x28, 25, 18, 32, 25), (28, 24),
+         landmark=True, place=(0, 0, 64, 64)),
+    # Lake Hylia's shop, on the lake shore
+    Site('LakeShop', 0x0b, 1, LIGHT, (0x200, 0x200), (0x35, 3, 10, 9, 15), (6, 14),
+         landmark=True, place=(0, 0, 64, 64)),
+    # the watergate, on Lake Hylia
+    Site('Watergate', 0x0b, 0, LIGHT, (0x200, 0x200), (0x3b, 22, 11, 26, 20), (24, 19),
+         landmark=True, place=(0, 0, 64, 64)),
+    # a Kakariko house, in Hyrule Town (in the town's own colors)
+    Site('KakarikoHouse', 0x02, 0, LIGHT, (0x200, 0x200), (0x18, 10, 19, 16, 26), (13, 25),
+         landmark=True, place=(0, 0, 64, 64), use_rows='auto', min_char=384),
+    # Dark World: its counterparts
+    # the bomb shop, in South Hyrule Field
+    Site('BombShop', 0x03, 1, DARK, (0x200, 0x200), (0x6c, 9, 11, 15, 18), (12, 17),
+         landmark=True, place=(0, 0, 64, 64)),
+    # the Dark Chapel's domes, in the Royal Valley
+    Site('DarkChapel', 0x09, 0, DARK, (0x200, 0x200), (0x53, 16, 8, 26, 14), (21, 13),
+         landmark=True, place=(0, 0, 64, 64)),
+    # the Dark World fortune teller, by Lon Lon Ranch
+    Site('DarkFortuneTeller', 0x03, 5, DARK, (0x200, 0x200), (0x51, 13, 13, 19, 20), (16, 19),
+         landmark=True, place=(0, 0, 64, 64)),
+    # the Dark World lumberjacks' hut, in the Western Woods
+    Site('DarkLumberjacks', 0x03, 8, DARK, (0x200, 0x200), (0x42, 19, 10, 25, 16), (22, 15),
+         landmark=True, place=(0, 0, 64, 64)),
+    # a Dark World house, in North Hyrule Field
+    Site('DarkHouse', 0x03, 6, DARK, (0x200, 0x200), (0x56, 11, 17, 17, 23), (14, 22),
+         landmark=True, place=(0, 0, 64, 64)),
+    # a Dark World shack, in the Trilby Highlands
+    Site('DarkShack', 0x03, 7, DARK, (0x200, 0x200), (0x62, 11, 4, 17, 10), (14, 9),
+         landmark=True, place=(0, 0, 64, 64)),
+    # the Dark World lake hut, on Lake Hylia
+    Site('DarkLakeHut', 0x0b, 0, DARK, (0x200, 0x200), (0x75, 3, 10, 9, 15), (6, 14),
+         landmark=True, place=(0, 0, 64, 64)),
 ]
 
 
@@ -383,21 +427,21 @@ def pick_types(mc):
     return w, s
 
 
-def best_rows(mc, used_rows, tiles, n=2):
-    """The n palette rows of the room's own that draw these characters best."""
-    cand = [r for r in sorted(used_rows) if 2 <= r < 15 and r in mc.area.rows]
-    errs = {r: np.array([nearest(t.reshape(-1, 3), [owdata.gba_to_rgb(c) for c in mc.area.rows[r][1][1:16]])[1].sum()
-                         for t in tiles]) for r in cand}
+def best_rows(cand, tiles, n=2):
+    """The (up to) n palette rows of cand {row: 16 colors} that draw these characters best."""
+    rows = sorted(cand)
+    errs = {r: np.array([nearest(t.reshape(-1, 3), [owdata.gba_to_rgb(c) for c in cand[r][1:16]])[1].sum()
+                         for t in tiles]) for r in rows}
     best = None
-    for i, a in enumerate(cand):
-        for b in cand[i:]:
+    for i, a in enumerate(rows):
+        for b in rows[i:]:
             e = np.minimum(errs[a], errs[b]).sum()
             if best is None or e < best[0]:
                 best = (e, sorted({a, b}))
     return best[1]
 
 
-def find_place(mc, site, solid, want):
+def find_place(mc, site, solid, want, taken=None):
     """Where in site.place the set piece covers only open ground: every cell it draws on,
     and the row in front of it, is walkable ground. The nearest such spot to the one wanted."""
     tb = mc.area.types['bottom']
@@ -406,7 +450,8 @@ def find_place(mc, site, solid, want):
         for x in range(mc.w):
             c = int(mc.bottom[y * mc.w + x])
             t = int(tb[c]) if c < len(tb) else -1
-            open_[y, x] = t >= 0 and COLLISION[t] == 0 and ACT[t] in (9, 10, 11, 12)
+            open_[y, x] = t >= 0 and COLLISION[t] == 0 and ACT[t] in (9, 10, 11, 12) and \
+                (taken is None or not taken[y * mc.w + x])
     h, w = solid.shape
     ring = np.zeros((h + 2, w + 2), dtype=bool)
     ring[1:h + 1, 1:w + 1] = solid
@@ -423,13 +468,46 @@ def find_place(mc, site, solid, want):
             if best is None or d < best[0]:
                 best = (d, ox, oy)
     if best is None:
-        raise SystemExit('%s: no open ground for it in %s' % (site.name, site.place))
+        return None
     return best[1], best[2]
 
 
-def build_site(site, palettes, char_pool, meta_pool=None, log=print):
+class Skip(Exception):
+    """A set piece that does not fit its room (left out, the rest go on)."""
+
+
+def build_site(site, palettes, char_pool, meta_pool=None, log=print, prior=None):
+    """Builds one site; a landmark that does not fit is left out (None)."""
+    key = (site.area, site.room, site.world)
+    had = prior.get(key) if prior is not None else None
+    pool_len, metas = len(char_pool), list(meta_pool) if meta_pool is not None else None
+    try:
+        return _build_site(site, palettes, char_pool, meta_pool, log, prior)
+    except Skip as e:
+        if not site.landmark:
+            raise SystemExit('%s: %s' % (site.name, e))
+        log('  %s: %s, left out' % (site.name, e))
+        if prior is not None:
+            if had is None:
+                prior.pop(key, None)
+            else:
+                prior[key] = had
+        del char_pool[pool_len:]
+        if meta_pool is not None:
+            meta_pool[:] = metas
+        return None
+
+
+def _build_site(site, palettes, char_pool, meta_pool=None, log=print, prior=None):
     mc = McRoom(site.area, site.room, palettes)
     out = Built(site, mc)
+    # an earlier piece in the same room and world: build on top of it
+    key = (site.area, site.room, site.world)
+    before = prior.get(key) if prior is not None else None
+    if before is not None:
+        out.bottom, out.top = before.bottom.copy(), before.top.copy()
+    if prior is not None:
+        prior[key] = out
     scr, sx0, sy0, sx1, sy1 = site.src
     src = alttpow.Area(scr)
     w, h = sx1 - sx0, sy1 - sy0
@@ -438,7 +516,16 @@ def build_site(site, palettes, char_pool, meta_pool=None, log=print):
     ox, oy = dcx - (site.src_door[0] - sx0), dcy - (site.src_door[1] - sy0)
     ground, ground_colors = ground_cells(src, site, sx0, sy0, w, h)
     if site.place:
-        ox, oy = find_place(mc, site, ~ground, (ox, oy))
+        spot = find_place(mc, site, ~ground, (ox, oy), taken=(out.bottom != mc.bottom) | (out.top != mc.top))
+        if spot is None:
+            log('  %s: no open ground for it, left out' % site.name)
+            if prior is not None:
+                if before is None:
+                    prior.pop(key)
+                else:
+                    prior[key] = before
+            return None
+        ox, oy = spot
     out.origin = (ox, oy)
     raw = src.render(sx0, sy0, w, h)
     art = style_colors(raw)
@@ -481,28 +568,36 @@ def build_site(site, palettes, char_pool, meta_pool=None, log=print):
             tiles.append(blk[py:py + 8, px:px + 8])
     used_chars, used_rows = mc.used(mc.neighbours)
     used_chars |= mc.reserved_chars()
-    if site.use_rows:
-        # the room's own colors: no row of its own, and the Dark World shades it with the rest
-        rows = list(site.use_rows) if site.use_rows != 'auto' else best_rows(mc, used_rows, tiles)
-        pals = [[owdata.gba_to_rgb(c) for c in mc.area.rows[r][1][1:16]] for r in rows]
+    taken_rows = {}
+    for room, world, slots, rws in char_pool:
+        if room == site.room and world & site.world:
+            taken_rows.update(rws)
+    used_rows = set(used_rows) | set(taken_rows)
+    free_rows = [r for r in range(2, 15) if r not in used_rows and r not in site.avoid_rows]
+    if site.use_rows or not free_rows:
+        # colors already there: the room's own (the Dark World shades those with the rest),
+        # or those of an earlier piece in the room
+        cand = {r: mc.area.rows[r][1] for r in used_rows if 2 <= r < 15 and r in mc.area.rows}
+        cand.update(taken_rows)
+        rows = list(site.use_rows) if site.use_rows not in (None, 'auto') else best_rows(cand, tiles)
+        pals = [[owdata.gba_to_rgb(c) for c in cand[r][1:16]] for r in rows]
         errs = np.array([[nearest(t.reshape(-1, 3), p)[1].sum() for p in pals] for t in tiles])
         group = errs.argmin(1)
         idx = [nearest(t.reshape(-1, 3), pals[g])[0].reshape(8, 8) + 1 for t, g in zip(tiles, group)]
     else:
-        free_rows = [r for r in range(2, 15) if r not in used_rows and r not in site.avoid_rows]
         nrows = min(site.rows, len(free_rows))
         if nrows == 0:
-            raise SystemExit('%s: no free palette row' % site.name)
+            raise Skip('no free palette row')
         pals, group, idx = quantize(tiles, nrows)
         rows = free_rows[:nrows]
         for r, p in zip(rows, pals):
             cols = [owdata.rgb_to_gba(c) for c in p]
             out.rows[r] = [0] + cols + [0] * (15 - len(cols))
-    # dedupe characters (mirrored ones too) and give each a free slot; fronts in rooms
-    # next to this one (or in this room, in the same world) keep theirs
+    # dedupe characters (mirrored ones too) and give each a free slot; fronts in the same
+    # world in this room or the rooms next to it keep theirs (two worlds never show together)
     store = {}
-    for room, world, slots in char_pool:
-        if room in mc.neighbours and (room != site.room or world & site.world):
+    for room, world, slots, rws in char_pool:
+        if room in mc.neighbours and world & site.world:
             used_chars |= slots
     free_slots = [c for c in range(site.min_char, 1024) if c not in used_chars]
     entries = []
@@ -520,7 +615,7 @@ def build_site(site, palettes, char_pool, meta_pool=None, log=print):
                 break
         if hit is None:
             if not free_slots:
-                raise SystemExit('%s: out of character slots' % site.name)
+                raise Skip('out of character slots')
             slot = free_slots.pop(0)
             store[t.tobytes()] = slot
             out.char_slots.append(slot)
@@ -528,7 +623,7 @@ def build_site(site, palettes, char_pool, meta_pool=None, log=print):
             hit = (slot, 0, 0)
         slot, hf, vf = hit
         entries.append(slot | (hf << 10) | (vf << 11) | (rows[g] << 12))
-    char_pool.append((site.room, site.world, set(out.char_slots)))
+    char_pool.append((site.room, site.world, set(out.char_slots), dict(out.rows)))
     # metatiles into the filler slots
     tb = mc.area.types['bottom']
     filler = [i for i in range(len(mc.area.meta['bottom']) // 4) if i < len(tb) and tb[i] == FILLER_TYPE and i > 0]
@@ -542,7 +637,7 @@ def build_site(site, palettes, char_pool, meta_pool=None, log=print):
         key = (tuple(ent), typ)
         if key not in index:
             if not filler:
-                raise SystemExit('%s: out of metatile slots' % site.name)
+                raise Skip('out of metatile slots')
             index[key] = filler.pop(0)
             out.meta_slots.append(index[key])
             out.metas.append(list(ent))
@@ -564,9 +659,35 @@ def build_site(site, palettes, char_pool, meta_pool=None, log=print):
     base = len(cells) * 4
     for k, (dx, dy) in enumerate(door_cells if sealed_blocks else []):
         m = metatile(entries[base + k * 4:base + k * 4 + 4], solid_t)
-        out.doors.append(((oy + dy - sy0) * mc.w + ox + dx - sx0, m))
+        out.doors.append(((oy + dy - sy0) * mc.w + ox + dx - sx0, m, site.dungeon, site.cave_flag))
     log('  %s: %d cells, %d characters, %d metatiles, rows %s' % (
         site.name, len(cells), len(out.chars), len(out.metas), rows))
+    return out
+
+
+def merge(builts):
+    """One exterior per room and world: pieces in the same room and world (each built on
+    top of the one before) become one."""
+    out, index = [], {}
+    for b in builts:
+        if b is None:
+            continue
+        key = (b.site.area, b.site.room, b.site.world)
+        if key not in index:
+            index[key] = len(out)
+            out.append(b)
+            continue
+        a = out[index[key]]
+        m = Built(a.site, a.mc)
+        m.chars, m.char_slots = a.chars + b.chars, a.char_slots + b.char_slots
+        m.rows = dict(a.rows)
+        m.rows.update(b.rows)
+        m.meta_slots, m.metas, m.types = a.meta_slots + b.meta_slots, a.metas + b.metas, a.types + b.types
+        m.bottom, m.top = b.bottom, b.top
+        m.doors = a.doors + b.doors
+        m.origin = getattr(a, 'origin', None)
+        m.parts = getattr(a, 'parts', [a.site.name]) + [b.site.name]
+        out[index[key]] = m
     return out
 
 
@@ -575,7 +696,7 @@ def preview(built, sealed=False):
     mc = built.mc
     bottom = built.bottom.copy()
     if sealed:
-        for cell, m in built.doors:
+        for cell, m, _, _ in built.doors:
             bottom[cell] = m
     chars = mc.area.chars.copy()
     for slot, t in zip(built.char_slots, built.chars):
@@ -626,9 +747,9 @@ def write(builts, out_dir, log=print):
             for i in range(0, len(vals), 16):
                 L.append('\t.2byte ' + ', '.join(str(int(v)) for v in vals[i:i + 16]))
         L += ['\t.align 2', 'gBlendExt%d_doors::' % n]
-        for cell, sealed in b.doors:
+        for cell, sealed, dungeon, cave_flag in b.doors:
             L.append('\t.2byte %d, %d' % (cell, sealed))
-            L.append('\t.byte 0x%02x, 0x%02x' % (s.dungeon, s.cave_flag))
+            L.append('\t.byte 0x%02x, 0x%02x' % (dungeon, cave_flag))
             L.append('\t.2byte 0')
         L += ['gBlendExt%d_nb::' % n, '\t.byte ' + ', '.join(str(i) for i in mc.neighbours) + ', 0xff']
     L.append('\t.align 2')

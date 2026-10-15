@@ -120,9 +120,9 @@ def main():
             for ts in plan.tilesets:
                 for row, cols in ts.rows.items():
                     palettes[ts.pids[row]] = cols
-            pool, meta_pool = [], []
-            here = [exteriors.build_site(site, palettes, pool, meta_pool, log=log)
-                    for site in exteriors.SITES if site.area == index]
+            pool, meta_pool, prior = [], [], {}
+            here = exteriors.merge([exteriors.build_site(site, palettes, pool, meta_pool, log=log, prior=prior)
+                                    for site in exteriors.SITES if site.area == index])
             if here:
                 exteriors.patch_plan(plan, here)
             fronts += here
