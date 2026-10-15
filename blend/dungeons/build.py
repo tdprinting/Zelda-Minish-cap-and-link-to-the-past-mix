@@ -343,8 +343,8 @@ DUNGEONS = [
                0x9e, 0x9f, 0xae, 0xaf, 0xbe, 0xbf, 0xce, 0xde],
         entrance=0x0e,
         area='AREA_NULL_3A',
-        # the cave on Lake Hylia's south shore, in the Dark World
-        exit=('AREA_LAKE_HYLIA', 'ROOM_LAKE_HYLIA_MAIN', 0x148, 0x358),
+        # the Ice Palace front on Lake Hylia, in the Dark World: out on the steps below its door
+        exit=('AREA_LAKE_HYLIA', 'ROOM_LAKE_HYLIA_MAIN', 0x148, 0x38c),
         # the floor of the room below the big key door gives way to Kholdstare's lair; the
         # floor Link bombs open in 0x1E's octagon drops him into 0x3E; 0x7E's hole drops into
         # the big chest's room
@@ -377,8 +377,9 @@ DUNGEONS = [
                0xc4, 0xd5, 0xb4, 0xa4],
         entrance=0xd6,
         area='AREA_NULL_3C',
-        # the cave on Mt. Crenel's summit, in the Dark World, opened with Quake
-        exit=('AREA_MT_CRENEL', 'ROOM_MT_CRENEL_TOP', 0x328, 0x18),
+        # the Turtle Rock front on Mt. Crenel's summit, in the Dark World, opened with Quake:
+        # out below its door
+        exit=('AREA_MT_CRENEL', 'ROOM_MT_CRENEL_TOP', 0x328, 0x4c),
         # doors to the rooms of the other entrances (0x33, 0xE5), left out, stay shut
         sealed={0x23: (DIR_S,), 0xd5: (DIR_S,)},
         # the track mazes of 0xB5 and the pipe room 0x14 keep only the bridges Link needs
