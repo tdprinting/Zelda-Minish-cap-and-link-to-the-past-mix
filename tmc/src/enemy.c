@@ -46,6 +46,11 @@ const EnemyDefinition gEnemyDefinition_15[];
 const EnemyDefinition gEnemyDefinition_46[];
 const EnemyDefinition gEnemyDefinition_AlttpEyegore[];
 extern const Hitbox gHitbox_ArmosKnight;
+extern const Hitbox gHitbox_AlttpHinox;
+extern const Hitbox gHitbox_AlttpTall;
+extern const Hitbox gHitbox_AlttpCentered;
+extern const Hitbox gHitbox_AlttpLaser;
+extern const Hitbox gHitbox_GiantMoldorm;
 #include "../custom/gen/alttp_enemies.h"
 /** Swapped gfx: the enemy's frames are copied into this many 16-tile slots as it animates. */
 #define ALTTP_GFX(slots) (0x4000 | ((slots) << 4))
@@ -192,6 +197,21 @@ const EnemyDefinition gEnemyDefinitions[] = {
     { ALTTP_GFX(AS_ROPE), 0, { &gHitbox_24 }, ALTTP_ENEMY_SPRITE, { 1, 1, 1, 1 }, 2, 128, 25, 139 },
     { ALTTP_GFX(AS_MOBLIN), 0, { &gHitbox_0 }, ALTTP_ENEMY_SPRITE, { 1, 1, 1, 2 }, 6, 256, 86, 139 },
     { ALTTP_GFX(AS_SPEAR), 0, { &gHitbox_22 }, ALTTP_ENEMY_SPRITE, { 1, 1, 1, 0 }, 255, 512, 72, 139 },
+    // the Desert Palace, Tower of Hera and Hinox set: sprite 329
+    { ALTTP_GFX(AS_HINOX), 0, { &gHitbox_AlttpHinox }, ALTTP_ENEMY_SPRITE_2, { 1, 1, 1, 2 }, 12, 128, 86, 139 },
+    { ALTTP_GFX(AS_BOMB), 0, { &gHitbox_22 }, ALTTP_ENEMY_SPRITE_2, { 3, 0, 1, 1 }, 0, 0, 72, 139 },
+    { ALTTP_GFX(AS_LANMOLA), 0, { &gHitbox_AlttpCentered }, ALTTP_ENEMY_SPRITE_2, { 1, 1, 1, 2 }, 12, 256, 86, 139 },
+    { ALTTP_GFX(AS_LANMOLA), 0, { &gHitbox_AlttpCentered }, ALTTP_ENEMY_SPRITE_2, { 2, 0, 1, 1 }, 0, 0, 72, 139 },
+    { ALTTP_GFX(AS_LEEVER), 0, { &gHitbox_0 }, ALTTP_ENEMY_SPRITE_2, { 1, 1, 1, 1 }, 4, 256, 25, 139 },
+    { ALTTP_GFX(AS_BEAMOS), 0, { &gHitbox_AlttpTall }, ALTTP_ENEMY_SPRITE_2, { 1, 1, 1, 1 }, 255, 0, 86, 139 },
+    { ALTTP_GFX(AS_BEAMLASER), 0, { &gHitbox_AlttpLaser }, ALTTP_ENEMY_SPRITE_2, { 1, 1, 1, 0 }, 255, 0x500, 72, 139 },
+    { ALTTP_GFX(AS_POKEY), 0, { &gHitbox_AlttpTall }, ALTTP_ENEMY_SPRITE_2, { 1, 1, 1, 1 }, 6, 256, 25, 139 },
+    { ALTTP_GFX(AS_GIBDO), 0, { &gHitbox_0 }, ALTTP_ENEMY_SPRITE_2, { 1, 1, 1, 1 }, 10, 128, 25, 139 },
+    { ALTTP_GFX(AS_MOLDORM), 0, { &gHitbox_GiantMoldorm }, ALTTP_ENEMY_SPRITE_2, { 1, 1, 1, 0 }, 16, 0x180, 86, 139 },
+    { ALTTP_GFX(AS_MOLDORM), 0, { &gHitbox_AlttpCentered }, ALTTP_ENEMY_SPRITE_2, { 2, 1, 1, 0 }, 0, 0, 25, 139 },
+    { ALTTP_GFX(AS_BARI), 0, { &gHitbox_23 }, ALTTP_ENEMY_SPRITE_2, { 1, 1, 1, 1 }, 4, 64, 25, 139 },
+    { ALTTP_GFX(AS_HARDHAT), 0, { &gHitbox_0 }, ALTTP_ENEMY_SPRITE_2, { 1, 1, 1, 1 }, 200, 256, 25, 139 },
+    { ALTTP_GFX(AS_BUMPER), 0, { &gHitbox_0 }, ALTTP_ENEMY_SPRITE_2, { 3, 0, 1, 0 }, 0, 0, 72, 139 },
 };
 
 const EnemyDefinition gEnemyDefinition_AlttpEyegore[] = {
@@ -565,5 +585,19 @@ void (*const gEnemyFunctions[])(Entity* ent) = {
     [ALTTP_ROPE] = AlttpRope,
     [ALTTP_MOBLIN] = AlttpMoblin,
     [ALTTP_SPEAR] = AlttpSpear,
+    [ALTTP_HINOX] = AlttpHinox,
+    [ALTTP_BOMB] = AlttpBomb,
+    [LANMOLA] = Lanmola,
+    [LANMOLA_SEGMENT] = LanmolaSegment,
+    [ALTTP_LEEVER] = AlttpLeever,
+    [ALTTP_BEAMOS] = AlttpBeamos,
+    [BEAMOS_LASER] = BeamosLaser,
+    [ALTTP_POKEY] = AlttpPokey,
+    [ALTTP_GIBDO] = AlttpGibdo,
+    [GIANT_MOLDORM] = GiantMoldorm,
+    [MOLDORM_SEGMENT] = MoldormSegment,
+    [ALTTP_BARI] = AlttpBari,
+    [ALTTP_HARDHAT] = AlttpHardhat,
+    [ALTTP_BUMPER] = AlttpBumper,
 };
 // clang-format on

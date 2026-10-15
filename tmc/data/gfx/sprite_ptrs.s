@@ -1655,5 +1655,11 @@ gMoreSpritePtrs:: @ 08003DD4
 	.4byte gSprite_082F27F4
 	.4byte 00000000
 
+	@ 329: A Link to the Past enemies, Desert Palace, Tower of Hera and Hinox (blend/enemies/alttp_enemies.py)
+	.4byte gSpriteAnimations_AlttpEnemies2
+	.4byte gSpriteFrames_AlttpEnemies2
+	.4byte gSprite_AlttpEnemies2
+	.4byte 00000000
+
 gUnk_08003E44:: @ 08003E44
 	.incbin "data_080029B4/gUnk_08003E44.bin"
