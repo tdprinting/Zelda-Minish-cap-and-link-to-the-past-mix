@@ -69,10 +69,15 @@ class RoomGfx:
         return r + g + b < 60
 
     def order(self, i):
+        """Front and back tile. The first tilemap is the room's main layer, in front;
+        the second shows behind it (a floor seen through gaps, the level under a
+        walkway, a parallax or translucent layer) unless only it has the priority bit.
+        The Desert Palace fills the whole second layer with a floor pattern that the
+        game shows only through the gaps of the first."""
         hi, lo = self.bg1[i], self.bg2[i]
-        if (lo & 0x2000) and not (hi & 0x2000):
-            return self.tile(lo), self.tile(hi)
-        return self.tile(hi), self.tile(lo)
+        if (hi & 0x2000) and not (lo & 0x2000):
+            return self.tile(hi), self.tile(lo)
+        return self.tile(lo), self.tile(hi)
 
     def upper_in_front(self, i):
         """Whether most of what shows in tile i is the upper layer."""

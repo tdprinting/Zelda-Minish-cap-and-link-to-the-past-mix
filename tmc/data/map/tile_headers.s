@@ -357,8 +357,8 @@ gAreaTiles:: @ 0810309C
 	.4byte gAreaTiles_CastorWilds             @ 0x18
 	.4byte gAreaTiles_LakeHylia               @ 0x19
 	.4byte gAreaTiles_MtCrenel                @ 0x1A
-	.4byte gAreaTiles_Unused                  @ 0x1B
-	.4byte gAreaTiles_Unused                  @ 0x1C
+	.4byte gAreaTiles_DesertPalace             @ 0x1B (A Link to the Past)
+	.4byte gAreaTiles_TowerOfHera              @ 0x1C (A Link to the Past)
 	.4byte gAreaTiles_HyruleField             @ 0x1D
 	.4byte gAreaTiles_MinishWoods             @ 0x1E
 	.4byte gAreaTiles_HyruleField             @ 0x1F

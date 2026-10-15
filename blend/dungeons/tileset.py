@@ -214,8 +214,13 @@ class Blend:
             # then every tile of those pattern words, also where objects break the repeat
             return np.isin(words, np.unique(words[p])) if p.any() else p
         empty_hi = ~np.array([gfx.upper_in_front(i) for i in range(4096)]).reshape(64, 64)
-        floor = np.array([A.attr_class(a) == A.FLOOR or A.attr_class(b) == A.FLOOR
+        # floor on the layer the room was planned from, and on the other one where that
+        # holds anything (an unused layer is all zeros, which read as floor, walls included)
+        lower_used = len(set(plan.room.lower)) > 1
+        floor = np.array([A.attr_class(a) == A.FLOOR or (lower_used and A.attr_class(b) == A.FLOOR)
                           for a, b in zip(plan.room.attr, plan.room.lower)]).reshape(64, 64)
+        # and the patterned fill around the rooms, where Link can't go
+        floor |= ~np.array([plan.cells[(y // 2) * 32 + x // 2] in PASSABLE for y in range(64) for x in range(64)]).reshape(64, 64)
         on_hi = pattern(gfx.bg1) & ~empty_hi & floor
         on_lo = pattern(gfx.bg2) & empty_hi & floor
         walk = np.array([plan.cells[(y // 2) * 32 + x // 2] in PASSABLE for y in range(64) for x in range(64)]).reshape(64, 64)

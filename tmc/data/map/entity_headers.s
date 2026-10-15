@@ -1241,8 +1241,8 @@ gAreaTable:: @ 080D50FC
 	.4byte Area_OuterFortressOfWinds    @ 0x18
 	.4byte Area_HyliaDigCaves           @ 0x19
 	.4byte Area_VeilFallsTop            @ 0x1A
-	.4byte 0x0                                       @ 0x1B
-	.4byte 0x0                                       @ 0x1C
+	.4byte Area_DesertPalace             @ 0x1B (A Link to the Past)
+	.4byte Area_TowerOfHera              @ 0x1C (A Link to the Past)
 	.4byte 0x0                                       @ 0x1D
 	.4byte 0x0                                       @ 0x1E
 	.4byte 0x0                                       @ 0x1F

@@ -1031,8 +1031,8 @@ gAreaTileSets:: @ 0810246C
 	.4byte gAreaTileSets_OuterFortressOfWinds    @ 0x18
 	.4byte gAreaTileSets_HyliaDigCaves           @ 0x19
 	.4byte gAreaTileSets_VeilFallsTop            @ 0x1A
-	.4byte gAreaTileSets_Unused                  @ 0x1B
-	.4byte gAreaTileSets_Unused                  @ 0x1C
+	.4byte gAreaTileSets_DesertPalace             @ 0x1B (A Link to the Past)
+	.4byte gAreaTileSets_TowerOfHera              @ 0x1C (A Link to the Past)
 	.4byte gAreaTileSets_Unused                  @ 0x1D
 	.4byte gAreaTileSets_Unused                  @ 0x1E
 	.4byte gAreaTileSets_Unused                  @ 0x1F

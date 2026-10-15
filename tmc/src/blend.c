@@ -1138,11 +1138,29 @@ static void UpdateMilestoneAwards(void) {
 
 // The cracked cave in the Eastern Hills leads to the Eastern Palace. It opens once
 // Link has the Earth Element, so A Link to the Past's first dungeon follows Minish Cap's.
-#define EASTERN_PALACE_CAVE_FLAG 0x70
+// Each later A Link to the Past dungeon opens the same way, behind a cracked cave
+// that breaks open after a Minish Cap milestone, in A Link to the Past's order:
+// the Desert Palace in the Trilby Highlands after the Fire Element (when the Magic
+// Mirror comes), the Tower of Hera high on Mt. Crenel after the Ocarina (when the
+// Moon Pearl comes, as in A Link to the Past after the third dungeon).
+typedef struct {
+    u8 item;     /**< the item that opens it */
+    u8 flag;     /**< the cave's local flag in the overworld bank */
+} DungeonCave;
+
+static const DungeonCave sDungeonCaves[] = {
+    { ITEM_EARTH_ELEMENT, 0x70 }, // Eastern Palace: Eastern Hills
+    { ITEM_FIRE_ELEMENT, 0x90 },  // Desert Palace: Trilby Highlands
+    { ITEM_OCARINA, 0x44 },       // Tower of Hera: Mt. Crenel
+};
 
 static void UpdateStory(void) {
-    if (HasItem(ITEM_EARTH_ELEMENT) && !CheckLocalFlagByBank(FLAG_BANK_1, EASTERN_PALACE_CAVE_FLAG)) {
-        SetLocalFlagByBank(FLAG_BANK_1, EASTERN_PALACE_CAVE_FLAG);
+    u32 i;
+    for (i = 0; i < ARRAY_COUNT(sDungeonCaves); i++) {
+        const DungeonCave* c = &sDungeonCaves[i];
+        if (HasItem(c->item) && !CheckLocalFlagByBank(FLAG_BANK_1, c->flag)) {
+            SetLocalFlagByBank(FLAG_BANK_1, c->flag);
+        }
     }
     if (!(BLEND_STORY_FLAGS & STORY_SAW_DARK_WORLD) && Blend_IsDarkWorldActive() && IsPlayerFree() &&
         gBlendLink.treasureSpawned >= 30) {
@@ -1179,6 +1197,8 @@ enum { BOSS_FIGHTING, BOSS_PRIZE_OUT, BOSS_DONE };
 
 static const BossRoom sBossRooms[] = {
     { AREA_EMPTY, 8, 0x7f, 0x178, 0x170 }, // Eastern Palace: the Armos Knights
+    { AREA_NULL_1B, 9, 0x7e, 0x78, 0x180 },  // Desert Palace: the Lanmolas
+    { AREA_NULL_1C, 5, 0xbe, 0x118, 0x108 }, // Tower of Hera: Moldorm
 };
 
 static void UpdateBossRoom(void) {
