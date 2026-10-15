@@ -41,6 +41,8 @@ PASSABLE = (A.FLOOR, '+')
 # what casts a shadow, and what a shadow falls on
 CASTS = (A.SOLID, A.TORCH, A.BLOCK, A.POT, A.LOCKED, A.SHUTTER)
 RECEIVES = (A.FLOOR, A.STAIRS)
+# the color of a drained basin's floor
+BASIN = (58, 70, 84)
 # how far from where Link can walk a dungeon with `trim` still draws A Link to the Past's art
 TRIM_REACH = 3
 
@@ -159,6 +161,24 @@ class Blend:
             img[dst] = VOID
             empty[dst] = False
             stoned[dst] = False
+
+        # floor Link walks on that A Link to the Past leaves bare (the Swamp Palace's drained
+        # basins, black until the water comes in) would read as a pit: lay it in dark, wet slate
+        # (tile by tile, wherever A Link to the Past's floor attribute says Link can walk)
+        yy, xx = np.mgrid[0:512, 0:512]
+        slab = np.empty((512, 512, 3))
+        slab[:] = celshade.snap(np.array(BASIN, dtype=float))
+        slab[(xx % 16 == 0) | (yy % 16 == 0)] = celshade.snap(np.array(BASIN) + (255 - np.array(BASIN)) * 0.12)
+        slab[(xx % 16 == 15) | (yy % 16 == 15)] = celshade.snap(np.array(BASIN) * 0.8)
+        for t in range(4096):
+            tx, ty = t % 64, t // 64
+            i = (ty // 2) * 32 + tx // 2
+            tile = (slice(ty * 8, ty * 8 + 8), slice(tx * 8, tx * 8 + 8))
+            if i not in outside and A.attr_class(plan.room.attr[t]) == A.FLOOR and \
+                    plan.cells[i] in PASSABLE + (A.SOLID,) and empty[tile].mean() > 0.5:
+                img[tile] = slab[tile]
+                empty[tile] = False
+                stoned[tile] = True
 
         # where the plan opens a way through A Link to the Past's art, draw the nearest floor
         floor = [(i % 32, i // 32) for i in range(1024) if alttp[i] == A.FLOOR and plan.cells[i] == A.FLOOR

@@ -37,8 +37,10 @@ BACKDROP_ROOMS = {0x53}
 
 # rooms whose first layer only holds a cover over part of the room, which the game
 # lifts as Link comes near: the Palace of Darkness's room 0x1B ("On top") hides its
-# staircase corner under one. The room is all on the second layer; the cover is left out
-COVER_ROOMS = {0x1b}
+# staircase corner under one. The room is all on the second layer; the cover is left out.
+# The Swamp Palace's room 0x54 has the swamp's water surface there, over a basin the
+# blend keeps drained like the others (its busy ripple would cover the whole floor)
+COVER_ROOMS = {0x1b, 0x54}
 
 
 def layer_mode(room_id):

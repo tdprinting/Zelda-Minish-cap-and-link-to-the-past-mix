@@ -15,6 +15,7 @@ Writes, under tmc/custom/gen/ (git-ignored, since it is derived from the ROM):
 
 Run before `make CUSTOM=1`. Needs the room dump from zelda3 (see README).
 """
+import math
 import os
 import struct
 
@@ -57,6 +58,8 @@ ITEMS = {
     # the Palace of Darkness's Hammer already lies in the dark Eastern Hills, so its big
     # chest holds a bigger quiver (A Link to the Past's quiver upgrade)
     0x09: (0x66, 0),
+    # and the Swamp Palace's Hookshot lies in the dark Castor Wilds: a bigger bomb bag
+    0x0a: (0x65, 0),
 }
 
 # A Link to the Past enemies -> blend enemies: id, or (id, form). Ids 0x67 and up are
@@ -65,7 +68,7 @@ ALTTP_STALFOS, ALTTP_EYEGORE, ALTTP_POPO, ALTTP_ANTIFAIRY, ARMOS_KNIGHT = 0x67, 
 ALTTP_HINOX, LANMOLA, ALTTP_LEEVER, ALTTP_BEAMOS = 0x6f, 0x71, 0x73, 0x74
 ALTTP_POKEY, ALTTP_GIBDO, GIANT_MOLDORM, ALTTP_BARI, ALTTP_HARDHAT, ALTTP_BUMPER = 0x76, 0x77, 0x78, 0x7a, 0x7b, 0x7c
 # Minish Cap enemies used where A Link to the Past has a close relative
-MC_CHUCHU, MC_HELMASAUR, MC_SPIKED_BEETLE, MC_DARK_NUT, MC_WALL_MASTER = 0x01, 0x20, 0x1e, 0x05, 0x1a
+MC_CHUCHU, MC_HELMASAUR, MC_SPIKED_BEETLE, MC_DARK_NUT, MC_WALL_MASTER, MC_TEKTITE = 0x01, 0x20, 0x1e, 0x05, 0x1a, 0x26
 ENEMIES = {
     'A7-Stalfos': ALTTP_STALFOS,
     '105-StalfosDrop': (ALTTP_STALFOS, 1),    # waits in the ceiling and drops on Link
@@ -94,6 +97,11 @@ ENEMIES = {
     '13-MiniHelmasaur': MC_HELMASAUR,           # Minish Cap has its own little Helmasaurs
     '8E-Shell': MC_SPIKED_BEETLE,               # Terrorpins: flip them, then strike
     '92-Helmasaur': (MC_DARK_NUT, 2),           # a gold Darknut stands in for the Helmasaur King
+    # Swamp Palace
+    '8F-Blob': MC_CHUCHU,                       # Zols: Minish Cap's Chuchus are their cousins
+    '81-WaterBug': MC_TEKTITE,                  # zelda3's name for the Hover
+    '8C-Arrghus': (ALTTP_BARI, 1),              # a red Bari stands in for Arrghus,
+    '8D-ArrghusFuzz': ALTTP_BARI,               # and blue ones for its puffs
 }
 
 DOOR_SMALL_KEY = 0x1c
@@ -153,6 +161,19 @@ DUNGEONS = [
         # leave out the quarters of its rooms Link never reaches
         trim=True,
     ),
+    dict(
+        name='SwampPalace',
+        rooms=[0x28, 0x38, 0x37, 0x36, 0x35, 0x34, 0x54, 0x46, 0x26, 0x76, 0x16, 0x06],
+        entrance=0x28,
+        # room 0x66 above 0x76 is a side room of two floors at once (water channels under
+        # walkways) that the 16px plan can't hold: it is left out and its door shut
+        sealed={0x76: (DIR_N,)},
+        # the Darknut cave in the Castor Wilds swamp, in the Dark World
+        area='AREA_NULL_1E',
+        exit=('AREA_CASTOR_WILDS', 'ROOM_CASTOR_WILDS_MAIN', 0x1a8, 0x1b8),
+        flag_base=0x10,
+        trim=True,
+    ),
 ]
 
 
@@ -178,8 +199,9 @@ def read_room(room_id, lower=False):
 class Plan:
     """One room, at 16px cells, ready to draw."""
 
-    def __init__(self, room_id):
+    def __init__(self, room_id, sealed=()):
         self.id = room_id
+        self.sealed = sealed  # sides whose doors stay shut (to rooms the dungeon leaves out)
         self.yaml = yaml.safe_load(open(os.path.join(YAML_DIR, 'dungeon-%d.yaml' % room_id)))
         # a room whose doors are all on its second layer has its walls there too (the
         # Tower of Hera's entrance hall); its first layer only scrolls along
@@ -189,7 +211,7 @@ class Plan:
         self.doors = []      # (kind, cell x, cell y, dir)
         self.stairs = []     # (cell x, cell y, stair index)
         self.chests = []     # (cell x, cell y, alttp item)
-        self.enemies = []    # (mc enemy, form, pixel x, pixel y)
+        self.enemies = []    # (mc enemy, form, pixel x, pixel y, A Link to the Past cell)
         self._doors()
         self._stairs()
 
@@ -224,6 +246,8 @@ class Plan:
     def _doors(self):
         for d in read_room(self.id, self.lower):
             x, y, dr = d['x'], d['y'], d['dir']
+            if dr in self.sealed and d['type'] not in DOOR_EXITS:
+                continue
             kind = {DOOR_SMALL_KEY: 'key', DOOR_BIG_KEY: 'boss'}.get(d['type'], 'open')
             if d['type'] in DOOR_EXITS:
                 kind = 'exit'
@@ -405,11 +429,13 @@ class Plan:
         for n, item in enumerate(items):
             if isinstance(item, str):
                 item = int(item.rstrip('!'))
-            if n in found and self.at(*found[n]) in (A.FLOOR, A.CHEST, A.BIG_CHEST):
+            if n in found and self.at(*found[n]) in (A.FLOOR, A.CHEST, A.BIG_CHEST) and \
+                    not any(found[n] == c[:2] for c in self.chests):
                 cx, cy = found[n]
             else:
-                # a chest that appears later in A Link to the Past: set it in the middle of the floor
-                cx, cy = self.middle()
+                # a chest that appears later in A Link to the Past: set it in the middle of the
+                # floor, or beside a chest already there
+                cx, cy = self.free_floor(*self.middle())
             self.put(cx, cy, A.FLOOR)
             self.chests.append((cx, cy, item))
         # keys an enemy dropped in A Link to the Past wait in a chest where it stood
@@ -433,6 +459,17 @@ class Plan:
                 x, y = min(spots, key=lambda p: abs(p[0] - x) + abs(p[1] - y))
             self.chests.append((x, y, item))
 
+    def free_floor(self, x, y):
+        """The floor cell nearest (x, y) with no chest on it, out in the open (floor all
+        around) where there is such a place, so the chest blocks no passage."""
+        taken = {q[:2] for q in self.chests}
+        spots = [(i % 32, i // 32) for i, c in enumerate(self.cells) if c == A.FLOOR and
+                 (i % 32, i // 32) not in taken]
+        open_ = [p for p in spots if all(self.at(p[0] + dx, p[1] + dy) == A.FLOOR and
+                                         (p[0] + dx, p[1] + dy) not in taken
+                                         for dx in (-1, 0, 1) for dy in (-1, 0, 1))]
+        return min(open_ or spots, key=lambda p: abs(p[0] - x) + abs(p[1] - y))
+
     def middle(self):
         floor = [(i % 32, i // 32) for i, c in enumerate(self.cells) if c == A.FLOOR]
         mx = sum(p[0] for p in floor) / len(floor)
@@ -450,7 +487,18 @@ class Plan:
             form = 0
             if isinstance(mc, tuple):
                 mc, form = mc
-            self.enemies.append((mc, form, x * 16 + 8, y * 16 + 8))
+            px, py = x * 16 + 8, y * 16 + 8
+            # A Link to the Past starts a swarm (Arrghus's puffs) on one spot and spreads it
+            # out itself: here they stand in a ring around it, a few of them
+            same = [e for e in self.enemies if e[4] == (x, y)]
+            if same:
+                if len(same) >= 5:
+                    continue
+                angle = len(same) * 6.2832 / 4
+                px, py = int(px + 40 * math.cos(angle)), int(py + 40 * math.sin(angle))
+                self.enemies.append((mc, form, px, py, (x, y)))
+                continue
+            self.enemies.append((mc, form, px, py, (x, y)))
 
     def _clean(self):
         """Reduce A Link to the Past's extra classes to the ones the tileset draws."""
@@ -552,7 +600,7 @@ def generate():
         name = dg['name']
         ids = dg['rooms']
         assert ids[0] == dg['entrance'], '%s: the entrance must be the first room' % name
-        plans = {r: Plan(r) for r in ids}
+        plans = {r: Plan(r, dg.get('sealed', {}).get(r, ())) for r in ids}
         edges = open_edges(plans)
         for r in ids:
             plans[r].finish(edges[r])
@@ -616,7 +664,7 @@ def generate():
                         sub, x * 16 + 8, y * 16 + 8, param_a, (door_flags[key] << 16) | 0xffff))
             ents_inc.append('\tentity_list_end\n')
             ents_inc.append('Enemies_%s::' % label)
-            for (mc, form, x, y) in p.enemies:
+            for (mc, form, x, y, _) in p.enemies:
                 ents_inc.append('\tenemy_raw subtype=0x%x, paramA=0x%x, x=0x%x, y=0x%x' % (mc, form, x, y))
             ents_inc.append('\tentity_list_end\n')
             ents_inc.append('TileEntities_%s::' % label)

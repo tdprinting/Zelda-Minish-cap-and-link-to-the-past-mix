@@ -103,6 +103,9 @@ const Transition gExitList_CastorWilds_Main[] = {
       1, TRANSITION_TYPE_NORMAL, 0x0, 0x0, 0x0, 0x0 },
     { WARP_TYPE_AREA, 0x0288, 0x0032, 0x0128, 0x0078, TRANSITION_SHAPE_AREA_12x12, AREA_CASTOR_CAVES, ROOM_CASTOR_CAVES_NORTH,
       1, TRANSITION_TYPE_NORMAL, 0x0, 0x0, 0x0, 0x0 },
+    // in the Dark World, with the Flippers, the swamp cave leads to the Swamp Palace instead
+    { WARP_TYPE_AREA, 0x01a8, 0x01a2, ENTRY_SwampPalace, TRANSITION_SHAPE_AREA_12x12, AREA_NULL_1E, 0,
+      1, TRANSITION_TYPE_NORMAL, 0x0, 0x0, 0x0, 0x0 },
     { WARP_TYPE_AREA, 0x01a8, 0x01a2, 0x0088, 0x0078, TRANSITION_SHAPE_AREA_12x12, AREA_CASTOR_CAVES, ROOM_CASTOR_CAVES_DARKNUT,
       1, TRANSITION_TYPE_NORMAL, 0x0, 0x0, 0x0, 0x0 },
     { WARP_TYPE_AREA, 0x02d8, 0x0382, 0x0078, 0x0098, TRANSITION_SHAPE_AREA_12x12, AREA_CASTOR_CAVES, ROOM_CASTOR_CAVES_SOUTH,
@@ -3841,7 +3844,7 @@ const Transition* const* const gExitLists[] = {
     /*AREA_NULL_1B*/ gExitLists_DesertPalace,
     /*AREA_NULL_1C*/ gExitLists_TowerOfHera,
     /*AREA_NULL_1D*/ gExitLists_PalaceOfDarkness,
-    /*AREA_NULL_1E*/ gExitLists_NoExit,
+    /*AREA_NULL_1E*/ gExitLists_SwampPalace,
     /*AREA_NULL_1F*/ gExitLists_NoExit,
     /*AREA_MINISH_HOUSE_INTERIORS*/ gExitLists_MinishHouseInteriors,
     /*AREA_HOUSE_INTERIORS_1*/ gExitLists_HouseInteriors1,

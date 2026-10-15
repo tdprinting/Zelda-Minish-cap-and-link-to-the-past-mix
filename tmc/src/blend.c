@@ -1169,6 +1169,7 @@ typedef struct {
 
 static const DarkDungeon sDarkDungeons[] = {
     { AREA_NULL_1D, ITEM_MOON_PEARL, ITEM_NONE }, // Palace of Darkness
+    { AREA_NULL_1E, ITEM_FLIPPERS, ITEM_NONE },   // Swamp Palace
 };
 
 static const DarkDungeon* FindDarkDungeon(u32 area) {
@@ -1251,6 +1252,7 @@ static const BossRoom sBossRooms[] = {
     { AREA_NULL_1B, 9, 0x7e, 0x78, 0x180 },  // Desert Palace: the Lanmolas
     { AREA_NULL_1C, 5, 0xbe, 0x118, 0x108 }, // Tower of Hera: Moldorm
     { AREA_NULL_1D, 13, 0x7f, 0x178, 0x188 }, // Palace of Darkness: the Helmasaur King
+    { AREA_NULL_1E, 11, 0x7f, 0x78, 0x188 },  // Swamp Palace: Arrghus
 };
 
 static void UpdateBossRoom(void) {
@@ -1276,6 +1278,8 @@ static void UpdateBossRoom(void) {
         }
         e = CreateObject(GROUND_ITEM, ITEM_HEART_CONTAINER, 0);
         if (e != NULL) {
+            // lying in the open, so it waits for Link instead of fading like a dropped heart
+            e->timer = TREASURE_OPEN;
             e->x.HALF.HI = gRoomControls.origin_x + b->x;
             e->y.HALF.HI = gRoomControls.origin_y + b->y;
             e->collisionLayer = 1;

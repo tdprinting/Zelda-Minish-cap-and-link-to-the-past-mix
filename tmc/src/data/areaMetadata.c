@@ -40,7 +40,7 @@ const AreaHeader gAreaMetadata[] = {
     { AR_HAS_KEYS | AR_IS_DUNGEON, 32, LOCAL_BANK_11, BGM_CAVE_OF_FLAMES }, // Desert Palace (flags 0x40-0x7e)
     { AR_HAS_KEYS | AR_IS_DUNGEON, 33, LOCAL_BANK_11, BGM_PALACE_OF_WINDS }, // Tower of Hera (flags 0x80-0xbf)
     { AR_HAS_KEYS | AR_IS_DUNGEON, 34, LOCAL_BANK_13, BGM_DARK_HYRULE_CASTLE }, // Palace of Darkness
-    { 0, 0, 0, 0 },
+    { AR_HAS_KEYS | AR_IS_DUNGEON, 35, LOCAL_BANK_14, BGM_TEMPLE_OF_DROPLETS }, // Swamp Palace
     { 0, 0, 0, 0 },
     { 0, 0, LOCAL_BANK_2, BGM_HOUSE },
     { AR_HAS_ENEMIES, 0, LOCAL_BANK_2, BGM_HOUSE },

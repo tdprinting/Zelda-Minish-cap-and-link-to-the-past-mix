@@ -18,7 +18,7 @@ const Transition gUnk_0813AAF4 = { WARP_TYPE_AREA, 0, 0, 0x98, 0xa8, 0, AREA_CAV
 
 // the Wallmasters of the later A Link to the Past dungeons carry Link back to the entrance
 const Transition gWallMasterToPalaceOfDarkness = { WARP_TYPE_AREA, 0, 0, ENTRY_PalaceOfDarkness, 0, AREA_NULL_1D, 0, 1, 2, 0, 0 };
-const Transition gWallMasterToSwampPalace = { WARP_TYPE_AREA, 0, 0, ENTRY_PalaceOfDarkness, 0, AREA_NULL_1D, 0, 1, 2, 0, 0 };
+const Transition gWallMasterToSwampPalace = { WARP_TYPE_AREA, 0, 0, ENTRY_SwampPalace, 0, AREA_NULL_1E, 0, 1, 2, 0, 0 };
 const Transition gWallMasterToSkullWoods = { WARP_TYPE_AREA, 0, 0, ENTRY_PalaceOfDarkness, 0, AREA_NULL_1D, 0, 1, 2, 0, 0 };
 
 const Transition* const gWallMasterScreenTransitions[] = {
