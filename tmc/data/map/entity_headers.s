@@ -1228,7 +1228,7 @@ gAreaTable:: @ 080D50FC
 	.4byte Area_LakeHylia               @ 0xB
 	.4byte Area_LakeWoodsCave           @ 0xC
 	.4byte Area_Beanstalks              @ 0xD
-	.4byte Area_Empty                   @ 0xE
+	.4byte Area_EasternPalace           @ 0xE
 	.4byte Area_HyruleDigCaves          @ 0xF
 	.4byte Area_MelarisMine             @ 0x10
 	.4byte Area_MinishPaths            @ 0x11
@@ -22968,3 +22968,7 @@ Room_CrenelCaves_ToGrayblade:: @ 080FC3A4
 	.4byte 0x00000000
 	.4byte sub_unk3_CrenelCaves_ToGrayblade
 	.4byte sub_StateChange_CrenelCaves_ToGrayblade
+
+@ A Link to the Past dungeons (made by blend/dungeons/build.py)
+	.align 2
+	.include "custom/gen/entities.inc"

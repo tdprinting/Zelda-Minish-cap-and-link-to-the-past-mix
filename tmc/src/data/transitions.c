@@ -341,7 +341,8 @@ const Transition gExitList_HyruleField_EasternHillsSouth[] = {
     TransitionListEnd,
 };
 const Transition gExitList_HyruleField_EasternHillsCenter[] = {
-    { WARP_TYPE_AREA, 0xa8, 0x98, 0x78, 0x78, TRANSITION_SHAPE_AREA_12x12, AREA_CAVES, ROOM_CAVES_HILLS_KEESE_CHEST, 1, TRANSITION_TYPE_NORMAL,
+    // the hillside cave is now the way into A Link to the Past's Eastern Palace
+    { WARP_TYPE_AREA, 0xa8, 0x98, 0xf8, 0x1c8, TRANSITION_SHAPE_AREA_12x12, AREA_EMPTY, 0, 1, TRANSITION_TYPE_NORMAL,
       0x0, 0x0, 0x0, 0x0 },
     TransitionListEnd,
 };
@@ -3798,6 +3799,9 @@ const Transition* const gExitLists_Sanctuary[] = {
     [ROOM_SANCTUARY_STAINED_GLASS] = gExitList_Sanctuary_StainedGlass,
 };
 
+// A Link to the Past dungeons (made by blend/dungeons/build.py)
+#include "../../custom/gen/exits.h"
+
 const Transition* const* const gExitLists[] = {
     /*AREA_MINISH_WOODS*/ gExitLists_MinishWoods,
     /*AREA_MINISH_VILLAGE*/ gExitLists_MinishVillage,
@@ -3813,7 +3817,7 @@ const Transition* const* const gExitLists[] = {
     /*AREA_LAKE_HYLIA*/ gExitLists_LakeHylia,
     /*AREA_LAKE_WOODS_CAVE*/ gExitLists_LakeWoodsCave,
     /*AREA_BEANSTALKS*/ gExitLists_Beanstalks,
-    /*AREA_EMPTY*/ gExitLists_NoExit,
+    /*AREA_EMPTY*/ gExitLists_EasternPalace,
     /*AREA_HYRULE_DIG_CAVES*/ gExitLists_HyruleDigCaves,
     /*AREA_MELARIS_MINE*/ gExitLists_MelarisMine,
     /*AREA_MINISH_PATHS*/ gExitLists_MinishPaths,

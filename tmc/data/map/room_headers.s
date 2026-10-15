@@ -1037,7 +1037,7 @@ gAreaRoomHeaders:: @ 0811E214
 	.4byte gAreaRoomHeaders_LakeHylia               @ 0xB
 	.4byte gAreaRoomHeaders_LakeWoodsCave           @ 0xC
 	.4byte gAreaRoomHeaders_Beanstalks              @ 0xD
-	.4byte gAreaRoomHeaders_Empty                   @ 0xE
+	.4byte gAreaRoomHeaders_EasternPalace           @ 0xE
 	.4byte gAreaRoomHeaders_HyruleDigCaves          @ 0xF
 	.4byte gAreaRoomHeaders_MelarisMine             @ 0x10
 	.4byte gAreaRoomHeaders_MinishPaths            @ 0x11
@@ -1167,3 +1167,6 @@ gAreaRoomHeaders:: @ 0811E214
 	.4byte gAreaRoomHeaders_DarkHyruleCastleBridge  @ 0x8D
 	.4byte 0x0                                      @ 0x8E
 	.4byte gAreaRoomHeaders_8F                      @ 0x8F
+
+@ A Link to the Past dungeons (made by blend/dungeons/build.py)
+	.include "custom/gen/rooms.inc"

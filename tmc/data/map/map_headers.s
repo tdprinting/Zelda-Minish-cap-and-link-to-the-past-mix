@@ -3469,7 +3469,7 @@ gAreaRoomMaps:: @ 08107988
 	.4byte gAreaRoomMaps_LakeHylia               @ 0xB
 	.4byte gAreaRoomMaps_LakeWoodsCave           @ 0xC
 	.4byte gAreaRoomMaps_Beanstalks              @ 0xD
-	.4byte gAreaRoomMaps_Empty                   @ 0xE
+	.4byte gAreaRoomMaps_EasternPalace           @ 0xE
 	.4byte gAreaRoomMaps_HyruleDigCaves          @ 0xF
 	.4byte gAreaRoomMaps_MelarisMine             @ 0x10
 	.4byte gAreaRoomMaps_MinishPaths            @ 0x11

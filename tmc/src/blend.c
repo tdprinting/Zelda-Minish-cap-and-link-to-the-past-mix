@@ -19,6 +19,7 @@
 #include "fade.h"
 #include "game.h"
 #include "main.h"
+#include "flags.h"
 #include "message.h"
 #include "player.h"
 #include "room.h"
@@ -1037,7 +1038,14 @@ static void UpdateMilestoneAwards(void) {
 #define BLEND_STORY_FLAGS (gSave.fillerA[2])
 #define STORY_SAW_DARK_WORLD 0x1
 
+// The cracked cave in the Eastern Hills leads to the Eastern Palace. It opens once
+// Link has the Earth Element, so A Link to the Past's first dungeon follows Minish Cap's.
+#define EASTERN_PALACE_CAVE_FLAG 0x70
+
 static void UpdateStory(void) {
+    if (HasItem(ITEM_EARTH_ELEMENT) && !CheckLocalFlagByBank(FLAG_BANK_1, EASTERN_PALACE_CAVE_FLAG)) {
+        SetLocalFlagByBank(FLAG_BANK_1, EASTERN_PALACE_CAVE_FLAG);
+    }
     if (!(BLEND_STORY_FLAGS & STORY_SAW_DARK_WORLD) && Blend_IsDarkWorldActive() && IsPlayerFree() &&
         gBlendLink.treasureSpawned >= 30) {
         BLEND_STORY_FLAGS |= STORY_SAW_DARK_WORLD;

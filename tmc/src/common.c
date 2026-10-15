@@ -1773,6 +1773,7 @@ const DungeonLayout* const* const gDungeonLayouts[] = {
     gDungeonLayouts_TempleOfDroplets,
     gDungeonLayouts_PalaceOfWinds,
     gDungeonLayouts_DarkHyruleCastle,
+    gDungeonLayouts_None, // Eastern Palace
 };
 
 const DungeonFloorMetadata gDungeonFloorMetadatas[] = {
