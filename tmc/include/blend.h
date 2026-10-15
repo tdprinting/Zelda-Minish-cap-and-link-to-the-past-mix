@@ -135,5 +135,11 @@ void Blend_ShadowUpdate(void);
 void Blend_ShadowRestore(void);
 /** The current room has a shadow layer, so the game's own background 3 overlays stay off. */
 bool32 Blend_RoomHasShadows(void);
+/** blendOverworld.c: A Link to the Past's dungeon fronts on the overworld */
+void Blend_ExteriorBeforeMap(void);
+void Blend_ExteriorAfterMap(void);
+bool32 Blend_ExteriorActive(void);
+bool32 Blend_ExteriorKeepsColors(u32 palIdx);
+bool32 Blend_CanEnterDungeon(u32 area);
 
 #endif // BLEND_H

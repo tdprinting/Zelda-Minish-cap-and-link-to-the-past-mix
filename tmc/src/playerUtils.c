@@ -28,6 +28,7 @@
 #include "backgroundAnimations.h"
 #include "itemDefinitions.h"
 #include "ui.h"
+#include "blend.h"
 #include "fade.h"
 
 static void sub_08077E54(ItemBehavior* this);
@@ -3884,7 +3885,9 @@ void LoadRoomGfx(void) {
     MemClear(gMapTop.collisionData, sizeof(gMapTop.collisionData));
     MemClear(&gMapDataBottomSpecial, 0x8000);
     MemClear(&gMapDataTopSpecial, 0x8000);
+    Blend_ExteriorBeforeMap();
     LoadMapData((gArea.pCurrentRoomInfo)->map);
+    Blend_ExteriorAfterMap();
     if (gMapBottom.mapData[0] != 0xffff) {
         sub_0807C8B0(gMapBottom.mapData, roomControls->width / 16, roomControls->height / 16);
         sub_0807C8B0(gMapTop.mapData, roomControls->width / 16, roomControls->height / 16);

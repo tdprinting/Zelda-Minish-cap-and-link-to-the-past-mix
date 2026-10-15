@@ -77,6 +77,10 @@ static void BunnyTint(u16* pal) {
 /** Link's and the partner's OBJ palettes keep their colors in the Dark World. */
 static bool32 IsPaletteExempt(u32 palIdx) {
     u32 id;
+    // A Link to the Past's dungeon fronts in the Dark World already wear their own colors
+    if (Blend_ExteriorKeepsColors(palIdx)) {
+        return TRUE;
+    }
     if (palIdx == 16u + gPlayerEntity.base.palette.b.b0 ||
         (gBlendLink.partnerPalette != 0 && palIdx == 16u + gBlendLink.partnerPalette)) {
         return TRUE;
@@ -1273,6 +1277,10 @@ bool32 Blend_IsTransitionClosed(const Transition* t) {
  * has the seven crystals.
  */
 bool32 Blend_IsCaveSealed(u32 flag) {
+    // a dungeon front stands there now: its own door opens and shuts (blendOverworld.c)
+    if (Blend_ExteriorActive()) {
+        return TRUE;
+    }
     if (!BLEND_DARK_WORLD) {
         return FALSE;
     }
@@ -1283,6 +1291,12 @@ bool32 Blend_IsCaveSealed(u32 flag) {
         return !CanEnterDarkDungeon(FindDarkDungeon(AREA_NULL_3D));
     }
     return FALSE;
+}
+
+/** Whether Link can go into this dungeon area now (the Dark World ones need the Moon Pearl and more). */
+bool32 Blend_CanEnterDungeon(u32 area) {
+    const DarkDungeon* d = FindDarkDungeon(area);
+    return d == NULL || CanEnterDarkDungeon(d);
 }
 
 static void UpdateStory(void) {

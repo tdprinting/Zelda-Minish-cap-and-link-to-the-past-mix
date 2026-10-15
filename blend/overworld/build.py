@@ -31,6 +31,8 @@ import owdata  # noqa: E402
 import owstyle  # noqa: E402
 import restyle  # noqa: E402
 import shadows  # noqa: E402
+import alttpow  # noqa: E402
+import exteriors  # noqa: E402
 
 OUT = os.path.join(owdata.TMC, 'custom', 'gen', 'ow')
 REFERENCE = os.path.join(OUT, 'alttp_light_world.rgb')
@@ -105,10 +107,23 @@ def main():
     sets = []           # (row, slots, gfx file)
     rooms = []          # (area, room, set, w, h, cells file)
     written = set()
+    fronts = []         # dungeon fronts and landmarks (exteriors.py)
+    have_alttp = alttpow.available()
+    if not have_alttp:
+        log('No A Link to the Past overworld dump yet (make-dungeons.sh makes it): no dungeon fronts.')
     for index, name, want_shadows in AREAS:
         plan = restyle.AreaPlan(index, style, log=log)
         plan.run()
         log('%s (area 0x%02x): %d tileset(s)' % (name, index, len(plan.tilesets)))
+        if have_alttp:
+            palettes = {}
+            for ts in plan.tilesets:
+                for row, cols in ts.rows.items():
+                    palettes[ts.pids[row]] = cols
+            pool = list(range(1024))
+            for site in exteriors.SITES:
+                if site.area == index:
+                    fronts.append(exteriors.build_site(site, palettes, pool, log=log))
         if want_shadows:
             make_shadows(plan, sets, rooms, log)
         for ts in plan.tilesets:
@@ -120,6 +135,7 @@ def main():
                 with open(os.path.join(pal_dir, 'gPalette_%d.gbapal' % pid), 'wb') as f:
                     f.write(struct.pack('<16H', *cols))
     write_inc(sets, rooms)
+    exteriors.write(fronts, OUT, log=log)
     log('Wrote %d palettes, %d shadow sets, %d rooms with shadows to %s'
         % (len(written), len(sets), len(rooms), OUT))
 
