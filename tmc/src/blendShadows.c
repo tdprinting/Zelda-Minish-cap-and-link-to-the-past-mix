@@ -134,6 +134,22 @@ static void Draw(const BlendShadowRoom* r, const BlendShadowSet* set, s32 x0, s3
     gScreen.bg3.updated = 1;
 }
 
+/**
+ * A menu (the pause menu, the map) puts back the screen settings it found, the shadow
+ * layer's among them, but not the characters and map it drew over in video memory; the
+ * room fades in before gameplay (and Blend_ShadowUpdate) runs again, so redraw them now.
+ */
+void Blend_ShadowRestore(void) {
+    const BlendShadowRoom* r = gBlendShadow.room;
+    const BlendShadowSet* set = gBlendShadow.loaded;
+    if (!gBlendShadow.active || r == NULL || set == NULL || gScreen.bg3.control != SHADOW_BG3_CONTROL) {
+        return;
+    }
+    LoadChars(set);
+    Draw(r, set, gBlendShadow.cellX, gBlendShadow.cellY);
+    gScreen.bg3.subTileMap = gBG3Buffer;
+}
+
 /** Runs every gameplay frame, after the camera and the room's managers have moved. */
 void Blend_ShadowUpdate(void) {
     const BlendShadowRoom* r;

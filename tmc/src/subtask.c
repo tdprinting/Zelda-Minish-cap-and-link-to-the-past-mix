@@ -1,3 +1,4 @@
+#include "blend.h"
 #include "common.h"
 #include "fileselect.h"
 #include "game.h"
@@ -262,6 +263,7 @@ void Subtask_FadeOut(void) {
         gArea.localFlagOffset = GetFlagBankOffset(gRoomControls.area);
         gArea.pCurrentRoomInfo = GetCurrentRoomInfo();
         RestoreGameTask(gUI.loadGfxOnRestore);
+        Blend_ShadowRestore();
         sub_0801D000(gUI.unk_d != 0);
         sub_080A74F4();
         if (gUI.fadeType != 0xffff) {

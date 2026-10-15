@@ -131,6 +131,8 @@ u32 Blend_HudIcon(u32 item);
 void Blend_FreezeEnemy(struct Entity_* enemy);
 /** Soft overworld shadows on background 3 (blendShadows.c); runs after the room's managers. */
 void Blend_ShadowUpdate(void);
+/** After a menu: puts the shadow layer's characters and map back before the room fades in. */
+void Blend_ShadowRestore(void);
 /** The current room has a shadow layer, so the game's own background 3 overlays stay off. */
 bool32 Blend_RoomHasShadows(void);
 
