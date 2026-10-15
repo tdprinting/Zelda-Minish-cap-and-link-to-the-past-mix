@@ -59,6 +59,8 @@ ITEMS = {
 # A Link to the Past enemies -> blend enemies: id, or (id, form). Ids 0x67 and up are
 # A Link to the Past's own enemies (tmc/src/enemy/alttpEnemies.c); None: left out
 ALTTP_STALFOS, ALTTP_EYEGORE, ALTTP_POPO, ALTTP_ANTIFAIRY, ARMOS_KNIGHT = 0x67, 0x68, 0x69, 0x6a, 0x6b
+ALTTP_HINOX, LANMOLA, ALTTP_LEEVER, ALTTP_BEAMOS = 0x6f, 0x71, 0x73, 0x74
+ALTTP_POKEY, ALTTP_GIBDO, GIANT_MOLDORM, ALTTP_BARI, ALTTP_HARDHAT, ALTTP_BUMPER = 0x76, 0x77, 0x78, 0x7a, 0x7b, 0x7c
 ENEMIES = {
     'A7-Stalfos': ALTTP_STALFOS,
     '105-StalfosDrop': (ALTTP_STALFOS, 1),    # waits in the ceiling and drops on Link
@@ -70,12 +72,17 @@ ENEMIES = {
     '15-Bubble': ALTTP_ANTIFAIRY,
     '82-4Bubbles': ALTTP_ANTIFAIRY,
     '53-ArmosKnight': ARMOS_KNIGHT,
-    # Desert Palace and Tower of Hera: Minish Cap stand-ins until their own enemies exist
-    '71-Leever': 0x02,
-    '63-SandCrab1': 0x04, '64-SandCrab2': 0x04,
-    '54-Lanmolas': 0x0f,
-    '18-Moldorm': 0x0d, '09-Mouldrum': 0x0d,
-    '86-Triceritops': 0x04,
+    # Desert Palace and Tower of Hera
+    '71-Leever': ALTTP_LEEVER,
+    '61-Beamos': ALTTP_BEAMOS,
+    '54-Lanmolas': LANMOLA,
+    '09-Mouldrum': GIANT_MOLDORM,               # zelda3's name for the Moldorm boss
+    '26-BlueOrb': ALTTP_HARDHAT,                # sprite 0x26 is the Hardhat Beetle
+    '93-RedOrb': ALTTP_BUMPER,                  # sprite 0x93 is the Bumper
+    # Minish Cap stand-ins where there is no blend version yet
+    '18-Moldorm': 0x0d,                         # the small Moldorms
+    '63-SandCrab1': 0x04, '64-SandCrab2': 0x04,  # Debirandos, the sand pit monsters
+    '86-Triceritops': 0x04,                     # Kodongos, the fire-breathing lizards
 }
 
 DOOR_SMALL_KEY = 0x1c
