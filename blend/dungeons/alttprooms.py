@@ -37,6 +37,8 @@ def attr_class(a):
         return STAIRS  # stairs to another room
     if a in (0x22, 0x1d, 0x1e, 0x1f, 0x3d, 0x3e, 0x3f):
         return FLOOR   # steps within the room
+    if a in (0x66, 0x67):
+        return FLOOR   # crystal switch pegs: Minish Cap has no crystal switches, so they stay down
     if 0x70 <= a <= 0x7f:
         return BLOCK
     if 0x50 <= a <= 0x56:

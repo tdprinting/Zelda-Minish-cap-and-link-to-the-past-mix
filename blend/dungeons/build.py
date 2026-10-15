@@ -293,18 +293,65 @@ class Plan:
     def _reach(self, edges):
         """A Link to the Past marks the unseen space around a room as floor; Minish Cap's
         camera shows all of it, so wall off any floor Link can't get to from a door or stairs."""
-        seeds = [d['inner'] for d in self.doors] + [(x, y) for (x, y, _) in self.stairs] + edges
-        if not seeds:
+        # Doors, stairs and open edges lead in from the rest of the dungeon. A door back
+        # into this same room (the Tower of Hera's locked one, whose inner side is worked
+        # out wrong) and stairs beside it sit in a nook that A Link to the Past leaves open
+        # to the floor around the room, so only their own few cells count.
+        nooks = [d['inner'] for d in self.doors if d.get('other') == self.id]
+        stairs = [(x, y) for (x, y, _) in self.stairs]
+        near_nook = [q for q in stairs if any(abs(q[0] - n[0]) + abs(q[1] - n[1]) <= 2 for n in nooks)]
+        nooks += near_nook
+        main = [d['inner'] for d in self.doors if d.get('other') != self.id] + edges + \
+            [q for q in stairs if q not in near_nook]
+        if not main and not nooks:
             return
-        seen, stack = set(), list(seeds)
-        while stack:
-            p = stack.pop()
-            if p in seen or not (0 <= p[0] < 32 and 0 <= p[1] < 32):
-                continue
-            if self.at(*p) in (A.SOLID, A.TORCH) and p not in seeds:
-                continue
-            seen.add(p)
-            stack += [(p[0] + 1, p[1]), (p[0] - 1, p[1]), (p[0], p[1] + 1), (p[0], p[1] - 1)]
+        # the way out from a door to the room's edge is a corridor: floor beside it
+        # belongs to the space outside (the Tower of Hera stands in open floor)
+        corridor = set()
+        for d in self.doors:
+            if d.get('edge'):
+                (x0, y0), (x1, y1) = d['inner'], d['edge']
+                if x0 == x1:
+                    corridor |= {(x0, y) for y in range(min(y0, y1), max(y0, y1) + 1)}
+                elif y0 == y1:
+                    corridor |= {(x, y0) for x in range(min(x0, x1), max(x0, x1) + 1)}
+        inners = {d['inner'] for d in self.doors}
+        seen = set()
+
+        def flood(seeds, near=None):
+            stack = list(seeds)
+            while stack:
+                p = stack.pop()
+                if p in seen or not (0 <= p[0] < 32 and 0 <= p[1] < 32):
+                    continue
+                if self.at(*p) in (A.SOLID, A.TORCH) and p not in seeds:
+                    continue
+                if near and min(abs(p[0] - q[0]) + abs(p[1] - q[1]) for q in near) > 2:
+                    continue
+                seen.add(p)
+                nbrs = [(p[0] + 1, p[1]), (p[0] - 1, p[1]), (p[0], p[1] + 1), (p[0], p[1] - 1)]
+                if p in corridor and p not in inners:
+                    nbrs = [q for q in nbrs if q in corridor or q in seen]
+                stack += nbrs
+        flood(main)
+        if not main:
+            flood(nooks)
+        else:
+            flood([q for q in nooks if q not in seen], near=nooks)
+        if not edges:
+            # floor with a clear run to the room's edge is the space outside it
+            # (a room with no open edge is closed off by walls everywhere but its doors)
+            keep = set(stairs) | set(inners)
+            def open_run(x, y, dx, dy):
+                while 0 <= x < 32 and 0 <= y < 32:
+                    if self.at(x, y) != A.FLOOR or (x, y) in keep:
+                        return False
+                    x, y = x + dx, y + dy
+                return True
+            for p in list(seen):
+                if p not in corridor and p not in keep and self.at(*p) == A.FLOOR and \
+                        any(open_run(p[0], p[1], dx, dy) for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1))):
+                    seen.discard(p)
         for i, c in enumerate(self.cells):
             if c == A.FLOOR and (i % 32, i // 32) not in seen:
                 self.cells[i] = A.SOLID

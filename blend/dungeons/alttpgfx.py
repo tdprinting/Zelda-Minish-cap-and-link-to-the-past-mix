@@ -26,6 +26,27 @@ def bgr555(c):
     return ((c & 31) << 3, ((c >> 5) & 31) << 3, ((c >> 10) & 31) << 3)
 
 
+YAML = os.environ.get('ALTTP_YAML', '/home/claude/z3/assets/dungeon')
+# room header layer settings where the second layer sits behind the main one
+BACKDROP_MODES = ('None', 'Parallaxing', 'Translucent', 'Transparent', 'Addition', 'Off')
+
+
+# rooms set to "Normal" whose second layer is still a backdrop: the Desert Palace's
+# courtyard fills it with a checkered floor that would cover the room
+BACKDROP_ROOMS = {0x53}
+
+
+def layer_mode(room_id):
+    """The room header's second-layer setting ("Normal", "None", "Parallaxing"...)."""
+    try:
+        for line in open(os.path.join(YAML, 'dungeon-%d.yaml' % room_id)):
+            if line.strip().startswith('bg2:'):
+                return line.split(':', 1)[1].strip()
+    except OSError:
+        pass
+    return 'Normal'
+
+
 class RoomGfx:
     def __init__(self, room_id):
         data = open(os.path.join(GFX, '%03x.gfx' % room_id), 'rb').read()
@@ -35,6 +56,7 @@ class RoomGfx:
         self.attr, self.lower = raw[:0x1000], raw[0x1000:0x2000]
         self.bg2 = list(struct.unpack('<4096H', raw[0x2000:0x4000]))
         self.bg1 = list(struct.unpack('<4096H', raw[0x4000:0x6000]))
+        self.layer_mode = 'None' if room_id in BACKDROP_ROOMS else layer_mode(room_id)
         self._cache = {}
 
     def tile(self, entry):
@@ -69,15 +91,20 @@ class RoomGfx:
         return r + g + b < 60
 
     def order(self, i):
-        """Front and back tile. The first tilemap is the room's main layer, in front;
-        the second shows behind it (a floor seen through gaps, the level under a
-        walkway, a parallax or translucent layer) unless only it has the priority bit.
-        The Desert Palace fills the whole second layer with a floor pattern that the
-        game shows only through the gaps of the first."""
+        """Front and back tile. Where both layers are shown (header "Normal", "On top",
+        "Dark") the SNES rule holds: BG1 is in front unless only BG2 has the priority
+        bit, so a walkway on BG1 stays above the floor under it. Where the second layer
+        is a backdrop (parallax, translucent or "None") it shows only through the gaps
+        of the room's main layer, unless only it has the priority bit: the Desert
+        Palace fills that whole layer with a floor pattern."""
         hi, lo = self.bg1[i], self.bg2[i]
-        if (hi & 0x2000) and not (lo & 0x2000):
-            return self.tile(hi), self.tile(lo)
-        return self.tile(lo), self.tile(hi)
+        if self.layer_mode in BACKDROP_MODES:
+            if (hi & 0x2000) and not (lo & 0x2000):
+                return self.tile(hi), self.tile(lo)
+            return self.tile(lo), self.tile(hi)
+        if (lo & 0x2000) and not (hi & 0x2000):
+            return self.tile(lo), self.tile(hi)
+        return self.tile(hi), self.tile(lo)
 
     def upper_in_front(self, i):
         """Whether most of what shows in tile i is the upper layer."""

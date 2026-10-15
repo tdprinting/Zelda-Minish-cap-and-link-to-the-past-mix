@@ -130,6 +130,30 @@ class Blend:
         alttp = plan.room.cells
         img, empty = self.compose(gfx)
         stoned = self.restone(gfx, plan, img, empty)
+        # floor Link can't reach that runs out to the room's edge is the space around
+        # the room, however A Link to the Past patterned it
+        def floorlike(i):
+            if plan.cells[i] in PASSABLE:
+                return False
+            cell = (slice((i // 32) * 16, (i // 32) * 16 + 16), slice((i % 32) * 16, (i % 32) * 16 + 16))
+            return alttp[i] == A.FLOOR or stoned[cell].mean() > 0.5
+        outside = set()
+        stack = [i for i in range(1024) if (i % 32 in (0, 31) or i // 32 in (0, 31)) and floorlike(i)]
+        while stack:
+            i = stack.pop()
+            if i in outside:
+                continue
+            outside.add(i)
+            cx, cy = i % 32, i // 32
+            for nx, ny in ((cx + 1, cy), (cx - 1, cy), (cx, cy + 1), (cx, cy - 1)):
+                j = ny * 32 + nx
+                if 0 <= nx < 32 and 0 <= ny < 32 and j not in outside and floorlike(j):
+                    stack.append(j)
+        for i in outside:
+            dst = (slice((i // 32) * 16, (i // 32) * 16 + 16), slice((i % 32) * 16, (i % 32) * 16 + 16))
+            img[dst] = VOID
+            empty[dst] = False
+            stoned[dst] = False
 
         # where the plan opens a way through A Link to the Past's art, draw the nearest floor
         floor = [(i % 32, i // 32) for i in range(1024) if alttp[i] == A.FLOOR and plan.cells[i] == A.FLOOR
