@@ -18,6 +18,7 @@ const Transition gUnk_0813AAF4 = { WARP_TYPE_AREA, 0, 0, 0x98, 0xa8, 0, AREA_CAV
 const Transition* const gWallMasterScreenTransitions[] = {
     &gUnk_0813AA54, &gUnk_0813AA68, &gUnk_0813AA7C, &gUnk_0813AA90, &gUnk_0813AAA4,
     &gUnk_0813AAB8, &gUnk_0813AACC, &gUnk_0813AAE0, &gUnk_0813AB08, &gUnk_0813AAF4,
+    &gUnk_0813AAF4, // A Link to the Past dungeons have no Wallmasters
 };
 
 const Transition unusedScreenTransition = { WARP_TYPE_AREA, 0, 0, 0x48, 0x68, 0, AREA_CASTLE_GARDEN, ROOM_CASTLE_GARDEN_MAIN, 1, 0, 2, 0 };

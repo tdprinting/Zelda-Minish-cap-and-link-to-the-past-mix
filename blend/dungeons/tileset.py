@@ -103,16 +103,22 @@ class Blend:
         return self.tones[blendstyle.blend_color(alttpgfx.bgr555(self.colors[c]))]
 
     def compose(self, gfx):
-        """The room as one picture: upper layer over lower, in blended, banded colors."""
+        """The room as one picture, in blended, banded colors. A Link to the Past's main
+        layer is the first tilemap (walls, floors, objects); the second layer is shown
+        behind it (a floor seen through gaps, the level below a walkway, a parallax
+        floor) or blended in, so it goes underneath. Also notes, per 8px tile, whether
+        the second layer is the one seen there."""
         img = np.zeros((512, 512, 3))
         empty = np.ones((512, 512), dtype=bool)
+        self.hi_seen = np.zeros((64, 64), dtype=bool)
         lut = np.array([self.rgb(c) if c else (0, 0, 0) for c in range(256)], dtype=float)
         for i in range(4096):
-            lo, hi = gfx.tile(gfx.bg2[i]), gfx.tile(gfx.bg1[i])
-            pix = np.array([[hi[y][x] or lo[y][x] for x in range(8)] for y in range(8)])
+            lo, hi = np.array(gfx.tile(gfx.bg2[i])), np.array(gfx.tile(gfx.bg1[i]))
+            pix = np.where(lo != 0, lo, hi)
             tx, ty = (i % 64) * 8, (i // 64) * 8
             img[ty:ty + 8, tx:tx + 8] = lut[pix]
             empty[ty:ty + 8, tx:tx + 8] = pix == 0
+            self.hi_seen[i // 64, i % 64] = ((lo == 0) & (hi != 0)).sum() * 2 > (pix != 0).sum()
         return img, empty
 
     def room(self, plan, bottom, top):
@@ -191,13 +197,18 @@ class Blend:
                     p |= h & v
             # then every tile of those pattern words, also where objects break the repeat
             return np.isin(words, np.unique(words[p])) if p.any() else p
-        empty_hi = np.array([not any(any(r) for r in gfx.tile(w)) for w in gfx.bg1]).reshape(64, 64)
-        floor = np.array([A.attr_class(a) == A.FLOOR or A.attr_class(b) == A.FLOOR
-                          for a, b in zip(plan.room.attr, plan.room.lower)]).reshape(64, 64)
+        empty_hi = ~self.hi_seen
+        # floor on the layer the room was planned from (the other is often blank,
+        # which reads as floor everywhere, walls included)
+        floor = np.array([A.attr_class(a) == A.FLOOR for a in plan.room.attr]).reshape(64, 64)
+        # and the patterned fill around the rooms, where Link can't go
+        outside = np.array([[plan.cells[(y // 2) * 32 + x // 2] not in PASSABLE for x in range(64)]
+                            for y in range(64)])
+        floor |= outside
         on_hi = pattern(gfx.bg1) & ~empty_hi & floor
         on_lo = pattern(gfx.bg2) & empty_hi & floor
         yy, xx = np.mgrid[0:512, 0:512]
-        for tiles in (on_lo, on_hi):
+        for tiles in (on_lo & ~outside, on_lo & outside, on_hi & ~outside, on_hi & outside):
             # each stretch of floor gets its own color
             seen = np.zeros((64, 64), dtype=bool)
             for sy in range(64):
@@ -221,8 +232,13 @@ class Blend:
                     mask = part.repeat(8, axis=0).repeat(8, axis=1) & ~empty
                     if not mask.any():
                         continue
-                    if any(y in (0, 63) or x in (0, 63) for y, x in comp):
-                        # the space around the room: plain darkness, as in Minish Cap
+                    walk = sum(plan.cells[(y // 2) * 32 + x // 2] in PASSABLE for y, x in comp)
+                    if walk * 2 < len(comp):
+                        if len(comp) < 16:
+                            continue  # a patterned bit of wall, not the space around
+                        # the space around the room, where Link can't go: plain darkness,
+                        # as in Minish Cap (a floor may run on to the room's edge where
+                        # A Link to the Past joins rooms with no door)
                         img[mask] = VOID
                         continue
                     base = celshade.snap(np.median(img[mask], axis=0))

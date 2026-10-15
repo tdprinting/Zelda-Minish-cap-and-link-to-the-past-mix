@@ -49,6 +49,11 @@ ITEMS = {
     0x44: (0x5e, 0),     # arrows
     0x17: (0x63, 0),     # heart piece
     0x0b: (0x09, 0),     # bow
+    # Desert Palace's Power Glove: Minish Cap's Power Bracelets do the same lifting
+    0x1b: (0x45, 0),
+    # Tower of Hera's Moon Pearl already comes with the Ocarina, so the mountain tower
+    # holds the Mirror Shield (A Link to the Past has one too; Biggoron's stays)
+    0x1f: (0x0e, 0),
 }
 
 # A Link to the Past enemies -> Minish Cap enemies (None: left out)
@@ -58,16 +63,30 @@ ENEMIES = {
     '4F-Tentacle': 0x01, '4E-Tentacle2': 0x01,
     '15-Bubble': 0x34,
     '53-ArmosKnight': 0x2a,
+    # Desert Palace and Tower of Hera stand-ins
+    '71-Leever': 0x02,
+    '63-SandCrab1': 0x04, '64-SandCrab2': 0x04,
+    '54-Lanmolas': 0x0f,
+    '18-Moldorm': 0x0d, '09-Mouldrum': 0x0d,
+    '86-Triceritops': 0x04,
 }
 
 DOOR_SMALL_KEY = 0x1c
 DOOR_BIG_KEY = 0x1e
 DOOR_EXIT = 0x0a
+# entrance doors of several sizes, all leading out
+DOOR_EXITS = (0x06, 0x0a, 0x0c, 0x0e, 0x10)
+# locked doors over a staircase, upper and lower layer
+DOOR_STAIR_KEY = (0x20, 0x22, 0x24, 0x26)
 
 DIR_N, DIR_S, DIR_W, DIR_E = 0, 1, 2, 3
 # Minish Cap door objects face 0 up, 1 right, 2 down, 3 left
 MC_DIR = {DIR_N: 0, DIR_E: 1, DIR_S: 2, DIR_W: 3}
 
+# name: labels; area: the Minish Cap area it fills; rooms: A Link to the Past room ids
+# (the first is the entrance, Minish Cap room 0); exit: where the way out leads;
+# links: rooms whose door to the outside leads instead to another room's (a walk
+# around outside in A Link to the Past); flag_base: first local flag it uses.
 DUNGEONS = [
     dict(
         name='EasternPalace',
@@ -78,10 +97,30 @@ DUNGEONS = [
         exit=('AREA_HYRULE_FIELD', 'ROOM_HYRULE_FIELD_EASTERN_HILLS_CENTER', 0xa8, 0xb0),
         flag_base=0x10,
     ),
+    dict(
+        name='DesertPalace',
+        rooms=[0x84, 0x74, 0x73, 0x75, 0x83, 0x85, 0x63, 0x53, 0x43, 0x33],
+        entrance=0x84,
+        # a cracked cave in the Trilby Highlands (was the Keese chest cave)
+        area='AREA_NULL_1B',
+        exit=('AREA_HYRULE_FIELD', 'ROOM_HYRULE_FIELD_TRILBY_HIGHLANDS', 0x88, 0x240),
+        # the east wing's door leads round the outside to the back entrance
+        links={0x85: 0x63, 0x63: 0x85},
+        flag_base=0x40,
+    ),
+    dict(
+        name='TowerOfHera',
+        rooms=[0x77, 0x87, 0x31, 0x27, 0x17, 0x07],
+        entrance=0x77,
+        # a cracked cave high on Mt. Crenel (was the Chuchu pot chest cave)
+        area='AREA_NULL_1C',
+        exit=('AREA_MT_CRENEL', 'ROOM_MT_CRENEL_CENTER', 0x348, 0x70),
+        flag_base=0x80,
+    ),
 ]
 
 
-def read_room(room_id):
+def read_room(room_id, lower=False):
     path = os.path.join(A.ROOMS, '%03x.bin' % room_id)
     data = open(path, 'rb').read()
     o = 0x2000 + 0x4000 + 5 + 12
@@ -93,8 +132,9 @@ def read_room(room_id):
         if t == 0 and a == 0:
             continue
         word = a >> 1
-        if word >= 0x1000:
-            continue  # lower layer
+        if (word >= 0x1000) != lower:
+            continue  # the other layer
+        word &= 0xfff
         doors.append(dict(type=t & 0xff, x=word % 64, y=word // 64, dir=d & 3))
     return doors
 
@@ -104,8 +144,11 @@ class Plan:
 
     def __init__(self, room_id):
         self.id = room_id
-        self.room = A.Room(room_id)
         self.yaml = yaml.safe_load(open(os.path.join(YAML_DIR, 'dungeon-%d.yaml' % room_id)))
+        # a room whose doors are all on its second layer has its walls there too (the
+        # Tower of Hera's entrance hall); its first layer only scrolls along
+        self.lower = not read_room(room_id) and bool(read_room(room_id, True))
+        self.room = A.Room(room_id, self.lower)
         self.cells = list(self.room.cells)
         self.doors = []      # (kind, cell x, cell y, dir)
         self.stairs = []     # (cell x, cell y, stair index)
@@ -113,10 +156,19 @@ class Plan:
         self.enemies = []    # (mc enemy, pixel x, pixel y)
         self._doors()
         self._stairs()
-        self._reach()
+
+    def finish(self, edges=()):
+        """After the rooms are joined: `edges` are cells on the room's border that lead
+        straight on into a neighboring room."""
+        self._reach(list(edges))
         self._chests()
         self._enemies()
         self._clean()
+
+    def edge(self, side):
+        """The cells along one border, in order."""
+        return {DIR_N: [(i, 0) for i in range(32)], DIR_S: [(i, 31) for i in range(32)],
+                DIR_W: [(0, i) for i in range(32)], DIR_E: [(31, i) for i in range(32)]}[side]
 
     def at(self, x, y):
         if 0 <= x < 32 and 0 <= y < 32:
@@ -128,8 +180,40 @@ class Plan:
             self.cells[y * 32 + x] = c
 
     def _doors(self):
-        for d in read_room(self.id):
+        for d in read_room(self.id, self.lower):
             x, y, dr = d['x'], d['y'], d['dir']
+            kind = {DOOR_SMALL_KEY: 'key', DOOR_BIG_KEY: 'boss'}.get(d['type'], 'open')
+            if d['type'] in DOOR_EXITS:
+                kind = 'exit'
+            if d['type'] in DOOR_STAIR_KEY:
+                # a locked door in front of stairs: the stairs stay, a key door stands
+                # on the locked cell before them
+                cx = (x + 1) // 2
+                rows = [cy for cy in range(max(0, y // 2 - 2), min(32, y // 2 + 4))
+                        if A.LOCKED in (self.at(cx, cy), self.at(cx - 1, cy))]
+                if not rows:
+                    continue
+                for cy in rows:
+                    # plain floor: a doorway's tiles would hold Link in the doorway and
+                    # keep the stairs from taking him; the door object blocks the way
+                    self.put(cx, cy, A.FLOOR)
+                # the door on the locked cell nearest the room
+                cy = max(rows) if dr == DIR_N else min(rows)
+                self.doors.append(dict(kind='key', dir=dr, inner=(cx, cy), edge=None, other=self.id))
+                continue
+            if 12 < (y if dr in (DIR_N, DIR_S) else x) < 52 and kind in ('key', 'boss') and dr in (DIR_N, DIR_S):
+                # a locked door between two halves of the same room: a one-cell way
+                # through the wall with the Minish Cap door in it
+                cx, cy = (x + 1) // 2, y // 2
+                for j in range(-3, 4):
+                    for c in (cx - 1, cx + 1):
+                        if self.at(c, cy + j) in '+ksE':
+                            self.put(c, cy + j, '#')
+                    if self.at(cx, cy + j) not in (A.FLOOR, A.PIT, A.WATER, A.STAIRS):
+                        self.put(cx, cy + j, '+')
+                inner = (cx, cy + 1) if dr == DIR_N else (cx, cy)
+                self.doors.append(dict(kind=kind, dir=dr, inner=inner, edge=None, other=self.id))
+                continue
             if 12 < (y if dr in (DIR_N, DIR_S) else x) < 52:
                 # a door between two halves of the same room: open the wall there
                 cx, cy = x // 2, y // 2
@@ -149,6 +233,13 @@ class Plan:
                     self.put(cx, cy, '+')
                 # the door cell nearest the room's inside
                 inner = (cx, max(rows)) if dr == DIR_N else (cx, min(rows))
+                if kind == 'exit':
+                    # walls along the way out, so the open ground outside stays out
+                    for cy in rows:
+                        if cy != inner[1]:
+                            for c in (cx - 1, cx + 1):
+                                if self.at(c, cy) in (A.FLOOR, A.ENTRANCE):
+                                    self.put(c, cy, '#')
             else:
                 cy = (y + 1) // 2
                 cols = range(0, x // 2 + 2) if dr == DIR_W else range(x // 2, 32)
@@ -159,9 +250,8 @@ class Plan:
                     # the tileset has no side doorway Link can walk through, so a plain passage
                     self.put(cx, cy, A.FLOOR)
                 inner = (max(cols), cy) if dr == DIR_W else (min(cols), cy)
-            kind = {DOOR_SMALL_KEY: 'key', DOOR_BIG_KEY: 'boss', DOOR_EXIT: 'exit'}.get(d['type'], 'open')
             edge = (cx, 31 if dr == DIR_S else 0) if dr in (DIR_N, DIR_S) else (31 if dr == DIR_E else 0, cy)
-            self.doors.append(dict(kind=kind, dir=dr, inner=inner, edge=edge))
+            self.doors.append(dict(kind=kind, dir=dr, inner=inner, edge=edge, other=self.id + STEP[dr]))
 
     def _stairs(self):
         attr = self.room.attr
@@ -193,10 +283,10 @@ class Plan:
                 x, y = min(cluster, key=lambda p: (p[1], p[0]))
                 self.stairs.append((x, y, index))
 
-    def _reach(self):
+    def _reach(self, edges):
         """A Link to the Past marks the unseen space around a room as floor; Minish Cap's
         camera shows all of it, so wall off any floor Link can't get to from a door or stairs."""
-        seeds = [d['inner'] for d in self.doors] + [(x, y) for (x, y, _) in self.stairs]
+        seeds = [d['inner'] for d in self.doors] + [(x, y) for (x, y, _) in self.stairs] + edges
         if not seeds:
             return
         seen, stack = set(), list(seeds)
@@ -234,11 +324,25 @@ class Plan:
             self.put(cx, cy, A.FLOOR)
             self.chests.append((cx, cy, item))
         # keys an enemy dropped in A Link to the Past wait in a chest where it stood
+        # and so do keys lying on the floor, on a statue Link dashes into, or under a pot
+        loose = []
         for s in self.yaml.get('Sprites') or []:
             if len(s) > 4 and s[4] in ('drop_key', 'drop_big_key'):
-                x, y = s[0], s[1]
-                if self.at(x, y) == A.FLOOR:
-                    self.chests.append((x, y, 0x24 if s[4] == 'drop_key' else 0x32))
+                loose.append((s[0], s[1], 0x24 if s[4] == 'drop_key' else 0x32))
+            elif s[3] in ('E4-Key', '3B-DashItem'):
+                loose.append((s[0], s[1], 0x24))
+        for s in self.yaml.get('Secrets') or []:
+            if s[2] == '08-Key':
+                loose.append((s[0] // 2, s[1] // 2, 0x24))
+        for x, y, item in loose:
+            if self.at(x, y) != A.FLOOR or any((x, y) == c[:2] for c in self.chests):
+                # the nearest free floor
+                spots = [(i % 32, i // 32) for i, c in enumerate(self.cells) if c == A.FLOOR and
+                         not any((i % 32, i // 32) == q[:2] for q in self.chests)]
+                if not spots:
+                    continue
+                x, y = min(spots, key=lambda p: abs(p[0] - x) + abs(p[1] - y))
+            self.chests.append((x, y, item))
 
     def middle(self):
         floor = [(i % 32, i // 32) for i, c in enumerate(self.cells) if c == A.FLOOR]
@@ -270,10 +374,35 @@ class Plan:
 STEP = {DIR_N: -16, DIR_S: 16, DIR_W: -1, DIR_E: 1}
 
 
-def layout(plans):
+OPPOSITE = {DIR_N: DIR_S, DIR_S: DIR_N, DIR_W: DIR_E, DIR_E: DIR_W}
+
+
+def neighbor(r, side):
+    if side == DIR_W and r & 15 == 0 or side == DIR_E and r & 15 == 15:
+        return None
+    return r + STEP[side]
+
+
+def open_edges(plans):
+    """Where A Link to the Past runs a room straight on into the next with no door:
+    {room: [border cells that lead on]}."""
+    edges = {r: [] for r in plans}
+    for r, p in plans.items():
+        for side in (DIR_N, DIR_S, DIR_W, DIR_E):
+            other = neighbor(r, side)
+            if other not in plans:
+                continue
+            q = plans[other]
+            for a, b in zip(p.edge(side), q.edge(OPPOSITE[side])):
+                if p.at(*a) == A.FLOOR and q.at(*b) == A.FLOOR:
+                    edges[r].append(a)
+    return edges
+
+
+def layout(plans, edges):
     """Room positions in room units. A Link to the Past stacks floors on one grid, but
     Minish Cap scrolls between any rooms that touch, so each floor (rooms joined by
-    doors) gets its own stretch of the map."""
+    doors or open edges) gets its own stretch of the map."""
     floor = {}
     for start in plans:
         if start in floor:
@@ -286,25 +415,46 @@ def layout(plans):
                 continue
             floor[r] = n
             for d in plans[r].doors:
-                other = r + STEP[d['dir']]
+                other = d['other']
                 if other in plans and d['kind'] != 'exit':
                     stack.append(other)
+            for (x, y) in edges[r]:
+                side = DIR_N if y == 0 else DIR_S if y == 31 else DIR_W if x == 0 else DIR_E
+                stack.append(neighbor(r, side))
     col0 = min(r & 15 for r in plans)
     row0 = min(r >> 4 for r in plans)
     width = max(r & 15 for r in plans) - col0 + 2
     return {r: ((r & 15) - col0 + floor[r] * width, (r >> 4) - row0) for r in plans}
 
 
+BORDER = {DIR_N: 'TRANSITION_SHAPE_BORDER_NORTH', DIR_S: 'TRANSITION_SHAPE_BORDER_SOUTH',
+          DIR_W: 'TRANSITION_SHAPE_BORDER_WEST', DIR_E: 'TRANSITION_SHAPE_BORDER_EAST'}
+
+
+def arrival(plan):
+    """Where Link stands coming in through a room's door to the outside: just inside it."""
+    for d in plan.doors:
+        if d['kind'] == 'exit':
+            x, y = d['inner']
+            dx, dy = {DIR_N: (0, 1), DIR_S: (0, -1), DIR_W: (1, 0), DIR_E: (-1, 0)}[d['dir']]
+            return (x + dx) * 16 + 8, (y + dy) * 16 + 8
+    raise RuntimeError('room %03x has no door to the outside' % plan.id)
+
+
 def generate():
     os.makedirs(OUT, exist_ok=True)
     tiler = autotile.Tiler('043', [('088', 'FortressOfWinds'), ('043', 'CastorDarknut')])
-    maps_inc, rooms_inc, ents_inc, exits_h = [], [], [], []
+    maps_inc, rooms_inc, ents_inc, exits_h, entries_h = [], [], [], [], []
     for dg in DUNGEONS:
         name = dg['name']
         ids = dg['rooms']
+        assert ids[0] == dg['entrance'], '%s: the entrance must be the first room' % name
         plans = {r: Plan(r) for r in ids}
+        edges = open_edges(plans)
+        for r in ids:
+            plans[r].finish(edges[r])
         index = {r: i for i, r in enumerate(ids)}
-        place = layout(plans)
+        place = layout(plans, edges)
         flag = dg['flag_base']
         door_flags = {}
 
@@ -342,8 +492,11 @@ def generate():
             ents_inc.append('Entities_%s::' % label)
             for d in p.doors:
                 if d['kind'] in ('key', 'boss'):
-                    other = r + STEP[d['dir']]
+                    other = d['other']
                     key = (min(r, other), max(r, other), d['dir'] in (DIR_N, DIR_S))
+                    if other == r:
+                        # inside one room: each door by where it stands
+                        key += (d['inner'][0],)
                     if key not in door_flags:
                         door_flags[key] = flag
                         flag += 1
@@ -376,9 +529,13 @@ def generate():
                     continue
                 q = plans[dest]
                 land = None
-                for (dx, dy, dj) in q.stairs:
-                    if q.room.travel[dj + 1] == r:
-                        land = (dx, dy)
+                # when two staircases join the same rooms, the first in one room (top to
+                # bottom) leads to the first in the other
+                mine = sorted((y, x) for (x, y, k) in p.stairs if p.room.travel[k + 1] == dest)
+                theirs = sorted((dy, dx) for (dx, dy, dj) in q.stairs if q.room.travel[dj + 1] == r)
+                if theirs:
+                    n = mine.index((cy, cx))
+                    land = theirs[min(n, len(theirs) - 1)][::-1]
                 if land is None and q.stairs:
                     land = q.stairs[0][:2]
                 if land is None:
@@ -392,10 +549,20 @@ def generate():
                 exits.append('\t{ WARP_TYPE_AREA, 0x%x, 0x%x, 0x%x, 0x%x, TRANSITION_SHAPE_AREA_12x12, %s, %d, 1, '
                              'TRANSITION_TYPE_NORMAL, 0x4, 0x0, 0x0, 0x0 },' % (
                                  cx * 16 + 8, cy * 16 + 8, lx * 16 + 8, ly * 16 + 8, dg['area'], index[dest]))
-            if r == dg['entrance']:
-                area, room, x, y = dg['exit']
-                exits.append('\t{ WARP_TYPE_BORDER, 0x0, 0x0, 0x%x, 0x%x, TRANSITION_SHAPE_BORDER_SOUTH, %s, %s, 1, '
-                             'TRANSITION_TYPE_NORMAL, 0x4, 0x0, 0x0, 0x0 },' % (x, y, area, room))
+            for d in p.doors:
+                if d['kind'] != 'exit':
+                    continue
+                link = dg.get('links', {}).get(r)
+                if link is not None:
+                    # straight on to the linked room's own door to the outside
+                    x, y = arrival(plans[link])
+                    area, room = dg['area'], index[link]
+                else:
+                    area, room, x, y = dg['exit']
+                exits.append('\t{ WARP_TYPE_BORDER, 0x0, 0x0, 0x%x, 0x%x, %s, %s, %s, 1, '
+                             'TRANSITION_TYPE_NORMAL, 0x4, 0x0, 0x0, 0x0 },' % (
+                                 x, y, BORDER[d['dir']], area, room))
+                break
             exit_lists.append('const Transition gExitList_%s[] = {\n%s\n\tTransitionListEnd,\n};' % (
                 label, '\n'.join(exits)))
 
@@ -424,7 +591,9 @@ def generate():
         exits_h += exit_lists
         exits_h.append('const Transition* const gExitLists_%s[] = {\n%s\n};' % (
             name, '\n'.join('\tgExitList_%s_%02d,' % (name, i) for i in range(len(ids)))))
+        entries_h.append('#define ENTRY_%s 0x%x, 0x%x' % ((name,) + arrival(plans[dg['entrance']])))
         print('%s: %d rooms, flags 0x%x-0x%x' % (name, len(ids), dg['flag_base'], flag - 1))
+        print('  ' + ', '.join('%d: %03x' % (i, r) for i, r in enumerate(ids)))
 
     def write(fname, lines):
         open(os.path.join(OUT, fname), 'w').write(
@@ -435,6 +604,8 @@ def generate():
     write('rooms.inc', rooms_inc)
     write('entities.inc', ents_inc)
     write('exits.h', exits_h)
+    # where each dungeon's way in from the overworld lands (for transitions.c)
+    write('entries.h', entries_h)
 
 
 if __name__ == '__main__':

@@ -1050,8 +1050,8 @@ gAreaRoomHeaders:: @ 0811E214
 	.4byte gAreaRoomHeaders_OuterFortressOfWinds    @ 0x18
 	.4byte gAreaRoomHeaders_HyliaDigCaves           @ 0x19
 	.4byte gAreaRoomHeaders_VeilFallsTop            @ 0x1A
-	.4byte 0x0                                      @ 0x1B
-	.4byte 0x0                                      @ 0x1C
+	.4byte gAreaRoomHeaders_DesertPalace             @ 0x1B (A Link to the Past)
+	.4byte gAreaRoomHeaders_TowerOfHera              @ 0x1C (A Link to the Past)
 	.4byte 0x0                                      @ 0x1D
 	.4byte 0x0                                      @ 0x1E
 	.4byte 0x0                                      @ 0x1F

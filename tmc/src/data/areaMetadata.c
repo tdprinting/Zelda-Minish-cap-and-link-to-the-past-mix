@@ -24,7 +24,7 @@ const AreaHeader gAreaMetadata[] = {
     { OVERWORLD_FLAGS, 17, LOCAL_BANK_1, BGM_HYRULE_FIELD },
     { AR_IS_MOLE_CAVE, 0, LOCAL_BANK_3, BGM_DIGGING_CAVE },
     { AR_HAS_NO_ENEMIES, 0, LOCAL_BANK_3, BGM_CLOUD_TOPS },
-    { AR_HAS_KEYS | AR_IS_DUNGEON, 30, LOCAL_BANK_11, BGM_FORTRESS_OF_WINDS }, // Eastern Palace
+    { AR_HAS_KEYS | AR_IS_DUNGEON, 31, LOCAL_BANK_11, BGM_FORTRESS_OF_WINDS }, // Eastern Palace (flags 0x10-0x3f, 0x7f)
     { AR_IS_MOLE_CAVE, 0, LOCAL_BANK_3, BGM_DIGGING_CAVE },
     { 0, 21, LOCAL_BANK_2, BGM_MINISH_VILLAGE },
     { AR_HAS_NO_ENEMIES, 0, LOCAL_BANK_3, BGM_HYRULE_FIELD },
@@ -37,8 +37,8 @@ const AreaHeader gAreaMetadata[] = {
     { AR_HAS_KEYS | AR_IS_MOLE_CAVE, 26, LOCAL_BANK_3, BGM_FORTRESS_OF_WINDS },
     { AR_IS_MOLE_CAVE, 0, LOCAL_BANK_3, BGM_DIGGING_CAVE },
     { OVERWORLD_FLAGS, 12, LOCAL_BANK_1, BGM_HYRULE_FIELD },
-    { 0, 0, 0, 0 },
-    { 0, 0, 0, 0 },
+    { AR_HAS_KEYS | AR_IS_DUNGEON, 32, LOCAL_BANK_11, BGM_CAVE_OF_FLAMES }, // Desert Palace (flags 0x40-0x7e)
+    { AR_HAS_KEYS | AR_IS_DUNGEON, 33, LOCAL_BANK_11, BGM_PALACE_OF_WINDS }, // Tower of Hera (flags 0x80-0xbf)
     { 0, 0, 0, 0 },
     { 0, 0, 0, 0 },
     { 0, 0, 0, 0 },

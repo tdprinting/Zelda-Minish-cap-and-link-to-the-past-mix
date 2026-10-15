@@ -59,11 +59,15 @@ PRIORITY = [ENTRANCE, LOCKED, SHUTTER, DOOR, BIG_CHEST, CHEST, STAIRS, TORCH, BL
 
 
 class Room:
-    def __init__(self, room_id):
+    def __init__(self, room_id, lower=False):
         data = open(os.path.join(ROOMS, '%03x.bin' % room_id), 'rb').read()
         self.id = room_id
         self.attr = data[:0x1000]
         self.lower = data[0x1000:0x2000]
+        if lower:
+            # a room whose walls and doors are on the second layer (the first only
+            # scrolls along, as in the Tower of Hera's entrance hall): plan that one
+            self.attr, self.lower = self.lower, self.attr
         self.travel = list(data[0x2000 + 0x4000:0x2000 + 0x4000 + 5])
         self.cells = self._downsample()
 
