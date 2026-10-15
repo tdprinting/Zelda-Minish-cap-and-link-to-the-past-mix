@@ -2912,6 +2912,12 @@ static bool32 WallAt(Entity* e, s32 dx, s32 dy) {
     return GetCollisionDataAtWorldCoords(e->x.HALF.HI + dx, e->y.HALF.HI + dy, e->collisionLayer) != 0;
 }
 
+/** A wall a shot breaks on: not the pit edges (0x20 and up) that only keep walkers out. */
+static bool32 ShotWallAt(Entity* e) {
+    u32 c = GetCollisionDataAtWorldCoords(e->x.HALF.HI, e->y.HALF.HI, e->collisionLayer);
+    return c != 0 && (c < 0x20 || c == 0xff);
+}
+
 /** Moves by a velocity, stopping at walls (reach: how far the body sticks out).
  * Returns 1 when blocked sideways, 2 when blocked up or down. */
 static u32 MoveVelWalls(Entity* e, s32 vx, s32 vy, s32 reach) {
@@ -4962,7 +4968,7 @@ void AlttpBolt(AlttpEnemy* this) {
             super->y.HALF.HI += this->targetY;
             SetFrame(super, AF_BLINDLASER_0 + this->idx);
             SpawnTrail(super, BT_TRAIL7, AF_BLINDLASER_0 + this->idx, AP_BLINDLASER, 6);
-            if (WallAt(super, 0, 0) || !InRoom(super, 0)) {
+            if (ShotWallAt(super) || !InRoom(super, 0)) {
                 super->timer = 6;
                 COLLISION_OFF(super);
                 super->spriteSettings.draw = 0;
@@ -5089,7 +5095,7 @@ void AlttpBolt(AlttpEnemy* this) {
             SetFrame(super, AF_PHLEGM_0_0 + this->idx * 2 + ((this->step >> 1) & 1));
             break;
     }
-    if (WallAt(super, 0, 0) || !InRoom(super, 0) || this->step > 240) {
+    if (ShotWallAt(super) || !InRoom(super, 0) || this->step > 240) {
         CreateFx(super, FX_SPARKLE2, 0);
         DeleteThisEntity();
     }
@@ -6971,9 +6977,18 @@ static void FreezorTick(AlttpEnemy* this) {
         case FZ_WAKE:
             super->x.HALF.HI += (super->timer & 1) ? -1 : 1;
             if (--super->timer == 0) {
+                static const s8 ox[4] = { 16, -16, 0, 0 };
+                static const s8 oy[4] = { 0, 0, 16, -16 };
+                u32 d;
                 super->action = FZ_MOVE;
                 super->timer = 80;
+                // it pulls free of the wall toward the open floor (down, as a rule)
                 this->face = 2;
+                for (d = 0; d < 4 && WallAt(super, ox[2 ^ (d & 3)], oy[2 ^ (d & 3)]); d++) {
+                }
+                if (d < 4) {
+                    this->face = 2 ^ d;
+                }
                 this->shield = 0;
                 this->cooldown = 96;
                 super->spriteSettings.shadow = 1;
@@ -6995,7 +7010,13 @@ static void FreezorTick(AlttpEnemy* this) {
                     }
                 }
             }
-            MoveVelWalls(super, vx[this->face], vy[this->face], 7);
+            if (WallAt(super, 0, 0)) {
+                // still in the wall it waited in (A Link to the Past opens the wall
+                // there): it glides on out
+                MoveVel(super, vx[this->face], vy[this->face]);
+            } else {
+                MoveVelWalls(super, vx[this->face], vy[this->face], 7);
+            }
             SetFrame(super, this->face < 2 && (this->step & 16) ? AF_FREEZOR_LEAN : AF_FREEZOR_0 + glide[(this->step >> 2) & 3]);
             break;
         }
@@ -7452,7 +7473,9 @@ void LaserEye(AlttpEnemy* this) {
                 super->timer = 12;
                 if (l != NULL) {
                     l->idx = d;
-                    l->base.collisionLayer = super->collisionLayer;
+                    // the eye sits in the wall, which can put it on the wall's layer:
+                    // the beam runs along the floor Link stands on
+                    l->base.collisionLayer = gPlayerEntity.base.collisionLayer;
                     EnqueueSFX(SFX_ITEM_SWORD_BEAM);
                 }
             }
