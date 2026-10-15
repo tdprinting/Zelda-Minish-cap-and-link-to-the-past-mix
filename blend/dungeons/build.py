@@ -441,6 +441,17 @@ BORDER = {DIR_N: 'TRANSITION_SHAPE_BORDER_NORTH', DIR_S: 'TRANSITION_SHAPE_BORDE
           DIR_W: 'TRANSITION_SHAPE_BORDER_WEST', DIR_E: 'TRANSITION_SHAPE_BORDER_EAST'}
 
 
+def link_cell(plan):
+    """The step in a room's door to the outside that takes Link to a linked room: the
+    door's last cell but one."""
+    for d in plan.doors:
+        if d['kind'] == 'exit':
+            x, y = d['edge']
+            dx, dy = {DIR_N: (0, 1), DIR_S: (0, -1), DIR_W: (1, 0), DIR_E: (-1, 0)}[d['dir']]
+            return x + dx, y + dy
+    raise RuntimeError('room %03x has no door to the outside' % plan.id)
+
+
 def arrival(plan):
     """Where Link stands coming in through a room's door to the outside: just inside it."""
     for d in plan.doors:
@@ -484,6 +495,12 @@ def generate():
                 bottom[cy * 32 + cx] = TILE_CHEST
                 top[cy * 32 + cx] = 0
             for (cx, cy, _) in p.stairs:
+                bottom[cy * 32 + cx] = TILE_STAIRS
+                top[cy * 32 + cx] = 0
+            if r in dg.get('links', {}):
+                # Minish Cap won't cross a room's border into a room of the same area, so a
+                # linked way out ends in a step that takes Link there, as stairs do
+                cx, cy = link_cell(p)
                 bottom[cy * 32 + cx] = TILE_STAIRS
                 top[cy * 32 + cx] = 0
             if blend:
@@ -566,7 +583,11 @@ def generate():
                 if link is not None:
                     # straight on to the linked room's own door to the outside
                     x, y = arrival(plans[link])
-                    area, room = dg['area'], index[link]
+                    cx, cy = link_cell(p)
+                    exits.append('\t{ WARP_TYPE_AREA, 0x%x, 0x%x, 0x%x, 0x%x, TRANSITION_SHAPE_AREA_12x12, %s, %d, 1, '
+                                 'TRANSITION_TYPE_NORMAL, 0x4, 0x0, 0x0, 0x0 },' % (
+                                     cx * 16 + 8, cy * 16 + 8, x, y, dg['area'], index[link]))
+                    break
                 else:
                     area, room, x, y = dg['exit']
                 exits.append('\t{ WARP_TYPE_BORDER, 0x0, 0x0, 0x%x, 0x%x, %s, %s, %s, 1, '
