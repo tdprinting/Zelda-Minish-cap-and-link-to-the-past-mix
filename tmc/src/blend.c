@@ -1385,6 +1385,21 @@ static void UpdateEnding(void) {
     }
 }
 
+/** A big chest in one of the blend's A Link to the Past dungeons opens only with the
+ * dungeon's big key, as it did there (Minish Cap's own big chests open without one). */
+bool32 Blend_IsLockedBigChest(Entity* e) {
+    u32 i;
+    if (e->kind != OBJECT || e->id != CHEST_SPAWNER || e->type != 4 || HasDungeonBigKey()) {
+        return FALSE;
+    }
+    for (i = 0; i < ARRAY_COUNT(sBossRooms); i++) {
+        if (sBossRooms[i].area == gRoomControls.area) {
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
+
 static void UpdateBossRoom(void) {
     u32 i;
     for (i = 0; i < ARRAY_COUNT(sBossRooms); i++) {

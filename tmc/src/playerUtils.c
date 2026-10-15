@@ -29,6 +29,7 @@
 #include "itemDefinitions.h"
 #include "ui.h"
 #include "fade.h"
+#include "blend.h"
 
 static void sub_08077E54(ItemBehavior* this);
 
@@ -1249,8 +1250,12 @@ InteractableObject* sub_080784E4(void) {
         switch (iObject->type) {
             case INTERACTION_NONE:
                 continue;
-            case INTERACTION_TALK:
             case INTERACTION_OPEN_CHEST:
+                // blend: a big chest in an A Link to the Past dungeon wants the big key
+                if (Blend_IsLockedBigChest(entity))
+                    continue;
+                // fall through
+            case INTERACTION_TALK:
             case INTERACTION_UNUSED:
             case INTERACTION_LIFT_SHOP_ITEM:
             case INTERACTION_CHECK:

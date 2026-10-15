@@ -398,6 +398,7 @@ DUNGEONS = [
         # the Tower of Hera's cracked cave on Mt. Crenel, in the Dark World with the crystals
         exit=('AREA_MT_CRENEL', 'ROOM_MT_CRENEL_CENTER', 0x348, 0x70),
         flag_base=0x10,
+        switch_flag=SWITCH_FLAG,
         trim=True,
     ),
     # The Pyramid of Power: Ganon's hall (room 0x00, its upper right quarter) in the free area
@@ -459,6 +460,7 @@ class Plan:
         self.enemies = []    # (mc enemy, form, pixel x, pixel y, A Link to the Past cell)
         self.drops = []      # (cell x, cell y, room, landing cell): holes, and the way back up
         self.steps_up = []   # cells of steps the blend draws (the way back up from a drop)
+        self.stair_cells = {}  # stairs -> the cells of their staircase
         self._doors()
         self._stairs()
 
@@ -610,6 +612,26 @@ class Plan:
                     self.put(p[0], p[1], A.FLOOR)
                 x, y = min(cluster, key=lambda p: (p[1], p[0]))
                 self.stairs.append((x, y, index))
+                self.stair_cells[(x, y, index)] = cluster
+
+    def seal_stairs(self, stairs):
+        """A staircase to a room the dungeon leaves out (the Swamp Palace's 0x16 up to the
+        side room 0x66) is wall, with the passage from it to the room's edge, so it no longer
+        leads out to nothing."""
+        self.stairs.remove(stairs)
+        cells = set(self.stair_cells.pop(stairs))
+        stack = list(cells)
+        while stack:
+            x, y = stack.pop()
+            for nx, ny in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
+                # (the passage: floor between the staircase and the room's edge)
+                if (nx, ny) not in cells and self.at(nx, ny) == A.FLOOR and \
+                        (nx in (0, 31) or ny in (0, 31) or min(ny, 31 - ny, nx, 31 - nx) < min(y, 31 - y, x, 31 - x)):
+                    cells.add((nx, ny))
+                    stack.append((nx, ny))
+        for x, y in cells:
+            self.put(x, y, A.SOLID)
+        self.sealed_cells = getattr(self, 'sealed_cells', set()) | cells
 
     def _reach(self, edges):
         """A Link to the Past marks the unseen space around a room as floor; Minish Cap's
@@ -944,6 +966,12 @@ def generate():
                 for y in range(y0, y1):
                     for x in range(x0, x1):
                         plans[r].put(x, y, A.FLOOR)
+        # staircases to rooms the dungeon leaves out are walled up
+        for r, p in plans.items():
+            for st in list(p.stairs):
+                dest = p.room.travel[st[2] + 1] if st[2] + 1 < len(p.room.travel) else 0
+                if dest and dest not in plans:
+                    p.seal_stairs(st)
         # bridges along tracks packed too close for Minish Cap's cells: only the ones Link needs
         for r in dg.get('thin', ()):
             calm.thin_tracks(plans[r])
