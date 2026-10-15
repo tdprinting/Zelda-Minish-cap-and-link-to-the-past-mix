@@ -44,7 +44,7 @@ LIGHT, DARK, BOTH = 1, 2, 3
 class Site:
     def __init__(self, name, area, room, world, door, src, src_door, dungeon=0, cave_flag=0,
                  drop=(), keep=(), ground=8, rows=2, door_cells=None, sealed_from=None, shade=True, ground_share=0.85,
-                 avoid_rows=(), see_through=False):
+                 avoid_rows=(), see_through=False, landmark=False, place=None, use_rows=None, min_char=0):
         self.name = name
         self.area, self.room, self.world = area, room, world
         self.door = door                  # the transition's (x, y) in the room, pixels
@@ -62,6 +62,10 @@ class Site:
         self.ground_share = ground_share  # how much of a cell must be ground colors to count as ground
         self.avoid_rows = avoid_rows      # palette rows the room loads at run time (a static background)
         self.see_through = see_through    # the room's own ground shows through the front's ground pixels
+        self.landmark = landmark          # a set piece with no way in (src_door/door only place it)
+        self.place = place                # (x0, y0, x1, y1) room cells to search for open ground (door: the spot wanted)
+        self.use_rows = use_rows          # draw with these palette rows of the room's own (no free rows there)
+        self.min_char = min_char          # lowest character slot it may take (the area streams the ones below)
 
 
 # Where each A Link to the Past dungeon meets the Minish Cap overworld. The doors are
@@ -89,6 +93,20 @@ SITES = [
          dungeon=0x3c, avoid_rows=(4, 5)),  # the mountain top's sky loads rows 4 and 5
     Site('GanonsTower', 0x06, 3, DARK, (0x348, 0x58), (0x43, 42, 0, 53, 8), (47, 3),
          dungeon=0x3d),
+    # Thieves' Town: the Village of Outcasts' gargoyle over the stranger's house in Hyrule
+    # Town (the town streams characters 0-383 and has no free palette rows)
+    Site('ThievesTown', 0x02, 0, DARK, (0x98, 0x168), (0x58, 28, 22, 34, 31), (31, 29),
+         dungeon=0x39, use_rows='auto', min_char=384, keep=((28, 22, 34, 31),)),
+    # the Pyramid of Power where Hyrule Castle stands; Ganon's hall opens after Agahnim
+    Site('Pyramid', 0x07, 0, DARK, (0x1f8, 0x28), (0x5b, 17, 8, 47, 24), (31, 10),
+         dungeon=0x3e),
+    # set pieces: A Link to the Past's landmarks about the world
+    # the Witch's hut, in the Minish Woods
+    Site('WitchsHut', 0x00, 0, LIGHT, (0x1e0, 0x1b0), (0x16, 11, 17, 15, 23), (13, 22),
+         landmark=True, place=(0, 0, 63, 63)),
+    # the lumberjacks' cabin, in the Western Woods
+    Site('LumberjacksCabin', 0x03, 8, LIGHT, (0xf0, 0x140), (0x02, 18, 9, 26, 17), (22, 16),
+         landmark=True, place=(0, 0, 30, 40)),
 ]
 
 
@@ -365,6 +383,50 @@ def pick_types(mc):
     return w, s
 
 
+def best_rows(mc, used_rows, tiles, n=2):
+    """The n palette rows of the room's own that draw these characters best."""
+    cand = [r for r in sorted(used_rows) if 2 <= r < 15 and r in mc.area.rows]
+    errs = {r: np.array([nearest(t.reshape(-1, 3), [owdata.gba_to_rgb(c) for c in mc.area.rows[r][1][1:16]])[1].sum()
+                         for t in tiles]) for r in cand}
+    best = None
+    for i, a in enumerate(cand):
+        for b in cand[i:]:
+            e = np.minimum(errs[a], errs[b]).sum()
+            if best is None or e < best[0]:
+                best = (e, sorted({a, b}))
+    return best[1]
+
+
+def find_place(mc, site, solid, want):
+    """Where in site.place the set piece covers only open ground: every cell it draws on,
+    and the row in front of it, is walkable ground. The nearest such spot to the one wanted."""
+    tb = mc.area.types['bottom']
+    open_ = np.zeros((mc.h, mc.w), dtype=bool)
+    for y in range(mc.h):
+        for x in range(mc.w):
+            c = int(mc.bottom[y * mc.w + x])
+            t = int(tb[c]) if c < len(tb) else -1
+            open_[y, x] = t >= 0 and COLLISION[t] == 0 and ACT[t] in (9, 10, 11, 12)
+    h, w = solid.shape
+    ring = np.zeros((h + 2, w + 2), dtype=bool)
+    ring[1:h + 1, 1:w + 1] = solid
+    ring[h + 1, 1:w + 1] = solid[-1]  # and a way past its front
+    x0, y0, x1, y1 = site.place
+    best = None
+    for oy in range(y0 + 1, y1 - h):
+        for ox in range(x0 + 1, x1 - w):
+            if oy < 1 or ox < 1 or oy + h + 1 > mc.h or ox + w + 1 > mc.w:
+                continue
+            if not open_[oy - 1:oy + h + 1, ox - 1:ox + w + 1][ring].all():
+                continue
+            d = (ox - want[0]) ** 2 + (oy - want[1]) ** 2
+            if best is None or d < best[0]:
+                best = (d, ox, oy)
+    if best is None:
+        raise SystemExit('%s: no open ground for it in %s' % (site.name, site.place))
+    return best[1], best[2]
+
+
 def build_site(site, palettes, char_pool, meta_pool=None, log=print):
     mc = McRoom(site.area, site.room, palettes)
     out = Built(site, mc)
@@ -375,6 +437,9 @@ def build_site(site, palettes, char_pool, meta_pool=None, log=print):
     dcx, dcy = site.door[0] // 16, site.door[1] // 16
     ox, oy = dcx - (site.src_door[0] - sx0), dcy - (site.src_door[1] - sy0)
     ground, ground_colors = ground_cells(src, site, sx0, sy0, w, h)
+    if site.place:
+        ox, oy = find_place(mc, site, ~ground, (ox, oy))
+    out.origin = (ox, oy)
     raw = src.render(sx0, sy0, w, h)
     art = style_colors(raw)
     if site.shade:
@@ -402,7 +467,7 @@ def build_site(site, palettes, char_pool, meta_pool=None, log=print):
             mx, my = ox + x, oy + y
             if 0 <= mx < mc.w and 0 <= my < mc.h:
                 cells.append((mx, my, x, y))
-    door_cells = list(site.door_cells or [site.src_door])
+    door_cells = [] if site.landmark else list(site.door_cells or [site.src_door])
     # characters of every placed cell, then of the sealed doorway
     def cell_art(x, y):
         return art[y * 16:y * 16 + 16, x * 16:x * 16 + 16]
@@ -416,22 +481,30 @@ def build_site(site, palettes, char_pool, meta_pool=None, log=print):
             tiles.append(blk[py:py + 8, px:px + 8])
     used_chars, used_rows = mc.used(mc.neighbours)
     used_chars |= mc.reserved_chars()
-    free_rows = [r for r in range(2, 15) if r not in used_rows and r not in site.avoid_rows]
-    nrows = min(site.rows, len(free_rows))
-    if nrows == 0:
-        raise SystemExit('%s: no free palette row' % site.name)
-    pals, group, idx = quantize(tiles, nrows)
-    rows = free_rows[:nrows]
-    for r, p in zip(rows, pals):
-        cols = [owdata.rgb_to_gba(c) for c in p]
-        out.rows[r] = [0] + cols + [0] * (15 - len(cols))
+    if site.use_rows:
+        # the room's own colors: no row of its own, and the Dark World shades it with the rest
+        rows = list(site.use_rows) if site.use_rows != 'auto' else best_rows(mc, used_rows, tiles)
+        pals = [[owdata.gba_to_rgb(c) for c in mc.area.rows[r][1][1:16]] for r in rows]
+        errs = np.array([[nearest(t.reshape(-1, 3), p)[1].sum() for p in pals] for t in tiles])
+        group = errs.argmin(1)
+        idx = [nearest(t.reshape(-1, 3), pals[g])[0].reshape(8, 8) + 1 for t, g in zip(tiles, group)]
+    else:
+        free_rows = [r for r in range(2, 15) if r not in used_rows and r not in site.avoid_rows]
+        nrows = min(site.rows, len(free_rows))
+        if nrows == 0:
+            raise SystemExit('%s: no free palette row' % site.name)
+        pals, group, idx = quantize(tiles, nrows)
+        rows = free_rows[:nrows]
+        for r, p in zip(rows, pals):
+            cols = [owdata.rgb_to_gba(c) for c in p]
+            out.rows[r] = [0] + cols + [0] * (15 - len(cols))
     # dedupe characters (mirrored ones too) and give each a free slot; fronts in rooms
     # next to this one (or in this room, in the same world) keep theirs
     store = {}
     for room, world, slots in char_pool:
         if room in mc.neighbours and (room != site.room or world & site.world):
             used_chars |= slots
-    free_slots = [c for c in range(1024) if c not in used_chars]
+    free_slots = [c for c in range(site.min_char, 1024) if c not in used_chars]
     entries = []
     for t, g in zip(idx, group):
         t = t.astype(np.uint8)
