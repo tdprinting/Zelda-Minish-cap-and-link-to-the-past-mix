@@ -63,8 +63,9 @@ Fairy from Stockwell's shop. A player who is down can hold A + B to give up.
 Next to your partner, R lifts them (R or A throws) and L + R gives them a heart.
 In the quick inventory, L gives the selected Bombs, Arrows or a Revive Fairy.
 
-Gamepads work too: the first controller is player 1, the second is player 2.
-**F1** switches between side-by-side and stacked screens, **F11** toggles fullscreen,
+Gamepads work too: the first controller is player 1, the second is player 2 (a
+handheld PC's built-in controls are always player 1).
+**F1** (or clicking both sticks) switches between side-by-side and stacked screens, **F11** toggles fullscreen,
 **Esc** quits. Each player has their own save (`player1.sav`, `player2.sav`).
 Run `zelda-blend.exe --single` to play alone.
 
@@ -85,6 +86,37 @@ manifest, or `github:you/your-private-repo` with a read-only `token`, for the la
 release of a private GitHub repo. `check = 0` turns checks off, `ask = 0` installs
 without asking, and `--no-update` skips the check once.
 
+## Playing on Android (AYN Odin 2 Portal)
+
+The APK (`picori-seal-vX.Y.apk`) has the game inside it. It's made for the
+AYN Odin 2 Portal and runs on any 64-bit Android 8+ device with a gamepad.
+
+1. Copy the APK to the device and open it to install (allow installing from your
+   file manager when Android asks). It isn't from the Play Store, so Play Protect may
+   warn about an unknown app; choose to install anyway.
+2. Start **Picori Seal**. It runs fullscreen in landscape.
+
+- The Odin's built-in controls are player 1: D-pad or left stick to move, the
+  right face button is A and the bottom one is B, L1/L2 = L, R1/R2 = R, Start and Select,
+  and Y (the top face button) opens your quick inventory.
+- Connect a second controller (Bluetooth or USB) for co-op. Player 2 joins as soon
+  as it connects and the screen splits side by side. Click both sticks to switch to
+  stacked screens.
+- Android's Back button doesn't quit, so it can't end a game by accident; use Home or
+  the recent-apps list to leave.
+- Saves (`player1.sav`, `player2.sav`) live in
+  `Android/data/com.picoriseal.game/files/` on the device's storage, where you can
+  back them up over USB. A newer `zelda-blend.gba` put in that folder is played
+  instead of the one in the APK (installing a newer APK takes over again).
+- Updates: open the downloaded `picori-seal-vX.Y.zip` with the game (or let it check
+  a folder you pick once, or a private source, under the app's **Update settings**
+  shortcut; long-press the app icon). It puts the new game file in its files folder,
+  keeps the saves (with a copy in `previous`), and restarts. A new
+  `picori-seal-vX.Y.apk` is only needed when the app itself changes; the game installs
+  it through Android's installer, over the old version, keeping the saves. Every APK
+  must be signed with the same key, or Android won't update over the installed game.
+  Uninstalling deletes the saves.
+
 ## Building
 
 ROMs and anything built from them stay on your machine; `.gitignore` blocks them.
@@ -98,6 +130,10 @@ make -C blend/host                               # needs libsdl2-dev, libmgba-de
 
 # The co-op player, Windows (cross-compiled; see the script for its dependencies)
 ./blend/host/build-windows.sh                    # -> blend/out/zelda-blend.exe
+
+# The Android APK with the game inside (needs the Android SDK and NDK, SDL2 and mGBA
+# sources; see the script). Sign every release with the same key so updates install.
+./blend/android/build-apk.sh blend/out/zelda-blend.gba   # -> blend/out/picori-seal.apk
 
 # A release zip and its latest.json manifest (version from blend/VERSION; bump it first)
 ./blend/host/package.sh                          # -> blend/out/picori-seal-vX.Y.zip
@@ -116,11 +152,13 @@ make -C blend/host                               # needs libsdl2-dev, libmgba-de
 | `blend/menu/icons.py` | The A Link to the Past item icons for the pause menu, the HUD and items on the ground: A Link to the Past's own item pictures, cut out, outlined and recolored to the Minish Cap item palettes, as frames 162 to 179 of sprite 322 (frames only the other languages' button words use; a keyframe can't name a frame past 255). Run by `make-dungeons.sh` |
 | `blend/enemies/`, `tmc/src/enemy/alttpEnemies.c` | A Link to the Past's enemies: `alttp_enemies.py` cuts their sprites from your ALttP ROM, recolors them and adds new frames (as sprite 155); the C file gives each its behavior. Run by `make-dungeons.sh` |
 | `blend/overworld/`, `tmc/src/blendShadows.c` | The blended overworld: `build.py` restyles every overworld palette toward A Link to the Past's Light World colors and draws soft shadow maps; `blendShadows.c` shows the shadows on background 3. Run by `build.sh`; output goes to `tmc/custom/gen/ow` |
-| `blend/host/coop.c` | Split-screen co-op player (SDL2 + libmgba): state exchange, shared progress, quick inventory and prompts drawn over each player's screen, headless `--test` scripts |
+| `blend/host/coop.c` | Split-screen co-op player (SDL2 + libmgba): state exchange, shared progress, quick inventory and prompts drawn over each player's screen, headless `--test` scripts, and `--play SCRIPT --screenshot FILE` to render a scripted run through the real window |
 | `tmc/src/blendCoop.c`, `tmc/include/blendCoop.h` | The game's side of co-op: going down and being revived, the Revive Fairy (sprite 338, item `ITEM_REVIVE_FAIRY`), the quick inventory's menu data and equip requests, items shared from the partner, warping to the partner, carrying and throwing the partner, giving hearts, and the co-op puzzles (pieces are `LINK_PARTNER` types 5 and 6; solved and taken bits in `gSave.filler3A[4]` and `[5]` (save bytes 0x3E and 0x3F)). Its block `gBlendCoop` sits at `0x0203F800` |
 | `blend/coop/revive_fairy.py` | Draws the Revive Fairy's art (sprite and the host's copy). Run by `build.sh` |
 | `blend/coop/twin_relics.py` | Draws the co-op puzzle pieces, the Twin Stone and the Toss Bell (sprite 339). Run by `build.sh` |
 | `blend/host/updater.c` | The Windows player's auto updater: finds, checks (sha256, zip CRCs, ROM header), installs and restarts into newer builds |
+| `blend/host/android.c`, `blend/android/` | Android version of the player: where the game and saves live, the activity that starts it (`PicoriActivity.java` tells the player which pads are built in), and `build-apk.sh` |
+| `blend/android/java/com/picoriseal/game/Updater.java` | The Android app's auto updater: the same sources and checks; installs the zip's game file, or an APK through Android's installer. `updater-test/run.sh` tests it on a desktop JVM |
 | `blend/harness/harness.c` | Headless test runner used to check builds |
 
 The shared state block `gBlendLink` sits at a fixed address, `0x0203F000`, so the
