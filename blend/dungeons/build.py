@@ -89,7 +89,7 @@ MINI_HELMASAUR, TERRORPIN, HOVER, KYAMERON, ZOL, FIRESNAKE, ALTTP_SHOOTER = 0x8b
 BLIND, KHOLDSTARE, VITREOUS, TRINEXX = 0x92, 0x93, 0x95, 0x97
 FREEZOR, PENGATOR, STALFOS_KNIGHT, WIZZROBE, LASER_EYE, CHAIN_CHOMP = 0x9b, 0x9c, 0x9d, 0x9e, 0x9f, 0xa0
 ZAZAK, GIBO, FIRE_BAR, STALFOS_HEAD = 0xa1, 0xa2, 0xa3, 0xa4
-AGAHNIM = 0xa5
+AGAHNIM, GANON = 0xa5, 0xa7
 ENEMIES = {
     'A7-Stalfos': ALTTP_STALFOS,
     '105-StalfosDrop': (ALTTP_STALFOS, 1),    # waits in the ceiling and drops on Link
@@ -158,6 +158,8 @@ ENEMIES = {
     # Agahnim: the castle tower's, or (type 1, or in the Dark World) Agahnim 2 and his shadows
     '7A-Agahnim': AGAHNIM,
     '7B-OneShotMagicBal': None,                 # he casts his own balls
+    # Ganon, in the Pyramid of Power (room 0x00): his trident, bats and torches are his own
+    'D6-Ganon': GANON,
 }
 # enemies that live in the walls (statues) or on the water, not on the floor
 ENEMY_CELLS = {

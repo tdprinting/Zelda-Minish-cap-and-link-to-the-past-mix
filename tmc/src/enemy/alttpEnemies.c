@@ -39,6 +39,8 @@ u32 FindFreeObjPalette(u32 paletteCount);
 void SetEntityObjPalette(Entity* entity, s32 palette);
 void CleanUpObjPalettes(void);
 
+void GanonLightsReset(void);
+
 /** A boss shows the camera where it is this frame (its body's middle). */
 static void BossCamAt(s32 x, s32 y) {
     gAlttpBossCam.sumX += x;
@@ -58,6 +60,7 @@ static void BossCam(Entity* e, s32 dy) {
 void AlttpBossCamUpdate(s32 targetX, s32 targetY) {
     AlttpBossCam* c = &gAlttpBossCam;
     if (c->area != gRoomControls.area || c->room != gRoomControls.room) {
+        GanonLightsReset();
         MemClear(c, sizeof(*c));
         c->area = gRoomControls.area;
         c->room = gRoomControls.room;
@@ -8572,4 +8575,935 @@ void AgahnimBall(AlttpEnemy* this) {
         return;
     }
     EnemyFunctionHandler(super, (EntityActionArray)AgahnimBall_Functions);
+}
+
+/* =============================================================================
+ * Ganon (sprite 337): the last fight, in the Pyramid of Power.
+ * ========================================================================== */
+
+#include "screen.h"
+
+const Hitbox gHitbox_Ganon = { 0, -12, { 8, 6, 6, 8 }, 14, 14 };
+const Hitbox gHitbox_GanonBat = { 0, -4, { 6, 4, 4, 6 }, 8, 5 };
+
+/** What his fight keeps between its pieces: his torches and the darkness. */
+typedef struct {
+    u8 dark;          /**< set once he has put the lights out */
+    u8 level;         /**< the darkness now (0 none, 16 black), eased toward its goal */
+    u16 burn[2];      /**< frames each torch burns on (0: dark); 0xffff burns for good */
+    u16 angle;        /**< his ring of fire bats turns: 0x200 a full turn */
+    u8 radius;        /**< and how wide it is */
+    u8 bats;          /**< bats spawned into the ring */
+} GanonState;
+#define gGanon (*(GanonState*)(gAlttpEnemyState + 0xd00))
+
+/* ---- Ganon --------------------------------------------------------------------------
+ * Sprite_D6_Ganon, with his trident (Sprite_GanonTrident) and fire bats
+ * (Sprite_FireBat_*). In four phases, by the blows he has taken:
+ *   1. He spins his trident overhead and hurls it; it hunts Link, then flies back to
+ *      his hand while he warps across the room, leaving afterimages.
+ *   2. He whirls a ring of fire bats about the trident, wider and narrower, then lets
+ *      them go at Link one by one.
+ *   3. He sends fire bats spiralling out about him, trailing flames, now and then
+ *      bats in a ring again. Struck, he leaps and slams the floor (four times).
+ *   4. He puts the torches out: in the dark he can't be seen, and only shows while a
+ *      torch burns (the Fire Rod or the lit lantern lights them; they burn out), and
+ *      can only be struck with both lit. A sword blow stuns him blue for a moment:
+ *      then only the silver arrows (arrows of the Light Arrow bow) hurt him.
+ * He takes no other harm: in phases 1-3 the sword's blows only count toward the next
+ * phase.
+ *
+ * Fields: face his side (sprite_D: 0 facing down from the top of the room, 1 up from
+ * the bottom), head his head (0, 1 ahead, 2), pose his pose (0-16, POSE_* added, 0xff
+ * hidden), idx where he warps to (sprite_subtype, 0-7), turns blows taken, crusher
+ * the glide's kind (the ALttP state it ends in), coerced the trident's pose while he
+ * holds it (sprite_G), rangeX/Y and homeX/Y his floor, unused[0] slams, unused[1]
+ * silver arrows taken, cooldown the flicker after a blow, step his clock, child his
+ * trident.
+ */
+enum {
+    GN_INIT, GN_INTRO, GN_THROW, GN_WAIT_TRIDENT, GN_CATCH, GN_GLIDE, GN_SHAKE, GN_RING, GN_RING_SWIRL, GN_RING_LET_GO,
+    GN_SHOW, GN_SPIRAL, GN_SHOW3, GN_LEAP, GN_SLAM, GN_DARK, GN_STUN,
+};
+enum { GP_TRIDENT, GP_BAT, GP_SPIRAL_BAT, GP_TRAIL_BAT, GP_FLAME, GP_TORCH, GP_TORCH_FIRE, GP_IMAGE };
+enum { POSE_HOLD = 17, POSE_CROUCH, POSE_SPRING, POSE_FALL, POSE_HIDDEN = 0xff };
+
+#define GANON_PHASE1_HITS 4
+#define GANON_PHASE2_HITS 8
+#define GANON_SLAMS 4
+#define GANON_ARROWS 4
+
+static u32 GanonPhase(AlttpEnemy* this) {
+    if (this->turns < GANON_PHASE1_HITS) {
+        return 1;
+    }
+    if (this->turns < GANON_PHASE2_HITS) {
+        return 2;
+    }
+    return this->unused[0] < GANON_SLAMS ? 3 : 4;
+}
+
+/** His ALttP position (the middle of him; his frames stand 12 pixels lower). */
+#define GANON_Y(e) ((e)->y.HALF.HI - 12)
+
+static u32 GanonLitTorches(void) {
+    return (gGanon.burn[0] != 0) + (gGanon.burn[1] != 0);
+}
+
+/** The darkness on the room's backgrounds (the sprites stay bright), and its end. */
+static void GanonDarkness(s32 level) {
+    if (level <= 0) {
+        if (gScreen.controls.layerFXControl ==
+            (BLDCNT_TGT1_BG1 | BLDCNT_TGT1_BG2 | BLDCNT_TGT1_BG3 | BLDCNT_TGT1_BD | BLDCNT_EFFECT_DARKEN)) {
+            gScreen.controls.layerFXControl = 0;
+            gScreen.controls.layerBrightness = 0;
+        }
+        return;
+    }
+    gScreen.controls.layerFXControl =
+        BLDCNT_TGT1_BG1 | BLDCNT_TGT1_BG2 | BLDCNT_TGT1_BG3 | BLDCNT_TGT1_BD | BLDCNT_EFFECT_DARKEN;
+    gScreen.controls.layerBrightness = level;
+}
+
+/** Each frame: the room as dark as the torches leave it (LayerEffect_Ganon). */
+static void GanonUpdateLight(void) {
+    static const u8 goal[3] = { 14, 9, 0 };
+    u32 want = gGanon.dark ? goal[GanonLitTorches()] : 0;
+    if (gGanon.level < want) {
+        gGanon.level++;
+    } else if (gGanon.level > want) {
+        gGanon.level--;
+    }
+    GanonDarkness(gGanon.level);
+}
+
+/** Called when the room changes: the lights come back on. */
+void GanonLightsReset(void) {
+    if (gGanon.dark || gGanon.level) {
+        gGanon.dark = 0;
+        gGanon.level = 0;
+        GanonDarkness(0);
+    }
+}
+
+static bool32 GanonIsSilverArrow(Entity* e) {
+    return e != NULL && e->kind == PLAYER_ITEM && e->id == PLAYER_ITEM_BOW &&
+           (e->hurtType == 0x0e || GetInventoryValue(ITEM_LIGHT_ARROW));
+}
+
+static Entity* GanonSpawnPart(AlttpEnemy* this, u32 type, s32 dx, s32 dy) {
+    Entity* e = SpawnAt(GANON_PART, type, super, dx, dy);
+    if (e != NULL) {
+        e->collisionLayer = super->collisionLayer;
+    }
+    return e;
+}
+
+/** Ganon_SelectWarpLocation: the next spot, across the room (top row to bottom). */
+static void GanonWarp(AlttpEnemy* this, u32 kind) {
+    static const u8 nextY[8] = { 0x40, 0x30, 0x30, 0x40, 0xb0, 0xc0, 0xc0, 0xb0 };
+    static const u8 nextX[8] = { 0x30, 0x50, 0xa0, 0xc0, 0x40, 0x60, 0x90, 0xb0 };
+    u32 j = (Random() & 3) | (this->idx < 4 ? 4 : 0);
+    s32 k;
+    this->idx = j;
+    // the table is about the middle of his 256-pixel hall (0x78, 0x78); scaled to this floor
+    this->targetX = this->homeX + (nextX[j] - 0x78) * this->rangeX / 88;
+    this->targetY = this->homeY + (nextY[j] - 0x78) * this->rangeY / 76;
+    // clear of the walls: his feet, his shoulders and the top of his head
+    for (k = 0; k < 16; k++) {
+        s32 x = this->targetX, y = this->targetY;
+        if (!GetCollisionDataAtWorldCoords(x, y + 8, super->collisionLayer) &&
+            !GetCollisionDataAtWorldCoords(x - 20, y - 8, super->collisionLayer) &&
+            !GetCollisionDataAtWorldCoords(x + 20, y - 8, super->collisionLayer) &&
+            !GetCollisionDataAtWorldCoords(x, y - 36, super->collisionLayer)) {
+            break;
+        }
+        this->targetX += this->targetX < this->homeX ? 4 : this->targetX > this->homeX ? -4 : 0;
+        this->targetY += this->targetY < this->homeY ? 4 : this->targetY > this->homeY ? -4 : 0;
+    }
+    this->crusher = kind;
+    super->action = GN_GLIDE;
+    super->timer = 48;
+    COLLISION_OFF(super);
+    EnqueueSFX(SFX_TELEPORTER);
+}
+
+static void GanonIdle(AlttpEnemy* this) {
+    this->coerced = this->face ? 10 : 9;
+    this->pose = this->face ? 10 : POSE_HOLD;
+}
+
+/** Ganon_Phase1_AnimateTridentSpin: the trident whirled overhead. */
+static void GanonSpin(AlttpEnemy* this) {
+    static const u8 g[8] = { 8, 7, 6, 5, 4, 3, 2, 1 };
+    static const u8 gfx[8] = { 0, 0, 1, 1, 0, 0, 1, 1 };
+    u32 j = (super->timer >> 2) & 7;
+    this->coerced = g[j];
+    this->pose = gfx[j] + (this->face ? 8 : 0);
+    if (!(this->step & 15)) {
+        EnqueueSFX(SFX_ITEM_GLOVES_AIR);
+    }
+}
+
+static void GanonShakeHead(AlttpEnemy* this) {
+    static const u8 dirs[16] = { 0, 0, 0, 1, 2, 2, 2, 1, 0, 0, 0, 1, 1, 1, 1, 1 };
+    this->head = dirs[(super->timer >> 3) & 15];
+}
+
+/** Ganon_HandleFireBatCircle: the ring about the trident in his raised hand. */
+static void GanonRing(AlttpEnemy* this) {
+    gGanon.angle -= 4;
+}
+
+/** Ganon_Func1: a fire bat flung from him, spiralling (3) or straight at Link (5). */
+static void GanonFling(AlttpEnemy* this, u32 type) {
+    AlttpEnemy* b = (AlttpEnemy*)GanonSpawnPart(this, type, 0, this->face ? -28 : -12);
+    if (b != NULL) {
+        AimVel(&b->base, gPlayerEntity.base.x.HALF.HI, gPlayerEntity.base.y.HALF.HI, 32, &b->targetX,
+               &b->targetY);
+        b->homeX = super->x.HALF.HI;
+        b->homeY = GANON_Y(super) + 8; // (a bat's frames stand 8 below its ALttP place)
+        b->base.timer = 16;
+        EnqueueSFX(SFX_ITEM_LANTERN_ON);
+    }
+}
+
+/** A blow: counts toward the next phase, or (phase 4) stuns or hurts him. */
+static void GanonStruck(AlttpEnemy* this, Entity* by) {
+    u32 phase = GanonPhase(this);
+    if (this->shield || this->cooldown || super->action == GN_GLIDE) {
+        EnqueueSFX(SFX_METAL_CLINK);
+        return;
+    }
+    if (phase == 4) {
+        if (super->action == GN_STUN) {
+            if (!GanonIsSilverArrow(by)) {
+                EnqueueSFX(SFX_METAL_CLINK);
+                return;
+            }
+            this->cooldown = 24;
+            EnqueueSFX(SFX_BOSS_HIT);
+            if (++this->unused[1] >= GANON_ARROWS) {
+                super->health = 0;
+                COLLISION_OFF(super);
+            }
+            return;
+        }
+        if (super->action != GN_DARK || GanonLitTorches() < 2) {
+            return;
+        }
+        // Ganon_EnableInvincibility: stunned blue, open to the silver arrows
+        super->action = GN_STUN;
+        super->timer = 127;
+        this->cooldown = 12;
+        EnqueueSFX(SFX_BOSS_HIT);
+        return;
+    }
+    this->turns++;
+    this->cooldown = 24;
+    EnqueueSFX(SFX_BOSS_HIT);
+    if (phase == 3 && super->action == GN_SPIRAL) {
+        // struck mid-spell, he leaps and slams the floor
+        super->action = GN_LEAP;
+        super->timer = 0;
+        this->targetY = 24; // up speed, 1/16 pixels a frame
+        this->pose = POSE_CROUCH;
+    }
+}
+
+static void GanonTick(AlttpEnemy* this) {
+    static const u8 poses[] = GANON_POSES;
+    u32 phase, t;
+    if (super->action == GN_INIT) {
+        AlttpInit(this, AP_GANON, AF_GANON_2_1);
+        super->action = GN_INTRO;
+        super->timer = 96;
+        super->spritePriority.b0 = 3;
+        super->spriteSettings.shadow = 2;
+        ((Enemy*)this)->enemyFlags |= EM_FLAG_BOSS;
+        this->face = 0;
+        this->head = 1;
+        this->idx = 0;
+        this->turns = this->cooldown = this->burst = this->shield = this->crusher = 0;
+        this->coerced = 9;
+        this->pose = POSE_HOLD;
+        this->unused[0] = this->unused[1] = 0;
+        this->child = NULL;
+        this->step = 1;
+        AgahnimFindCenter(this);
+        MemClear(&gGanon, sizeof(gGanon));
+        gGanon.burn[0] = gGanon.burn[1] = 0xffff;
+        {
+            // his room's torches, low in the corners of the hall (cells (37, 25) and
+            // (57, 25) of room 0x00, about its middle)
+            u32 i;
+            for (i = 0; i < 2; i++) {
+                Entity* tr = GanonSpawnPart(this, GP_TORCH, 0, 0);
+                if (tr != NULL) {
+                    u32 k;
+                    tr->x.HALF.HI = this->homeX + (i ? 80 : -80) * this->rangeX / 88;
+                    tr->y.HALF.HI = this->homeY + 80 * this->rangeY / 76;
+                    // (in his own room they stand in their places; elsewhere, on the floor)
+                    for (k = 0; k < 24 && WallAt(tr, 0, 0) && WallAt(tr, 0, -8); k++) {
+                        tr->x.HALF.HI += i ? -4 : 4;
+                        tr->y.HALF.HI -= 4;
+                    }
+                    tr->parent = NULL;
+                    ((AlttpEnemy*)tr)->idx = i;
+                }
+            }
+        }
+        {
+            Entity* tri = GanonSpawnPart(this, GP_TRIDENT, 0, 0);
+            this->child = tri;
+        }
+    }
+    this->step++;
+    if (this->cooldown) {
+        this->cooldown--;
+    }
+    GanonUpdateLight();
+    phase = GanonPhase(this);
+    t = super->timer;
+    this->shield = 0;
+    // he turns his head to Link
+    {
+        s32 dx = gPlayerEntity.base.x.HALF.HI - super->x.HALF.HI;
+        this->head = (dx > -32 && dx < 32) ? 1 : (dx < 0 ? (this->face ? 2 : 0) : (this->face ? 0 : 2));
+    }
+    switch (super->action) {
+        case GN_INTRO:
+            GanonIdle(this);
+            GanonShakeHead(this);
+            if (--super->timer == 0) {
+                super->action = GN_THROW;
+                super->timer = 128;
+            }
+            break;
+        case GN_THROW:
+            // spin the trident (128-65), hurl it (64), then warp away (0)
+            if (t > 64) {
+                GanonSpin(this);
+            } else if (t == 64) {
+                static const s8 tx[2] = { 24, -16 };
+                AlttpEnemy* tri = (AlttpEnemy*)this->child;
+                this->coerced = 0;
+                if (tri != NULL && ParentAlive(&tri->base)) {
+                    static const s8 vx16[16] = { 32, 28, 24, 16, 0, -16, -24, -28, -32, -28, -24, -16, 0, 16, 24, 28 };
+                    static const s8 vy16[16] = { 0, 16, 24, 28, 32, 28, 24, 16, 0, -16, -24, -28, -32, -28, -24, -16 };
+                    u32 a = (AngleTo(gPlayerEntity.base.x.HALF.HI - super->x.HALF.HI,
+                                     gPlayerEntity.base.y.HALF.HI - GANON_Y(super)) + 8) >> 4;
+                    // the trident sets off a little to the side of Link, and curves in
+                    a = (a + 12 - 2) & 15;
+                    // (its frames are about its middle: 1 right of and 4 above its ALttP place)
+                    tri->base.x.HALF.HI = super->x.HALF.HI + tx[this->face] + 1;
+                    tri->base.y.HALF.HI = GANON_Y(super) + 4 - 4;
+                    tri->targetX = vx16[(a + 4) & 15];
+                    tri->targetY = vy16[(a + 4) & 15];
+                    tri->base.timer = 112;
+                    tri->idx = 1;
+                    EnqueueSFX(SFX_ITEM_SWORD_BEAM);
+                }
+                this->pose = this->face ? 10 : 2;
+            } else if (t == 0) {
+                GanonWarp(this, 5);
+                break;
+            } else {
+                this->pose = this->face ? 10 : 2;
+            }
+            super->timer--;
+            break;
+        case GN_WAIT_TRIDENT:
+            this->pose = this->face ? 8 : 0;
+            this->coerced = 0;
+            if (super->timer) {
+                super->timer--;
+                this->shield = 1;
+                if (super->timer & 1) {
+                    this->pose = POSE_HIDDEN;
+                }
+            }
+            break;
+        case GN_CATCH:
+            if (super->timer) {
+                super->timer--;
+                GanonSpin(this);
+            } else {
+                super->action = GN_SHAKE;
+                super->timer = 127;
+                GanonIdle(this);
+            }
+            break;
+        case GN_SHAKE:
+            GanonIdle(this);
+            GanonShakeHead(this);
+            if (--super->timer == 0) {
+                if (phase == 1) {
+                    super->action = GN_THROW;
+                    super->timer = 128;
+                } else {
+                    super->action = GN_RING;
+                    super->timer = 255;
+                    gGanon.radius = 40;
+                    gGanon.bats = 0;
+                }
+            }
+            break;
+        case GN_GLIDE: {
+            // a dark streak across the room, flickering, leaving afterimages; he
+            // comes to stand where he was going
+            s16 vx, vy;
+            s32 dx = this->targetX - super->x.HALF.HI, dy = this->targetY - super->y.HALF.HI;
+            this->shield = 1;
+            this->coerced = 0;
+            if (Abs(dx) < 4 && Abs(dy) < 4) {
+                super->x.HALF.HI = this->targetX;
+                super->y.HALF.HI = this->targetY;
+                this->face = this->idx >> 2;
+                COLLISION_ON(super);
+                if (this->crusher == 5) {
+                    super->action = GN_WAIT_TRIDENT;
+                    super->timer = 32;
+                } else if (phase == 2) {
+                    super->action = GN_SHOW;
+                    super->timer = 40;
+                } else if (phase == 3) {
+                    super->action = GN_SHOW3;
+                    super->timer = 40;
+                } else {
+                    super->action = GN_DARK;
+                    super->timer = 104;
+                }
+                break;
+            }
+            AimVel(super, this->targetX, this->targetY, 32, &vx, &vy);
+            MoveVel(super, vx, vy);
+            if (super->timer) {
+                super->timer--;
+            }
+            if (super->timer == 0 || (this->step & 1)) {
+                this->pose = POSE_HIDDEN;
+            } else {
+                this->pose = this->face ? 10 : 2;
+                if (!(this->step & 7)) {
+                    AlttpEnemy* im = (AlttpEnemy*)GanonSpawnPart(this, GP_IMAGE, 0, 0);
+                    if (im != NULL) {
+                        im->pose = poses[this->pose * 3 + this->head];
+                        im->base.timer = 24;
+                    }
+                }
+            }
+            break;
+        }
+        case GN_RING:
+            // bats join the ring one by one, as he spins the trident
+            gGanon.radius = 40;
+            if (t < 0xc0 && (t & 15) == 0 && gGanon.bats < 8) {
+                AlttpEnemy* b = (AlttpEnemy*)GanonSpawnPart(this, GP_BAT, 0, 0);
+                if (b != NULL) {
+                    b->idx = gGanon.bats++;
+                    b->base.timer = 48;
+                    EnqueueSFX(SFX_ITEM_LANTERN_ON);
+                }
+            }
+            GanonSpin(this);
+            GanonRing(this);
+            if (--super->timer == 0) {
+                super->action = GN_RING_SWIRL;
+                super->timer = 255;
+            }
+            break;
+        case GN_RING_SWIRL: {
+            // the ring breathes in and out
+            static const s8 wobble[16] = { 0, 0, 0, 0, -1, -1, -2, -1, 0, 0, 0, 0, 1, 2, 1, 1 };
+            gGanon.radius += wobble[(t >> 4) & 15];
+            GanonSpin(this);
+            GanonRing(this);
+            if (--super->timer == 0) {
+                super->action = GN_RING_LET_GO;
+                super->timer = 127;
+                GanonIdle(this);
+                gGanon.radius = 0; // the bats' cue to fly off, each in its turn
+            }
+            break;
+        }
+        case GN_RING_LET_GO:
+            GanonIdle(this);
+            GanonShakeHead(this);
+            if (--super->timer == 0) {
+                GanonWarp(this, 10);
+            }
+            break;
+        case GN_SHOW:
+        case GN_SHOW3:
+            // he flickers into sight
+            GanonIdle(this);
+            this->shield = 1;
+            if (super->timer & 1) {
+                this->pose = POSE_HIDDEN;
+            }
+            if (--super->timer == 0) {
+                if (super->action == GN_SHOW) {
+                    super->action = GN_RING;
+                    super->timer = 255;
+                    gGanon.bats = 0;
+                } else if (Random() & 1) {
+                    GanonWarp(this, 13);
+                } else {
+                    super->action = GN_SPIRAL;
+                    super->timer = 127;
+                }
+            }
+            break;
+        case GN_SPIRAL: {
+            static const u8 gfx[6] = { 5, 6, 7, 13, 14, 10 };
+            u32 k = t < 96 ? (t < 72 ? 2 : 1) : 0;
+            this->coerced = 0;
+            this->pose = gfx[k + (this->face ? 3 : 0)];
+            if (t == 66) {
+                GanonFling(this, GP_SPIRAL_BAT);
+            }
+            if (--super->timer == 0) {
+                GanonWarp(this, 13);
+            }
+            break;
+        }
+        case GN_LEAP: {
+            // up (24/16 pixels a frame, slowing), a moment aloft, then down hard
+            this->coerced = 0;
+            if (super->timer == 0) {
+                if (this->targetY > 0) {
+                    super->z.WORD -= this->targetY << 12;
+                    this->targetY--;
+                    this->pose = this->targetY > 18 ? POSE_SPRING : (this->face ? 14 : 6);
+                } else {
+                    super->timer = 32;
+                }
+            } else if (--super->timer == 0) {
+                super->action = GN_SLAM;
+            }
+            break;
+        }
+        case GN_SLAM: {
+            if (super->timer == 0) {
+                // down at six pixels a frame
+                super->z.WORD += 96 << 12;
+                this->pose = this->face ? 10 : 2;
+                if (super->z.WORD >= 0) {
+                    super->z.WORD = 0;
+                    super->timer = 96;
+                    InitScreenShake(48, 0);
+                    EnqueueSFX(SFX_THUD_HEAVY);
+                    EnqueueSFX(SFX_ITEM_BOMB_EXPLODE);
+                    this->unused[0]++;
+                    this->pose = POSE_FALL;
+                    {
+                        // the floor about him shatters
+                        u32 i;
+                        for (i = 0; i < 6; i++) {
+                            Entity* fx = CreateFx(super, FX_ROCK, 0);
+                            if (fx != NULL) {
+                                fx->x.HALF.HI += (s32)(Random() & 63) - 32;
+                                fx->y.HALF.HI += (s32)(Random() & 31) - 16;
+                            }
+                        }
+                    }
+                }
+            } else {
+                this->pose = super->timer > 80 ? POSE_FALL : (this->face ? 10 : 2);
+                if (--super->timer == 0) {
+                    if (this->unused[0] >= GANON_SLAMS) {
+                        // the last slam: he puts out the lights (Ganon_ExtinguishTorch)
+                        gGanon.dark = 1;
+                        gGanon.burn[0] = gGanon.burn[1] = 0;
+                        EnqueueSFX(SFX_ITEM_LANTERN_OFF);
+                        GanonWarp(this, 10);
+                    } else {
+                        GanonWarp(this, 13);
+                    }
+                }
+            }
+            break;
+        }
+        case GN_DARK: {
+            // in the dark: a bat at Link, flickering away in between
+            static const u8 gfxA[2] = { 6, 14 };
+            static const u8 gfxB[2] = { 7, 10 };
+            this->coerced = 0;
+            this->pose = gfxA[this->face];
+            if (t == 52) {
+                GanonFling(this, GP_TRAIL_BAT);
+            } else if (t < 52) {
+                this->pose = gfxB[this->face];
+            }
+            if (t >= 72 || t < 40) {
+                this->shield = 1;
+                if (t & 1) {
+                    this->pose = POSE_HIDDEN;
+                }
+            }
+            if (--super->timer == 0) {
+                GanonWarp(this, 18);
+            }
+            break;
+        }
+        case GN_STUN: {
+            static const u8 gfx[2] = { 5, 13 };
+            this->coerced = 0;
+            this->pose = gfx[this->face];
+            if (--super->timer == 0) {
+                GanonWarp(this, 18);
+            }
+            break;
+        }
+    }
+    // in the dark he shows only while a torch burns, and can be struck only with both
+    if (gGanon.dark && super->action != GN_STUN) {
+        u32 lit = GanonLitTorches();
+        if (lit == 0) {
+            this->pose = POSE_HIDDEN;
+        }
+        if (lit < 2) {
+            this->shield = 1;
+        }
+    }
+    SetPalette(super, super->action == GN_STUN ? AP_GANON_STUN : AP_GANON);
+    if (this->cooldown && (this->cooldown & 2) && this->pose != POSE_HIDDEN) {
+        super->spriteSettings.draw = 0;
+    } else {
+        super->spriteSettings.draw = this->pose != POSE_HIDDEN;
+    }
+    if (this->pose != POSE_HIDDEN) {
+        u32 f;
+        if (this->pose == POSE_HOLD) {
+            f = AF_GANON_HOLD_0 + this->head;
+        } else if (this->pose >= POSE_CROUCH) {
+            f = AF_GANON_CROUCH + this->pose - POSE_CROUCH;
+        } else {
+            f = poses[this->pose * 3 + this->head];
+        }
+        SetFrame(super, f);
+    }
+    if (this->shield || super->action == GN_GLIDE || this->pose == POSE_HIDDEN) {
+        COLLISION_OFF(super);
+    } else {
+        COLLISION_ON(super);
+    }
+    AlttpEndTick(this);
+}
+
+static void GanonOnCollision(AlttpEnemy* this);
+static void GanonOnDeath(AlttpEnemy* this) {
+    if (this->burst == 0) {
+        DeleteChildren(super);
+        SetPalette(super, AP_GANON_STUN);
+        SetFrame(super, AF_GANON_FALL);
+        SetHeight(super, 0);
+        gGanon.dark = 0;
+    }
+    GanonUpdateLight();
+    if (BossBurst(this, 12, 8)) {
+        GanonLightsReset();
+        DeleteThisEntity();
+    }
+}
+
+static void (*const Ganon_Functions[])(AlttpEnemy*) = {
+    GanonTick, GanonOnCollision, (void (*)(AlttpEnemy*))GenericKnockback,
+    GanonOnDeath, (void (*)(AlttpEnemy*))GenericConfused, AlttpGrabbed,
+};
+
+static void GanonOnCollision(AlttpEnemy* this) {
+    super->knockbackDuration = 0;
+    if (TookHit(this)) {
+        GanonStruck(this, super->contactedEntity);
+    }
+    EnemyFunctionHandlerAfterCollision(super, (void (*const*)())Ganon_Functions);
+}
+
+void Ganon(AlttpEnemy* this) {
+    EnemyFunctionHandler(super, (EntityActionArray)Ganon_Functions);
+    BossCam(super, -16);
+}
+
+/* ---- his trident, fire bats, flames, torches (GANON_PART) -----------------------------
+ * By type: the trident (in his hand, or thrown: it hunts Link for 112 frames, then
+ * flies back to his hand), a bat of his ring (it waits its turn, winds up and dashes
+ * at Link), a spiralling bat, a bat flung straight at Link, the flames bats leave, a
+ * torch of his room, the flame on a lit torch, and his afterimage as he warps. None
+ * can be hurt; bats, flames and the thrown trident hurt Link.
+ * Fields: targetX/Y the speed (1/16 pixels), homeX/Y a spiral's middle or the thrown
+ * trident's place, idx a ring bat's place or a torch's number (or the trident: 1
+ * thrown), pose an afterimage's frame, step the clock.
+ */
+static AlttpEnemy* GanonOf(Entity* e) {
+    Entity* g = e->parent;
+    if (g != NULL && g->next != NULL && g->kind == ENEMY && g->id == GANON && g->health != 0) {
+        return (AlttpEnemy*)g;
+    }
+    return NULL;
+}
+
+static void GanonFlameAt(Entity* from, u32 life) {
+    AlttpEnemy* f = (AlttpEnemy*)SpawnAt(GANON_PART, GP_FLAME, from, 0, 8);
+    if (f != NULL) {
+        f->base.collisionLayer = from->collisionLayer;
+        f->base.parent = from->parent;
+        f->base.timer = life;
+    }
+}
+
+static void FireBatAnimate(AlttpEnemy* this) {
+    static const u8 gfx[4] = { 4, 5, 6, 5 };
+    SetFrame(super, AF_FIREBAT_0 + gfx[(this->step >> 2) & 3]);
+}
+
+static void GanonPartTick(AlttpEnemy* this) {
+    u32 type = super->type;
+    AlttpEnemy* g = GanonOf(super);
+    if (super->action == 0) {
+        static const u8 pal[8] = { AP_TRIDENT, AP_FIREBAT, AP_FIREBAT, AP_FIREBAT, AP_FIREBAT, AP_GTORCH, AP_FIREBAT, AP_GANON };
+        static const u8 frame[8] = { AF_TRIDENT_9, AF_FIREBAT_0, AF_FIREBAT_4, AF_FIREBAT_4, AF_GFLAME_0, AF_GTORCH, AF_GFLAME_0, AF_GANON_2_1 };
+        AlttpInit(this, pal[type], frame[type]);
+        super->spriteSettings.shadow = 0;
+        super->spritePriority.b0 = type == GP_TORCH ? 4 : 2;
+        this->step = 0;
+        this->child = NULL;
+        this->unused[3] = 0;
+        if (type == GP_TRIDENT) {
+            this->idx = 0;
+            this->pose = 0;
+        }
+        if (type == GP_TORCH || type == GP_TORCH_FIRE || type == GP_IMAGE) {
+            COLLISION_OFF(super);
+        }
+    }
+    super->health = 0;
+    super->knockbackDuration = 0;
+    this->step++;
+    switch (type) {
+        case GP_TRIDENT: {
+            static const u8 spin[8] = { 8, 7, 6, 5, 4, 3, 2, 1 };
+            static const s8 atX[5] = { 24, -16, 0, 16, -8 };
+            static const s8 atY[5] = { 4, 4, 16, 21, 19 };
+            if (g == NULL) {
+                DeleteThisEntity();
+            }
+            if (this->idx == 0) {
+                // in his hand (Trident_Draw), or out of sight while he has none
+                u32 pose = g->coerced;
+                u32 j = pose == 9 ? 3 : pose >= 9 ? 4 : g->face;
+                COLLISION_OFF(super);
+                super->spriteSettings.draw = pose != 0 && g->base.spriteSettings.draw;
+                super->x.HALF.HI = g->base.x.HALF.HI + atX[j] + 1;
+                super->y.HALF.HI = GANON_Y(&g->base) + atY[j] - 20;
+                super->z.WORD = g->base.z.WORD;
+                if (pose) {
+                    SetFrame(super, AF_TRIDENT_1 + pose - 1);
+                }
+                return;
+            }
+            // thrown: it whirls after Link, then back to his hand
+            COLLISION_ON(super);
+            super->spriteSettings.draw = 1;
+            super->z.WORD = 0;
+            if (!(this->step & 15)) {
+                EnqueueSFX(SFX_ITEM_GLOVES_AIR);
+            }
+            MoveVel(super, this->targetX, this->targetY);
+            SetFrame(super, AF_TRIDENT_1 + spin[(this->step >> 2) & 7] - 1);
+            if (super->timer) {
+                super->timer--;
+                if (!(super->timer & 1)) {
+                    s16 vx, vy;
+                    AimVel(super, gPlayerEntity.base.x.HALF.HI, gPlayerEntity.base.y.HALF.HI + 4, 32, &vx, &vy);
+                    ApproachVel(&this->targetX, vx);
+                    ApproachVel(&this->targetY, vy);
+                }
+            } else {
+                s32 hx = g->base.x.HALF.HI + (g->face ? -16 : 24) + 1;
+                s32 hy = GANON_Y(&g->base) - 16 - 4;
+                s16 vx, vy;
+                if (Abs(super->x.HALF.HI - hx) < 5 && Abs(super->y.HALF.HI - hy) < 5 &&
+                    g->base.action == GN_WAIT_TRIDENT) {
+                    // caught: he spins it again
+                    this->idx = 0;
+                    g->base.action = GN_CATCH;
+                    g->base.timer = 16;
+                    g->coerced = 1;
+                    return;
+                }
+                AimVel(super, hx, hy, 32, &vx, &vy);
+                ApproachVel(&this->targetX, vx);
+                ApproachVel(&this->targetY, vy);
+                ApproachVel(&this->targetX, vx);
+                ApproachVel(&this->targetY, vy);
+            }
+            return;
+        }
+        case GP_BAT: {
+            // Sprite_FireBat_Launched: in the ring until its turn, then a wind-up and a dash
+            static const u8 letGo[8] = { 0x10, 0x30, 0x50, 0x70, 0x90, 0xb0, 0xd0, 0xbd };
+            if (this->idx < 0x80) {
+                if (g == NULL) {
+                    DeleteThisEntity();
+                }
+                if (gGanon.radius != 0) {
+                    static const s8 bx[2] = { 20, -18 };
+                    u32 t = (gGanon.angle + this->idx * 64) & 0x1ff;
+                    s32 cx = g->base.x.HALF.HI + bx[g->face];
+                    s32 cy = GANON_Y(&g->base) - 20;
+                    s32 nx = cx + HalfSin(t, gGanon.radius);
+                    s32 ny = cy + HalfSin(t + 0x80, gGanon.radius) + 8;
+                    // its speed along the ring, kept for when it lets go
+                    this->targetX = (nx - super->x.HALF.HI) << 4;
+                    this->targetY = (ny - super->y.HALF.HI) << 4;
+                    this->targetX = this->targetX > 8 ? 8 : this->targetX < -8 ? -8 : this->targetX;
+                    this->targetY = this->targetY > 8 ? 8 : this->targetY < -8 ? -8 : this->targetY;
+                    super->x.HALF.HI = nx;
+                    super->y.HALF.HI = ny;
+                    if (super->timer) {
+                        super->timer--;
+                        SetFrame(super, AF_FIREBAT_0 + ((super->timer >> 2) & 1));
+                    } else {
+                        SetFrame(super, AF_FIREBAT_0 + ((this->step >> 2) & 1));
+                    }
+                    COLLISION_ON(super);
+                    return;
+                }
+                // let go: each waits its turn (kGanon_Delay8), drifting
+                super->timer = letGo[this->idx & 7];
+                this->idx = 0x80;
+                this->unused[0] = 0;
+            }
+            MoveVel(super, this->targetX, this->targetY);
+            if (super->timer) {
+                if (--super->timer == 0) {
+                    this->unused[0] = 35;
+                }
+                SetFrame(super, AF_FIREBAT_0 + ((super->timer >> 2) & 1));
+            } else if (this->unused[0] > 1) {
+                static const u8 wind[9] = { 4, 4, 4, 3, 3, 3, 2, 2, 2 };
+                this->unused[0]--;
+                SetFrame(super, AF_FIREBAT_0 + wind[this->unused[0] >> 2]);
+            } else {
+                if (this->unused[0] == 1) {
+                    this->unused[0] = 0;
+                    AimVel(super, gPlayerEntity.base.x.HALF.HI, gPlayerEntity.base.y.HALF.HI, 48, &this->targetX,
+                           &this->targetY);
+                    EnqueueSFX(SFX_ITEM_LANTERN_ON);
+                }
+                this->step++;
+                FireBatAnimate(this);
+            }
+            break;
+        }
+        case GP_SPIRAL_BAT: {
+            // Sprite_SpiralFireBat: about the place he flung it from, wider and wider
+            s16 ix, iy, tx, ty;
+            if (super->timer) {
+                super->timer--;
+            } else {
+                AimVel(super, this->homeX, this->homeY, 2, &ix, &iy);
+                AimVel(super, this->homeX, this->homeY, 80, &tx, &ty);
+                this->targetX = ty - ix;
+                this->targetY = -tx - iy;
+            }
+            MoveVel(super, this->targetX, this->targetY);
+            FireBatAnimate(this);
+            if (!(this->step & 7)) {
+                GanonFlameAt(super, 0x4f);
+            }
+            break;
+        }
+        case GP_TRAIL_BAT:
+            MoveVel(super, this->targetX, this->targetY);
+            FireBatAnimate(this);
+            if (!(this->step & 7)) {
+                GanonFlameAt(super, 0x2f);
+            }
+            break;
+        case GP_FLAME: {
+            // Garnish10_GanonBatFlame: it burns down, flickering, then withers
+            static const u8 idx[16] = { 3, 2, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0 };
+            if (super->timer == 0 || --super->timer == 0) {
+                DeleteThisEntity();
+            }
+            if (super->timer < 8) {
+                COLLISION_OFF(super);
+                SetFrame(super, AF_GFLAME_WITHER);
+                super->y.HALF.HI -= this->step & 1;
+            } else {
+                SetFrame(super, AF_GFLAME_0 + idx[super->timer >> 3]);
+            }
+            return;
+        }
+        case GP_TORCH: {
+            // lit by the Fire Rod's shot, or the lantern held to it; it burns 512 frames
+            u32 i = this->idx & 1;
+            u32 k;
+            if (gGanon.burn[i] != 0 && gGanon.burn[i] != 0xffff && --gGanon.burn[i] == 0) {
+                EnqueueSFX(SFX_ITEM_LANTERN_OFF);
+            }
+            if (gGanon.burn[i] == 0) {
+                bool32 light = (gPlayerState.flags & PL_USE_LANTERN) &&
+                               Abs(gPlayerEntity.base.x.HALF.HI - super->x.HALF.HI) < 20 &&
+                               Abs(gPlayerEntity.base.y.HALF.HI - super->y.HALF.HI) < 24;
+                for (k = 0; k < ARRAY_COUNT(gEntityLists) && !light; k++) {
+                    LinkedList* list = &gEntityLists[k];
+                    Entity* e;
+                    for (e = list->first; (u32)e != (u32)list; e = e->next) {
+                        if (IsRodShot(e, ITEM_FIRE_ROD) && Abs(e->x.HALF.HI - super->x.HALF.HI) < 12 &&
+                            Abs(e->y.HALF.HI - super->y.HALF.HI + 4) < 14) {
+                            light = TRUE;
+                            break;
+                        }
+                    }
+                }
+                if (light) {
+                    gGanon.burn[i] = 512;
+                    EnqueueSFX(SFX_ITEM_LANTERN_ON);
+                }
+            }
+            if (gGanon.burn[i] != 0 && this->child == NULL) {
+                Entity* f = SpawnAt(GANON_PART, GP_TORCH_FIRE, super, 0, -10);
+                if (f != NULL) {
+                    f->collisionLayer = super->collisionLayer;
+                    this->child = f;
+                }
+            }
+            SetFrame(super, AF_GTORCH);
+            return;
+        }
+        case GP_TORCH_FIRE: {
+            Entity* torch = super->parent;
+            if (torch == NULL || torch->next == NULL || gGanon.burn[((AlttpEnemy*)torch)->idx & 1] == 0) {
+                if (torch != NULL && torch->next != NULL) {
+                    ((AlttpEnemy*)torch)->child = NULL;
+                }
+                DeleteThisEntity();
+            }
+            SetFrame(super, AF_GFLAME_0 + ((this->step >> 3) & 1));
+            return;
+        }
+        case GP_IMAGE:
+            COLLISION_OFF(super);
+            SetFrame(super, this->pose);
+            super->spriteSettings.draw = (super->timer & 1);
+            if (super->timer == 0 || --super->timer == 0) {
+                DeleteThisEntity();
+            }
+            return;
+    }
+    // bats go when they leave the room, or after a while
+    if (!(this->step & 3) && ++this->unused[3] > 120) {
+        DeleteThisEntity();
+    }
+    if (!InRoom(super, 16)) {
+        DeleteThisEntity();
+    }
+}
+
+void GanonPart(AlttpEnemy* this) {
+    GanonPartTick(this);
 }

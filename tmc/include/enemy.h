@@ -246,6 +246,8 @@ enum {
     /*0xa4*/ STALFOS_HEAD,
     /*0xa5*/ AGAHNIM,
     /*0xa6*/ AGAHNIM_BALL,
+    /*0xa7*/ GANON,
+    /*0xa8*/ GANON_PART,
 };
 
 void Octorok();
@@ -414,6 +416,8 @@ void FireBar();
 void StalfosHead();
 void Agahnim();
 void AgahnimBall();
+void Ganon();
+void GanonPart();
 
 extern void (*const gUnk_080012C8[])(Entity*);
 
