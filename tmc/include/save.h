@@ -73,7 +73,10 @@ typedef struct {
     /*0x009*/ u8 available_figurines;        /**< figurines available to get */
     /*0x00A*/ u8 fillerA[22];                /**< unused filler */
     /*0x020*/ u16 map_hints;                 /**< bitmask, used by subtask MapHint */
-    /*0x022*/ u8 filler22[30];               /**< unused filler */
+    /*0x022*/ u8 blendDungeonKeys[4];        /**< blend: keys of dungeons 16 and up (Misery Mire, Turtle Rock) */
+    /*0x026*/ u8 blendDungeonItems[4];       /**< blend: their dungeon items, as dungeonItems */
+    /*0x02A*/ u8 blendDungeonWarps[4];       /**< blend: their warps, as dungeonWarps */
+    /*0x02E*/ u8 filler2E[18];               /**< unused filler */
     /*0x040*/ u32 windcrests;                /**< upper 8 bit Windcrest flags @see WindcrestID
                                               * lower bits used for other things */
     /*0x044*/ u8 filler44[12];               /**< unused filler */
@@ -108,6 +111,14 @@ typedef struct {
  * The current save file.
  */
 extern SaveFile gSave;
+
+/*
+ * A dungeon's keys, items and warps. The save holds 16 of each; the blend's later
+ * A Link to the Past dungeons (dungeon numbers 16 and up) keep theirs in spare bytes.
+ */
+#define DUNGEON_KEYS(i) (*((i) < 0x10 ? &gSave.dungeonKeys[i] : &gSave.blendDungeonKeys[(i)-0x10]))
+#define DUNGEON_ITEMS(i) (*((i) < 0x10 ? &gSave.dungeonItems[i] : &gSave.blendDungeonItems[(i)-0x10]))
+#define DUNGEON_WARPS(i) (*((i) < 0x10 ? &gSave.dungeonWarps[i] : &gSave.blendDungeonWarps[(i)-0x10]))
 
 /**
  * Initialize the save system.

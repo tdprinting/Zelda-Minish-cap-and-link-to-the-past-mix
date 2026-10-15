@@ -77,6 +77,10 @@ const Transition gExitList_LakeHylia_Main[] = {
       ROOM_MINISH_HOUSE_INTERIORS_LIBRARI, 1, TRANSITION_TYPE_NORMAL, 0x0, 0x0, 0x0, 0x0 },
     { WARP_TYPE_AREA, 0x02b8, 0x0058, 0x0188, 0x01a8, TRANSITION_SHAPE_AREA_12x12, AREA_MINISH_CAVES, ROOM_MINISH_CAVES_LAKE_HYLIA_NORTH,
       1, TRANSITION_TYPE_NORMAL, 0x0, 0x0, 0x0, 0x0 },
+    // in the Dark World, with the Moon Pearl and the Flippers (and the Fire Rod to melt its
+    // ice), the cave on the south shore is the Ice Palace
+    { WARP_TYPE_AREA, 0x0148, 0x0374, ENTRY_IcePalace, TRANSITION_SHAPE_AREA_12x12, AREA_NULL_3A, 0,
+      1, TRANSITION_TYPE_NORMAL, 0x0, 0x0, 0x0, 0x0 },
     { WARP_TYPE_AREA, 0x0148, 0x0374, 0x0248, 0x01a8, TRANSITION_SHAPE_AREA_12x12, AREA_LAKE_WOODS_CAVE, ROOM_LAKE_WOODS_CAVE_MAIN,
       1, TRANSITION_TYPE_NORMAL, 0x0, 0x0, 0x0, 0x0 },
     { WARP_TYPE_BORDER, 0x0000, 0x0000, 0x02c8, 0x0fff, TRANSITION_SHAPE_BORDER_WEST, AREA_HYRULE_FIELD, ROOM_HYRULE_FIELD_LON_LON_RANCH,
@@ -197,6 +201,9 @@ const Transition gExitList_HyruleTown_0[] = {
       ROOM_HOUSE_INTERIORS_3_BORLOV_ENTRANCE, 1, TRANSITION_TYPE_NORMAL, 0x0, 0x0, 0x0, 0x0 },
     { WARP_TYPE_AREA, 0x0090, 0x02c8, 0x0078, 0x0098, TRANSITION_SHAPE_AREA_28x12, AREA_HOUSE_INTERIORS_4, ROOM_HOUSE_INTERIORS_4_CARPENTER,
       1, TRANSITION_TYPE_NORMAL, 0x0, 0x0, 0x0, 0x0 },
+    // in the Dark World, with the Moon Pearl and the Hammer, the stranger's house is Thieves' Town
+    { WARP_TYPE_AREA, 0x0098, 0x0168, ENTRY_ThievesTown, TRANSITION_SHAPE_AREA_12x12, AREA_NULL_39, 0,
+      1, TRANSITION_TYPE_NORMAL, 0x0, 0x0, 0x0, 0x0 },
     { WARP_TYPE_AREA, 0x0098, 0x0168, 0x0078, 0x0078, TRANSITION_SHAPE_AREA_12x12, AREA_HOUSE_INTERIORS_2, ROOM_HOUSE_INTERIORS_2_STRANGER,
       1, TRANSITION_TYPE_NORMAL, 0x0, 0x0, 0x0, 0x0 },
     { WARP_TYPE_AREA, 0x0038, 0x0248, 0x0078, 0x0098, TRANSITION_SHAPE_AREA_12x12, AREA_HOUSE_INTERIORS_2, ROOM_HOUSE_INTERIORS_2_DR_LEFT,
@@ -245,6 +252,10 @@ const Transition* const gExitLists_FestivalTown[] = {
 };
 
 const Transition gExitList_MtCrenel_MountainTop[] = {
+    // in the Dark World, once Quake has opened it (and with the Cane of Somaria), the cave on
+    // the summit is Turtle Rock
+    { WARP_TYPE_AREA, 0x328, 0x34, ENTRY_TurtleRock, TRANSITION_SHAPE_AREA_12x12, AREA_NULL_3C, 0,
+      1, TRANSITION_TYPE_NORMAL, 0x0, 0x0, 0x0, 0x0 },
     { WARP_TYPE_AREA, 0x328, 0x34, 0x1a8, 0x28, TRANSITION_SHAPE_AREA_12x12, AREA_CRENEL_CAVES, ROOM_CRENEL_CAVES_BLOCK_PUSHING,
       1, TRANSITION_TYPE_NORMAL, 0x0, 0x0, 0x0, 0x0 },
     { WARP_TYPE_BORDER, 0x0, 0x0, 0xfff, 0x18, TRANSITION_SHAPE_BORDER_SOUTH, AREA_MT_CRENEL, ROOM_MT_CRENEL_WALL_CLIMB, 1, TRANSITION_TYPE_NORMAL,
@@ -569,6 +580,9 @@ const Transition gExitList_VeilFalls_Main[] = {
     { WARP_TYPE_AREA, 0x158, 0x22, 0x118, 0x78, TRANSITION_SHAPE_AREA_12x12, AREA_VEIL_FALLS_CAVES, ROOM_VEIL_FALLS_CAVES_HALLWAY_2F,
       1, TRANSITION_TYPE_NORMAL, 0x0, 0x0, 0x0, 0x0 },
     { WARP_TYPE_AREA, 0x118, 0x42, 0xb8, 0x78, TRANSITION_SHAPE_AREA_12x12, AREA_VEIL_FALLS_CAVES, ROOM_VEIL_FALLS_CAVES_HALLWAY_1F,
+      1, TRANSITION_TYPE_NORMAL, 0x0, 0x0, 0x0, 0x0 },
+    // in the Dark World, once Ether has opened it, the cave at the falls' foot is Misery Mire
+    { WARP_TYPE_AREA, 0x38, 0x1e2, ENTRY_MiseryMire, TRANSITION_SHAPE_AREA_12x12, AREA_NULL_3B, 0,
       1, TRANSITION_TYPE_NORMAL, 0x0, 0x0, 0x0, 0x0 },
     { WARP_TYPE_AREA, 0x38, 0x1e2, 0x38, 0x78, TRANSITION_SHAPE_AREA_12x12, AREA_VEIL_FALLS_CAVES, ROOM_VEIL_FALLS_CAVES_ENTRANCE,
       1, TRANSITION_TYPE_NORMAL, 0x0, 0x0, 0x0, 0x0 },
@@ -3874,10 +3888,10 @@ const Transition* const* const gExitLists[] = {
     /*AREA_CASTLE_GARDEN_MINISH_HOLES*/ gExitLists_CastleGardenMinishHoles,
     /*AREA_37*/ gExitLists_37,
     /*AREA_EZLO_CUTSCENE*/ gExitLists_NoExit,
-    /*AREA_NULL_39*/ gExitLists_NoExit,
-    /*AREA_NULL_3A*/ gExitLists_NoExit,
-    /*AREA_NULL_3B*/ gExitLists_NoExit,
-    /*AREA_NULL_3C*/ gExitLists_NoExit,
+    /*AREA_NULL_39*/ gExitLists_ThievesTown,
+    /*AREA_NULL_3A*/ gExitLists_IcePalace,
+    /*AREA_NULL_3B*/ gExitLists_MiseryMire,
+    /*AREA_NULL_3C*/ gExitLists_TurtleRock,
     /*AREA_NULL_3D*/ gExitLists_NoExit,
     /*AREA_NULL_3E*/ gExitLists_NoExit,
     /*AREA_NULL_3F*/ gExitLists_NoExit,

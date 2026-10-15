@@ -56,6 +56,10 @@ enum LocalBanks {
     LOCAL_BANK_13, /**< blend: Palace of Darkness */
     LOCAL_BANK_14, /**< blend: Swamp Palace */
     LOCAL_BANK_15, /**< blend: Skull Woods */
+    LOCAL_BANK_16, /**< blend: Thieves' Town */
+    LOCAL_BANK_17, /**< blend: Ice Palace */
+    LOCAL_BANK_18, /**< blend: Misery Mire */
+    LOCAL_BANK_19, /**< blend: Turtle Rock */
 };
 
 enum LocalFlagOffsets {
@@ -77,6 +81,10 @@ enum LocalFlagOffsets {
     FLAG_BANK_13 = 0xB00,
     FLAG_BANK_14 = 0xB80,
     FLAG_BANK_15 = 0xC00,
+    FLAG_BANK_16 = 0xC80,
+    FLAG_BANK_17 = 0xD00,
+    FLAG_BANK_18 = 0xD80,
+    FLAG_BANK_19 = 0xE00,
 };
 
 typedef enum {

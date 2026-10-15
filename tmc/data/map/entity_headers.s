@@ -1271,10 +1271,10 @@ gAreaTable:: @ 080D50FC
 	.4byte Area_CastleGardenMinishHoles @ 0x36
 	.4byte Area_37                      @ 0x37
 	.4byte Area_EzloCutscene            @ 0x38
-	.4byte 0x0                                       @ 0x39
-	.4byte 0x0                                       @ 0x3A
-	.4byte 0x0                                       @ 0x3B
-	.4byte 0x0                                       @ 0x3C
+	.4byte Area_ThievesTown               @ 0x39 (A Link to the Past)
+	.4byte Area_IcePalace               @ 0x3A (A Link to the Past)
+	.4byte Area_MiseryMire               @ 0x3B (A Link to the Past)
+	.4byte Area_TurtleRock               @ 0x3C (A Link to the Past)
 	.4byte 0x0                                       @ 0x3D
 	.4byte 0x0                                       @ 0x3E
 	.4byte 0x0                                       @ 0x3F

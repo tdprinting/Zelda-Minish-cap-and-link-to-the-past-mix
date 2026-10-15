@@ -387,10 +387,10 @@ gAreaTiles:: @ 0810309C
 	.4byte gAreaTiles_CastleGardenMinishHoles @ 0x36
 	.4byte gAreaTiles_CastleGardenMinishHoles @ 0x37
 	.4byte gAreaTiles_EzloCutscene            @ 0x38
-	.4byte gAreaTiles_Unused                  @ 0x39
-	.4byte gAreaTiles_Unused                  @ 0x3A
-	.4byte gAreaTiles_Unused                  @ 0x3B
-	.4byte gAreaTiles_Unused                  @ 0x3C
+	.4byte gAreaTiles_ThievesTown               @ 0x39 (A Link to the Past)
+	.4byte gAreaTiles_IcePalace               @ 0x3A (A Link to the Past)
+	.4byte gAreaTiles_MiseryMire               @ 0x3B (A Link to the Past)
+	.4byte gAreaTiles_TurtleRock               @ 0x3C (A Link to the Past)
 	.4byte gAreaTiles_Unused                  @ 0x3D
 	.4byte gAreaTiles_Unused                  @ 0x3E
 	.4byte gAreaTiles_Unused                  @ 0x3F

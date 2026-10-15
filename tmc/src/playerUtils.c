@@ -4364,11 +4364,11 @@ u32 SetInventoryValue(u32 item, u32 value) {
 }
 
 void EnableDungeonWarp(u32 warp) {
-    gSave.dungeonWarps[gArea.dungeon_idx] |= (1 << warp);
+    DUNGEON_WARPS(gArea.dungeon_idx) |= (1 << warp);
 }
 
 u32 IsDungeonWarpActive(u32 warp) {
-    return gSave.dungeonWarps[gArea.dungeon_idx] >> warp & 1;
+    return DUNGEON_WARPS(gArea.dungeon_idx) >> warp & 1;
 }
 
 u32 CheckLocalFlagByBank(u32 bank, u32 flag) {

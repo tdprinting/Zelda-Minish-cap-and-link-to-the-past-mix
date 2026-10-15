@@ -234,7 +234,7 @@ void ModRupees(s32 delta) {
 
 void ModDungeonKeys(s32 keys) {
     if (AreaHasKeys()) {
-        u8* p = &gSave.dungeonKeys[gArea.dungeon_idx];
+        u8* p = &DUNGEON_KEYS(gArea.dungeon_idx);
         if (*p + keys < 0)
             *p = 0;
         else
@@ -250,7 +250,7 @@ bool32 HasDungeonSmallKey(void) {
     u32 tmp;
 
     if (AreaHasKeys())
-        tmp = gSave.dungeonKeys[gArea.dungeon_idx];
+        tmp = DUNGEON_KEYS(gArea.dungeon_idx);
     return tmp ? 1 : 0;
 }
 
@@ -258,20 +258,20 @@ bool32 HasDungeonBigKey(void) {
     u32 tmp;
 
     if (AreaHasKeys())
-        tmp = gSave.dungeonItems[gArea.dungeon_idx] & 4;
+        tmp = DUNGEON_ITEMS(gArea.dungeon_idx) & 4;
     return tmp ? 1 : 0;
 }
 
 bool32 HasDungeonCompass(void) {
     if (!AreaHasKeys())
         return 0;
-    return (gSave.dungeonItems[gArea.dungeon_idx] >> 1) & 1;
+    return (DUNGEON_ITEMS(gArea.dungeon_idx) >> 1) & 1;
 }
 
 bool32 HasDungeonMap(void) {
     if (!AreaHasKeys())
         return 0;
-    return gSave.dungeonItems[gArea.dungeon_idx] & 1;
+    return DUNGEON_ITEMS(gArea.dungeon_idx) & 1;
 }
 
 extern u8 gPaletteBufferBackup[];

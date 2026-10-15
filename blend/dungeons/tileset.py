@@ -291,11 +291,23 @@ class Blend:
                     stack.append(j)
         if self.trim:
             outside |= self.unreached(plan)
+            # and floor the blend walls off (alttprooms.WALL_RECTS), with every cell it touches
+            outside |= {cy * 32 + cx for x0, y0, x1, y1 in A.WALL_RECTS.get(plan.id, ())
+                        for cy in range(y0 // 2, (y1 + 1) // 2) for cx in range(x0 // 2, (x1 + 1) // 2)}
         for i in outside:
             dst = (slice((i // 32) * 16, (i // 32) * 16 + 16), slice((i % 32) * 16, (i % 32) * 16 + 16))
             img[dst] = VOID
             empty[dst] = False
             stoned[dst] = False
+        if self.trim:
+            dark = {i for i in range(1024) if np.all(
+                img[(i // 32) * 16:(i // 32) * 16 + 16, (i % 32) * 16:(i % 32) * 16 + 16] == VOID, axis=-1).mean() > 0.5}
+            for i in self.cut_off(plan, outside | dark) - (outside | dark):
+                dst = (slice((i // 32) * 16, (i // 32) * 16 + 16), slice((i % 32) * 16, (i % 32) * 16 + 16))
+                img[dst] = VOID
+                empty[dst] = False
+                stoned[dst] = False
+                outside.add(i)
 
         # floor Link walks on that A Link to the Past leaves bare (the Swamp Palace's drained
         # basins, black until the water comes in) would read as a pit: lay it in dark, wet slate
@@ -317,8 +329,10 @@ class Blend:
 
         # where the plan opens a way through A Link to the Past's art, draw the nearest floor
         floor = [(i % 32, i // 32) for i in range(1024) if alttp[i] == A.FLOOR and plan.cells[i] == A.FLOOR
-                 and stoned[(i // 32) * 16:(i // 32) * 16 + 16, (i % 32) * 16:(i % 32) * 16 + 16].all()] or \
-                [(i % 32, i // 32) for i in range(1024) if alttp[i] == A.FLOOR and plan.cells[i] == A.FLOOR]
+                 and stoned[(i // 32) * 16:(i // 32) * 16 + 16, (i % 32) * 16:(i % 32) * 16 + 16].all()
+                 and i not in plan.room.tracks] or \
+                [(i % 32, i // 32) for i in range(1024) if alttp[i] == A.FLOOR and plan.cells[i] == A.FLOOR
+                 and i not in plan.room.tracks]
         cls = np.array([[A.attr_class(plan.room.attr[y * 64 + x]) for x in range(64)] for y in range(64)])
         cls = cls.repeat(8, axis=0).repeat(8, axis=1)
         carved = []
@@ -358,7 +372,7 @@ class Blend:
                 continue
             on_peg = i in peg_cells and pegs is None
             mat = i in chest_mats and not stoned[(i // 32) * 16:(i // 32) * 16 + 16, (i % 32) * 16:(i % 32) * 16 + 16].mean() > 0.5
-            if plan.cells[i] in PASSABLE and (alttp[i] in REDRAW_AS_FLOOR or dark or on_peg or mat) and floor:
+            if plan.cells[i] in PASSABLE and (alttp[i] in REDRAW_AS_FLOOR or dark or on_peg or mat or i in plan.room.tracks) and floor:
                 cx, cy = i % 32, i // 32
                 sx, sy = min(floor, key=lambda p: abs(p[0] - cx) + abs(p[1] - cy))
                 dst = (slice(cy * 16, cy * 16 + 16), slice(cx * 16, cx * 16 + 16))
@@ -559,6 +573,30 @@ class Blend:
                     keep.add(j)
                     stack.append(j)
         return {i for i in range(1024) if not near.flat[i] and i not in keep}
+
+    def cut_off(self, plan, gone):
+        """Art that doesn't touch the floor Link walks on: a scrap of wall cut off from the
+        room Link is in (the wall of an unreached quarter, close beside a doorway: Thieves'
+        Town's room 0xAB) would float in the dark."""
+        gone = set(gone)
+        seen = set()
+        for start in range(1024):
+            if start in gone or start in seen:
+                continue
+            part, stack = [], [start]
+            seen.add(start)
+            while stack:
+                i = stack.pop()
+                part.append(i)
+                x, y = i % 32, i // 32
+                for nx, ny in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
+                    j = ny * 32 + nx
+                    if 0 <= nx < 32 and 0 <= ny < 32 and j not in gone and j not in seen:
+                        seen.add(j)
+                        stack.append(j)
+            if not any(plan.cells[i] in PASSABLE for i in part):
+                gone.update(part)
+        return gone
 
     def restone(self, gfx, plan, img, empty):
         """Swaps A Link to the Past's patterned floors for calm stone slabs: big 16px
