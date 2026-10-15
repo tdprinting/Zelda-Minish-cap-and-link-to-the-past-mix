@@ -3517,8 +3517,8 @@ gAreaRoomMaps:: @ 08107988
 	.4byte gAreaRoomMaps_MiseryMire               @ 0x3B (A Link to the Past)
 	.4byte gAreaRoomMaps_TurtleRock               @ 0x3C (A Link to the Past)
 	.4byte gAreaRoomMaps_GanonsTower               @ 0x3D (A Link to the Past)
-	.4byte gAreaRoomMaps_Unused                  @ 0x3E
-	.4byte gAreaRoomMaps_Unused                  @ 0x3F
+	.4byte gAreaRoomMaps_Pyramid               @ 0x3E (A Link to the Past)
+	.4byte gAreaRoomMaps_TempleOfBonds               @ 0x3F (the blend's co-op temple)
 	.4byte gAreaRoomMaps_40                      @ 0x40
 	.4byte gAreaRoomMaps_HyruleTownUnderground   @ 0x41
 	.4byte gAreaRoomMaps_GardenFountains         @ 0x42

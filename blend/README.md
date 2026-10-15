@@ -25,8 +25,9 @@ Everything is made by restyling and reusing the art already in Minish Cap.
 | Misery Mire | A Link to the Past | In area 0x3B, through the cave at the foot of the dark Veil Falls. As in A Link to the Past, it opens once Link casts Ether in front of it, and stays open. A bridge crosses the gap past the entrance. The big chest holds a bigger wallet, since the Cane of Somaria already lies at the dark Veil Falls. Vitreous's room gives a Heart Container. |
 | Turtle Rock | A Link to the Past | In area 0x3C, through the cave on Mt. Crenel's summit. It opens once Link casts Quake there, and he needs the Cane of Somaria to go in. Somaria's tracks and the pipes over the pits are laid as bridges, since Minish Cap has no platform to ride. The big chest holds a bigger quiver, since the Mirror Shield is the Tower of Hera's. Trinexx's room gives a Heart Container. |
 | Ganon's Tower | A Link to the Past | In area 0x3D. It stands where the Tower of Hera does, as in A Link to the Past: in the Dark World, Hera's cracked cave on Mt. Crenel stays shut until Link has the seven crystals, that is until he has beaten the bosses of all seven Dark World dungeons. Inside is the tower's main way up, 21 of its rooms: the Armos Knights and the Big Key in the basement, the Big Key door, the Lanmolas and Moldorm again, and Agahnim's hall at the top (beating Agahnim there gives a Heart Container). Bridges and steps take the places A Link to the Past reaches by Hookshot or over a ledge. The big chest holds a piece of heart, since Minish Cap has no armor. |
+| Pyramid of Power | A Link to the Past | Ganon's hall (room 0x00), in area 0x3E. In A Link to the Past Link falls into it through the hole Ganon smashes in the Pyramid after Agahnim's second defeat; here, in the Dark World, the Castle Garden's castle door leads down into it once Agahnim has fallen atop Ganon's Tower (in the Light World, and before that, it is still Hyrule Castle's door). Link lands where A Link to the Past puts him; steps in the hall's corner lead back up to the garden. The room goes dark in Ganon's last phase, and his two torches stand on the hall's own. Beating Ganon ends the game: the victory tune, a fade to white, and the credits. |
 | Link's item animations | A Link to the Past | Every A Link to the Past item has its own Link animation, drawn from that game's item art in Link's Minish Cap colors: the Hammer is lifted and slammed, the rods and Somaria are swung and pointed, the Hookshot is held out, Byrna is raised, the Powder bag is shaken, and the medallions and Mirror are held up high. |
-| A Link to the Past enemies | A Link to the Past | Stalfos (some drop from the ceiling and hop away from sword swings), green and red Eyegores that only open their eye to chase, Popos, Anti-fairies, and the Armos Knights: six knights hop in formation, then the last turns red and slams down. In the Desert Palace: Leevers that burrow and spin up, Beamos statues that sweep and fire lasers, and the Lanmolas bursting out of the sand. In the Tower of Hera: Hardhat Beetles that skate and get knocked back, Bumpers, and the Moldorm boss, which can only be hurt in the tail. The Dark World dungeons add Terrorpins that only the Hammer flips, Mini Helmasaurs, Hovers, Kyamerons, Zols, Firesnakes and wall shooters; the Desert and Tower get Debirandos, Kodongos and small Moldorms. Hinoxes throw bombs in the Dark World hills, and Pokeys, Gibdos and Baris are built too. The last four Dark World dungeons bring Blind (who loses his head three times), Kholdstare in its ice shell (Fire Rod or Bombos), Vitreous and its thirteen eyes, and Trinexx (Ice Rod on the red head, Fire Rod on the blue, then the snake), plus Freezors, Pengators, Stalfos Knights, Wizzrobes, Laser Eyes, Chain Chomps, Zazaks, Gibos, fire bars and Stalfos heads. Agahnim waits at the top of Ganon's Tower with his two shadow copies: bat his energy balls back with the sword. Ganon himself is built too (trident, fire bats, the dark-room torches and silver arrows), but his Pyramid room is not in the game yet. Bosses start and fight fully on screen, and Blind first appears as the maiden. They use A Link to the Past's own sprites, with new frames added. |
+| A Link to the Past enemies | A Link to the Past | Stalfos (some drop from the ceiling and hop away from sword swings), green and red Eyegores that only open their eye to chase, Popos, Anti-fairies, and the Armos Knights: six knights hop in formation, then the last turns red and slams down. In the Desert Palace: Leevers that burrow and spin up, Beamos statues that sweep and fire lasers, and the Lanmolas bursting out of the sand. In the Tower of Hera: Hardhat Beetles that skate and get knocked back, Bumpers, and the Moldorm boss, which can only be hurt in the tail. The Dark World dungeons add Terrorpins that only the Hammer flips, Mini Helmasaurs, Hovers, Kyamerons, Zols, Firesnakes and wall shooters; the Desert and Tower get Debirandos, Kodongos and small Moldorms. Hinoxes throw bombs in the Dark World hills, and Pokeys, Gibdos and Baris are built too. The last four Dark World dungeons bring Blind (who loses his head three times), Kholdstare in its ice shell (Fire Rod or Bombos), Vitreous and its thirteen eyes, and Trinexx (Ice Rod on the red head, Fire Rod on the blue, then the snake), plus Freezors, Pengators, Stalfos Knights, Wizzrobes, Laser Eyes, Chain Chomps, Zazaks, Gibos, fire bars and Stalfos heads. Agahnim waits at the top of Ganon's Tower with his two shadow copies: bat his energy balls back with the sword. Ganon waits in the Pyramid of Power: his trident, fire bats, then the dark room, where the Fire Rod or the lantern lights his two torches and only silver arrows (the Light Arrow bow) finish him. Bosses start and fight fully on screen, and Blind first appears as the maiden. They use A Link to the Past's own sprites, with new frames added. |
 | Dark World enemies | Both | In the Dark World, Octoroks become A Link to the Past's Ropes, which coil and lunge, and Spear Moblins become its Moblins, which throw spears. ChuChus become Spiny ChuChus and Beetles become Spiked Beetles. |
 | Blended overworld | Both | The overworld's colors move toward A Link to the Past's Light World (deeper greens, golden dirt, blue water) in the same cel-shaded style as the dungeons, and trees, cliffs, walls and buildings cast soft shadows. |
 | Blended story | Both | The opening legend tells of the Golden Power, the shadow sealed in a Dark World and the seven sages. Ezlo explains Ganon, Vaati and Agahnim the first time Link reaches the Dark World, and the castle and final boss text name Ganon's shadow. |
@@ -53,6 +54,21 @@ Run `zelda-blend.exe --single` to play alone.
 
 The ROM also runs in any GBA emulator for single-player.
 
+### Updates
+
+The game updates itself. When it starts, it looks for a newer `picori-seal-vX.Y.zip`
+in your Downloads folder and in an `updates` folder next to the game, and asks
+whether to install it. Installing swaps in the new game and program, keeps your
+saves, puts the old version (and a copy of the saves) in a `previous` folder, and
+restarts the game. So to update, download the new zip and start the game.
+
+Builds contain your ROM, so they never come from a public server. To have the game
+fetch new versions by itself, add a private place to `update.ini` (made next to the
+game on first start): a folder your cloud drive syncs, the URL of a `latest.json`
+manifest, or `github:you/your-private-repo` with a read-only `token`, for the latest
+release of a private GitHub repo. `check = 0` turns checks off, `ask = 0` installs
+without asking, and `--no-update` skips the check once.
+
 ## Building
 
 ROMs and anything built from them stay on your machine; `.gitignore` blocks them.
@@ -66,6 +82,9 @@ make -C blend/host                               # needs libsdl2-dev, libmgba-de
 
 # The co-op player, Windows (cross-compiled; see the script for its dependencies)
 ./blend/host/build-windows.sh                    # -> blend/out/zelda-blend.exe
+
+# A release zip and its latest.json manifest (version from blend/VERSION; bump it first)
+./blend/host/package.sh                          # -> blend/out/picori-seal-vX.Y.zip
 ```
 
 ## Code map
@@ -81,6 +100,7 @@ make -C blend/host                               # needs libsdl2-dev, libmgba-de
 | `blend/enemies/`, `tmc/src/enemy/alttpEnemies.c` | A Link to the Past's enemies: `alttp_enemies.py` cuts their sprites from your ALttP ROM, recolors them and adds new frames (as sprite 155); the C file gives each its behavior. Run by `make-dungeons.sh` |
 | `blend/overworld/`, `tmc/src/blendShadows.c` | The blended overworld: `build.py` restyles every overworld palette toward A Link to the Past's Light World colors and draws soft shadow maps; `blendShadows.c` shows the shadows on background 3. Run by `build.sh`; output goes to `tmc/custom/gen/ow` |
 | `blend/host/coop.c` | Split-screen co-op player (SDL2 + libmgba) |
+| `blend/host/updater.c` | The Windows player's auto updater: finds, checks (sha256, zip CRCs, ROM header), installs and restarts into newer builds |
 | `blend/harness/harness.c` | Headless test runner used to check builds |
 
 The shared state block `gBlendLink` sits at a fixed address, `0x0203F000`, so the

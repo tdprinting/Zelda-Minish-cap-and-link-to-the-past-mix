@@ -37,7 +37,7 @@ typedef struct {
     /*0x1f*/ s8 itemHitboxY;
     /*0x20*/ u8 itemHitboxWidth;
     /*0x21*/ u8 itemHitboxHeight;
-    /*0x22*/ u16 pad;
+    /*0x22*/ u16 shrine; /**< Temple of Bonds: low 12 bits the puzzles solved, top 4 the seal just struck (+1) */
 } BlendPlayerSync;
 
 typedef struct {
@@ -78,6 +78,7 @@ typedef struct {
     /*0x90*/ u8 icePalette[4];    /**< OBJ palette slot holding each frozen enemy's icy colors */
     /*0x94*/ u8 bossState;        /**< BOSS_*: the A Link to the Past boss fight in this room */
     /*0x95*/ u8 bossMaxHealth;    /**< Link's max health when the Heart Container appeared */
+    /*0x96*/ u8 endingTimer;      /**< frames since Ganon fell (the ending, then the credits) */
 } BlendLink;
 
 #define BLEND_MAGIC 0x444E4C42 /* "BLND" */
@@ -142,5 +143,11 @@ bool32 Blend_ExteriorActive(void);
 void Blend_ExteriorRefreshColors(void);
 bool32 Blend_ExteriorKeepsColors(u32 palIdx);
 bool32 Blend_CanEnterDungeon(u32 area);
+/** The Temple of Bonds, the co-op temple (blendShrine.c): its plates, gates, seals and guard. */
+void Blend_ShrineUpdate(void);
+/** Whether a way in to the Temple of Bonds is shut: it is unless two players are playing. */
+bool32 Blend_ShrineClosed(const struct Transition* t);
+/** A room's metatiles: each of the Temple of Bonds' rooms has its own, the other areas share theirs. */
+void* Blend_RoomTiles(u32 area, u32 room);
 
 #endif // BLEND_H

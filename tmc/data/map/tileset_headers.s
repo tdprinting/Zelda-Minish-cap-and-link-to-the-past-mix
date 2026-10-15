@@ -1066,8 +1066,8 @@ gAreaTileSets:: @ 0810246C
 	.4byte gAreaTileSets_MiseryMire               @ 0x3B (A Link to the Past)
 	.4byte gAreaTileSets_TurtleRock               @ 0x3C (A Link to the Past)
 	.4byte gAreaTileSets_GanonsTower               @ 0x3D (A Link to the Past)
-	.4byte gAreaTileSets_Unused                  @ 0x3E
-	.4byte gAreaTileSets_Unused                  @ 0x3F
+	.4byte gAreaTileSets_Pyramid               @ 0x3E (A Link to the Past)
+	.4byte gAreaTileSets_TempleOfBonds               @ 0x3F (the blend's co-op temple)
 	.4byte gAreaTileSets_40                      @ 0x40
 	.4byte gAreaTileSets_HyruleTownUnderground   @ 0x41
 	.4byte gAreaTileSets_40                      @ 0x42

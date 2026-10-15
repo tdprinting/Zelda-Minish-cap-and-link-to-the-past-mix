@@ -8582,6 +8582,8 @@ void AgahnimBall(AlttpEnemy* this) {
  * ========================================================================== */
 
 #include "screen.h"
+#include "flags.h"
+#include "area.h"
 
 const Hitbox gHitbox_Ganon = { 0, -12, { 8, 6, 6, 8 }, 14, 14 };
 const Hitbox gHitbox_GanonBat = { 0, -4, { 6, 4, 4, 6 }, 8, 5 };
@@ -8815,6 +8817,9 @@ static void GanonTick(AlttpEnemy* this) {
     static const u8 poses[] = GANON_POSES;
     u32 phase, t;
     if (super->action == GN_INIT) {
+        if (gRoomControls.area == AREA_NULL_3E && CheckLocalFlag(0x7f)) {
+            DeleteThisEntity(); // beaten: his hall stays empty (blend.c's sBossRooms)
+        }
         AlttpInit(this, AP_GANON, AF_GANON_2_1);
         super->action = GN_INTRO;
         super->timer = 96;
@@ -8843,8 +8848,14 @@ static void GanonTick(AlttpEnemy* this) {
                     u32 k;
                     tr->x.HALF.HI = this->homeX + (i ? 80 : -80) * this->rangeX / 88;
                     tr->y.HALF.HI = this->homeY + 80 * this->rangeY / 76;
+                    if (gRoomControls.area == AREA_NULL_3E) {
+                        // the Pyramid: right on the torches drawn in his hall (8px tiles
+                        // (37, 25) and (57, 25))
+                        tr->x.HALF.HI = gRoomControls.origin_x + (i ? 464 : 304);
+                        tr->y.HALF.HI = gRoomControls.origin_y + 210;
+                    }
                     // (in his own room they stand in their places; elsewhere, on the floor)
-                    for (k = 0; k < 24 && WallAt(tr, 0, 0) && WallAt(tr, 0, -8); k++) {
+                    for (k = 0; k < 24 && gRoomControls.area != AREA_NULL_3E && WallAt(tr, 0, 0) && WallAt(tr, 0, -8); k++) {
                         tr->x.HALF.HI += i ? -4 : 4;
                         tr->y.HALF.HI -= 4;
                     }
@@ -9453,8 +9464,9 @@ static void GanonPartTick(AlttpEnemy* this) {
                     LinkedList* list = &gEntityLists[k];
                     Entity* e;
                     for (e = list->first; (u32)e != (u32)list; e = e->next) {
-                        if (IsRodShot(e, ITEM_FIRE_ROD) && Abs(e->x.HALF.HI - super->x.HALF.HI) < 12 &&
-                            Abs(e->y.HALF.HI - super->y.HALF.HI + 4) < 14) {
+                        // (a shot bursts on the stone block the torch stands in, short of its bowl)
+                        if (IsRodShot(e, ITEM_FIRE_ROD) && Abs(e->x.HALF.HI - super->x.HALF.HI) < 16 &&
+                            Abs(e->y.HALF.HI - super->y.HALF.HI + 4) < 24) {
                             light = TRUE;
                             break;
                         }
@@ -9466,7 +9478,7 @@ static void GanonPartTick(AlttpEnemy* this) {
                 }
             }
             if (gGanon.burn[i] != 0 && this->child == NULL) {
-                Entity* f = SpawnAt(GANON_PART, GP_TORCH_FIRE, super, 0, -10);
+                Entity* f = SpawnAt(GANON_PART, GP_TORCH_FIRE, super, -7, -10); // (centered on the bowl)
                 if (f != NULL) {
                     f->collisionLayer = super->collisionLayer;
                     this->child = f;

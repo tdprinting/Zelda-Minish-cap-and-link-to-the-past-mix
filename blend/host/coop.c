@@ -5,8 +5,13 @@
 // other game's shared state block (gBlendLink at 0x0203F000), where the game
 // draws them as a second Link in red mail.
 //
-// Usage: zelda-blend [game.gba] [--single] [--vertical]
+// Usage: zelda-blend [game.gba] [--single] [--vertical] [--no-update]
 //        zelda-blend game.gba --test SCRIPT OUT.ppm   (headless test, see runScript)
+//        zelda-blend --update-only [--update-from FOLDER|ZIP|URL|github:owner/repo]
+//                                   (check for and install a newer build, then exit)
+//        zelda-blend --version
+//
+// On Windows it first looks for a newer build and offers to install it (updater.c).
 //
 // Controls (keyboard; gamepads 1 and 2 also work):
 //   Player 1: WASD move, J = B, K = A, U = L, I = R, Enter = Start, Right Shift = Select
@@ -16,9 +21,11 @@
 #include <mgba/core/core.h>
 #include <mgba/core/blip_buf.h>
 #include <mgba/core/log.h>
+#include <mgba/core/serialize.h>
 #include <mgba-util/vfs.h>
 
 #include <SDL.h>
+#include "updater.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -176,7 +183,8 @@ static uint16_t parseKeys(const char* s) {
 
 // Headless test script. Each line: "WHO KEYS FRAMES" where WHO is 1, 2 or b (both)
 // and KEYS uses A B L R S(tart) E(select) U D < > or "-" for none; "shot FILE" saves the screens;
-// "poke WHO ADDR VALUE" writes a byte (hex) into that player's memory.
+// "poke WHO ADDR VALUE" writes a byte (hex) into that player's memory, "poke16" a halfword;
+// "load WHO FILE" loads a save state (made by blend/harness) into that player's game.
 static void runScript(const char* path, struct Player* p, int players) {
 	FILE* f = fopen(path, "r");
 	char line[256];
@@ -186,10 +194,28 @@ static void runScript(const char* path, struct Player* p, int players) {
 		char who[8] = "", keys[32] = "";
 		int frames = 0;
 		unsigned addr = 0, val = 0;
-		if (sscanf(line, "poke %7s %x %x", who, &addr, &val) == 3) {
+		if (strncmp(line, "poke16", 6) && sscanf(line, "poke %7s %x %x", who, &addr, &val) == 3) {
 			for (int i = 0; i < players; i++)
 				if (who[0] == 'b' || who[0] - '1' == i)
 					p[i].core->busWrite8(p[i].core, addr, val);
+			continue;
+		}
+		if (sscanf(line, "poke16 %7s %x %x", who, &addr, &val) == 3) {
+			for (int i = 0; i < players; i++)
+				if (who[0] == 'b' || who[0] - '1' == i)
+					p[i].core->busWrite16(p[i].core, addr, val);
+			continue;
+		}
+		char file[200];
+		if (sscanf(line, "load %7s %199s", who, file) == 2) {
+			for (int i = 0; i < players; i++)
+				if (who[0] == 'b' || who[0] - '1' == i) {
+					struct VFile* vf = VFileOpen(file, O_RDONLY);
+					if (vf) {
+						mCoreLoadStateNamed(p[i].core, vf, SAVESTATE_ALL);
+						vf->close(vf);
+					}
+				}
 			continue;
 		}
 		if (sscanf(line, "shot %31s", keys) == 1) {
@@ -219,13 +245,26 @@ int main(int argc, char** argv) {
 	int players = 2, vertical = 0;
 	const char* testScript = NULL;
 	const char* testOut = NULL;
+	int checkUpdates = 1;
+	struct UpdaterOptions update = { 0 };
 	for (int i = 1; i < argc; i++) {
 		if (!strcmp(argv[i], "--single")) players = 1;
+		else if (!strcmp(argv[i], "--no-update")) checkUpdates = 0;
+		else if (!strcmp(argv[i], "--update-from") && i + 1 < argc) update.source = argv[++i];
+		else if (!strcmp(argv[i], "--update-only")) update.onlyUpdate = update.assumeYes = 1;
+		else if (!strcmp(argv[i], "--version")) {
+			printf("Zelda: The Picori Seal %s\n", updaterVersion());
+			return 0;
+		}
 		else if (!strcmp(argv[i], "--vertical")) vertical = 1;
 		else if (!strcmp(argv[i], "--test") && i + 2 < argc) { testScript = argv[++i]; testOut = argv[++i]; }
 		else rom = argv[i];
 	}
 	mLogSetDefaultLogger(&logger);
+	if (update.onlyUpdate)
+		return updaterRun(&update) ? 0 : 2;
+	if (checkUpdates && !testScript && updaterRun(&update))
+		return 0; // the new version has been started
 
 	struct Player p[2] = { 0 };
 	if (!startPlayer(&p[0], rom, "player1.sav") || (players == 2 && !startPlayer(&p[1], rom, "player2.sav"))) {
