@@ -36,6 +36,8 @@
 #include "room.h"
 #include "sound.h"
 #include "transitions.h"
+#include "tiles.h"
+#include "asm.h"
 
 #include "../custom/gen/shrine.h"
 
@@ -48,10 +50,12 @@ extern void* const gShrineRoomTiles[];
 #define GUARD_DIALOG_SOLO 43
 #define GUARD_DIALOG_COOP 44
 /** where the guard stands in South Hyrule Field: before the cave, or beside it */
+#define CAVE_X 0x58
+#define CAVE_Y 0x118
 #define GUARD_X 0x58
-#define GUARD_Y 0x12c
-#define GUARD_ASIDE_X 0x38
-#define GUARD_ASIDE_Y 0x124
+#define GUARD_Y 0x134
+#define GUARD_ASIDE_X 0x30
+#define GUARD_ASIDE_Y 0x12c
 
 typedef struct {
     u8 swinging;     /**< Link was swinging the sword last frame */
@@ -321,6 +325,23 @@ static bool32 IsGuard(Entity* e) {
     return e != NULL && e->next != NULL && e->kind == NPC && e->id == GUARD;
 }
 
+/**
+ * The temple's cave: the little cave west of Link's house, which a Kinstone fusion opens in
+ * Minish Cap, stands open (its 5x5 cells of cave mouth, as the fusion makes them).
+ */
+static void OpenCave(void) {
+    u32 pos = TILE_POS(CAVE_X / 16, CAVE_Y / 16), i, j, type = TILE_TYPE_512;
+    if (GetTileTypeAtTilePos(pos, LAYER_BOTTOM) == TILE_TYPE_512 + 12) {
+        return;
+    }
+    pos -= TILE_POS(2, 2);
+    for (i = 0; i < 5; i++, pos += 0x40) {
+        for (j = 0; j < 5; j++) {
+            SetTileType(type++, pos + j, LAYER_BOTTOM);
+        }
+    }
+}
+
 /** The guard at the temple's cave: before it with one player, beside it with two. */
 static void UpdateGuard(void) {
     Entity* g;
@@ -332,6 +353,7 @@ static void UpdateGuard(void) {
         }
         return;
     }
+    OpenCave();
     g = gShrine.guard;
     if (!IsGuard(g)) {
         g = CreateNPC(GUARD, 4, aside ? GUARD_DIALOG_COOP : GUARD_DIALOG_SOLO);

@@ -53,7 +53,7 @@ ITEM = {
     'map': (0x50, 0), 'compass': (0x51, 0), 'rupees20': (0x56, 0), 'rupees50': (0x57, 0),
     'rupees100': (0x58, 0), 'heart_piece': (0x63, 0), 'bombs': (0x5d, 0), 'arrows': (0x5e, 0),
     # the reward: A Link to the Past's sword beam, as Minish Cap's Sword Beam scroll
-    'sword_beam': (0x4d, 0),
+    'sword_beam': (0x4c, 0),
 }
 
 # enemies (tmc/include/enemy.h; 0x67 and up are A Link to the Past's, alttpEnemies.c)
@@ -108,7 +108,7 @@ ROOMS = [
         plates=[((11, 21), 0), ((20, 21), 0)],
         gates=[([(x, 10) for x in range(10, 22)], BIT_ENTRY, NONE)],
         steps=[((15, 6), 'hub')],
-        enemies=[(KEESE, 0, (9, 18)), (KEESE, 0, (22, 18))],
+        enemies=[(KEESE, 0, (11, 17)), (KEESE, 0, (20, 17))],
     ),
     dict(
         src=0x17, entrance=0x77, temple='Tower of Hera: the great hall',
@@ -123,7 +123,7 @@ ROOMS = [
         plates=[((20, 6), 1)],
         gates=[([(7, 16), (8, 16)], NONE, 1), ([(23, 16), (24, 16)], BIT_DESERT, NONE)],
         levers=[((27, 22), BIT_DESERT)],
-        enemies=[(ALTTP_LEEVER, 0, (8, 25)), (ALTTP_LEEVER, 0, (22, 29)), (ALTTP_BEAMOS, 0, (6, 8))],
+        enemies=[(ALTTP_LEEVER, 0, (8, 25)), (ALTTP_LEEVER, 0, (20, 28)), (ALTTP_BEAMOS, 0, (6, 8))],
     ),
     dict(
         src=0xd9, entrance=0xc9, temple='Eastern Palace: the statue rooms',
@@ -146,7 +146,7 @@ ROOMS = [
         steps=[((23, 29), 'ice')],
         seals=[((23, 24), 0)],
         chests=[((27, 4), 'compass')],
-        enemies=[(PENGATOR, 0, (8, 24)), (PENGATOR, 0, (10, 26)), (SPINY_CHUCHU, 0, (21, 9))],
+        enemies=[(PENGATOR, 0, (6, 23)), (PENGATOR, 0, (10, 26)), (SPINY_CHUCHU, 0, (20, 9))],
     ),
     dict(
         src=0x0b, entrance=0x4a, temple='Palace of Darkness: the leapfrog',
@@ -155,7 +155,7 @@ ROOMS = [
         gates=[([(15, 23), (15, 24)], BIT_LEAP, 3)],
         levers=[((21, 27), BIT_LEAP)],
         chests=[((24, 4), 'rupees100')],
-        enemies=[(TERRORPIN, 0, (24, 25)), (MINI_HELMASAUR, 0, (8, 24)), (DARK_NUT, 0, (19, 9))],
+        enemies=[(TERRORPIN, 0, (26, 24)), (MINI_HELMASAUR, 0, (8, 24)), (DARK_NUT, 0, (19, 9))],
     ),
     dict(
         src=0x64, entrance=0xdb, temple="Thieves' Town: the long hall",
@@ -167,7 +167,7 @@ ROOMS = [
         gates=[([(x, 6) for x in range(12, 20)] + [(12, y) for y in (3, 4, 5)] + [(19, y) for y in (3, 4, 5)],
                 BIT_THIEVES, NONE),
                ([(16, 23), (16, 24)], BIT_THIEVES, NONE)],
-        enemies=[(ALTTP_MOBLIN, 0, (9, 10)), (ALTTP_MOBLIN, 0, (22, 10)), (ROPE, 0, (16, 26))],
+        enemies=[(ALTTP_MOBLIN, 0, (9, 10)), (ALTTP_MOBLIN, 0, (22, 10)), (ROPE, 0, (20, 24))],
     ),
     dict(
         src=0x26, entrance=0x28, temple='Swamp Palace: the drained cistern',
@@ -182,9 +182,9 @@ ROOMS = [
         src=0xa6, entrance=0x0c, temple="Ganon's Tower: the arena",
         boss=True,
         steps=[((23, 3), 'boss')],
-        enemies=[(ARMOS_KNIGHT, 0, (10, 10)), (ARMOS_KNIGHT, 0, (14, 10)), (ARMOS_KNIGHT, 0, (18, 10)),
-                 (ARMOS_KNIGHT, 0, (10, 14)), (ARMOS_KNIGHT, 0, (14, 14)), (ARMOS_KNIGHT, 0, (18, 14)),
-                 (LANMOLA, 0, (16, 22))],
+        enemies=[(ARMOS_KNIGHT, 0, (8, 24)), (ARMOS_KNIGHT, 0, (13, 24)), (ARMOS_KNIGHT, 0, (18, 24)),
+                 (ARMOS_KNIGHT, 0, (8, 27)), (ARMOS_KNIGHT, 0, (13, 27)), (ARMOS_KNIGHT, 0, (18, 27)),
+                 (LANMOLA, 0, (25, 18))],
     ),
 ]
 
@@ -368,6 +368,8 @@ def preview(out, k, spec, plan, img, empty, devs, blend):
             x, y = d.cell
             pix[y * 16:y * 16 + 16, x * 16:x * 16 + 16] = d.art[0]
     im = Image.fromarray(pix).convert('RGB')
+    os.makedirs(out, exist_ok=True)
+    im.save(os.path.join(out, 'clean%02d.png' % k))
     dr = ImageDraw.Draw(im, 'RGBA')
     for n in range(0, 32, 2):
         dr.line((n * 16, 0, n * 16, 511), fill=(255, 255, 255, 30))
@@ -471,6 +473,9 @@ def generate(build, tiler, out_dir, maps_inc, rooms_inc, ents_inc, exits_h, entr
             p.chests.append((c[0], c[1], item))
             p.big_chests.add(c)
         p.enemies = [(e, form, c[0] * 16 + 8, c[1] * 16 + 8, c) for e, form, c in spec.get('enemies', ())]
+        for e, form, c in spec.get('enemies', ()):
+            if p.at(*c) != A.FLOOR:
+                print('WARNING room %d: enemy %#x at %s is not on floor' % (k, e, c))
         p.steps_up = [cell for cell, _ in spec.get('steps', ())
                       if A.attr_class(p.room.attr[cell[1] * 2 * 64 + cell[0] * 2]) != A.STAIRS]
         for d in devs:

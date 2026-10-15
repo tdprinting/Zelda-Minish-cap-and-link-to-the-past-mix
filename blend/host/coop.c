@@ -16,6 +16,7 @@
 #include <mgba/core/core.h>
 #include <mgba/core/blip_buf.h>
 #include <mgba/core/log.h>
+#include <mgba/core/serialize.h>
 #include <mgba-util/vfs.h>
 
 #include <SDL.h>
@@ -176,7 +177,8 @@ static uint16_t parseKeys(const char* s) {
 
 // Headless test script. Each line: "WHO KEYS FRAMES" where WHO is 1, 2 or b (both)
 // and KEYS uses A B L R S(tart) E(select) U D < > or "-" for none; "shot FILE" saves the screens;
-// "poke WHO ADDR VALUE" writes a byte (hex) into that player's memory.
+// "poke WHO ADDR VALUE" writes a byte (hex) into that player's memory, "poke16" a halfword;
+// "load WHO FILE" loads a save state (made by blend/harness) into that player's game.
 static void runScript(const char* path, struct Player* p, int players) {
 	FILE* f = fopen(path, "r");
 	char line[256];
@@ -186,10 +188,28 @@ static void runScript(const char* path, struct Player* p, int players) {
 		char who[8] = "", keys[32] = "";
 		int frames = 0;
 		unsigned addr = 0, val = 0;
-		if (sscanf(line, "poke %7s %x %x", who, &addr, &val) == 3) {
+		if (strncmp(line, "poke16", 6) && sscanf(line, "poke %7s %x %x", who, &addr, &val) == 3) {
 			for (int i = 0; i < players; i++)
 				if (who[0] == 'b' || who[0] - '1' == i)
 					p[i].core->busWrite8(p[i].core, addr, val);
+			continue;
+		}
+		if (sscanf(line, "poke16 %7s %x %x", who, &addr, &val) == 3) {
+			for (int i = 0; i < players; i++)
+				if (who[0] == 'b' || who[0] - '1' == i)
+					p[i].core->busWrite16(p[i].core, addr, val);
+			continue;
+		}
+		char file[200];
+		if (sscanf(line, "load %7s %199s", who, file) == 2) {
+			for (int i = 0; i < players; i++)
+				if (who[0] == 'b' || who[0] - '1' == i) {
+					struct VFile* vf = VFileOpen(file, O_RDONLY);
+					if (vf) {
+						mCoreLoadStateNamed(p[i].core, vf, SAVESTATE_ALL);
+						vf->close(vf);
+					}
+				}
 			continue;
 		}
 		if (sscanf(line, "shot %31s", keys) == 1) {
