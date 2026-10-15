@@ -1679,5 +1679,23 @@ gMoreSpritePtrs:: @ 08003DD4
 	.4byte gSprite_AlttpEnemies5
 	.4byte 00000000
 
+	@ 333: the Ice Palace, Misery Mire, Turtle Rock and Thieves' Town enemies
+	.4byte gSpriteAnimations_AlttpEnemies6
+	.4byte gSpriteFrames_AlttpEnemies6
+	.4byte gSprite_AlttpEnemies6
+	.4byte 00000000
+
+	@ 334: Blind and Kholdstare
+	.4byte gSpriteAnimations_AlttpEnemies7
+	.4byte gSpriteFrames_AlttpEnemies7
+	.4byte gSprite_AlttpEnemies7
+	.4byte 00000000
+
+	@ 335: Vitreous and Trinexx
+	.4byte gSpriteAnimations_AlttpEnemies8
+	.4byte gSpriteFrames_AlttpEnemies8
+	.4byte gSprite_AlttpEnemies8
+	.4byte 00000000
+
 gUnk_08003E44:: @ 08003E44
 	.incbin "data_080029B4/gUnk_08003E44.bin"

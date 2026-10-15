@@ -986,7 +986,7 @@ static void CastMedallion(u32 m) {
             }
         }
     }
-    gBlendLink.medallionUsed = 1;
+    gBlendLink.medallionUsed = 1 + m; // which one: Kholdstare's shell melts from Bombos (1)
     OpenMedallionGate(sMedallions[m]);
 }
 

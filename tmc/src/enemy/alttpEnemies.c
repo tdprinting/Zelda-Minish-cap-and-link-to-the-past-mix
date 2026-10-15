@@ -8,11 +8,15 @@
  * Beamos, Pokeys, Gibdos and the Lanmolas. The Tower of Hera: Baris, Hardhat
  * Beetles, Bumpers and Moldorm; Debirandos, Kodongos and mini Moldorms. The Dark
  * World dungeons: mini Helmasaurs, Terrorpins, Hovers, Kyamerons, Zols, Firesnakes,
- * spike blocks, Medusa statues, and the Helmasaur King, Arrghus and Mothula.
+ * spike blocks, Medusa statues, and the Helmasaur King, Arrghus and Mothula. The last
+ * Dark World dungeons (Thieves' Town, the Ice Palace, Misery Mire, Turtle Rock):
+ * Freezors, Pengators, Stalfos Knights, Wizzrobes, Laser Eyes, Chain Chomps, Zazaks,
+ * Gibos, fire bars and Stalfos heads, and Blind, Kholdstare, Vitreous and Trinexx.
  *
  * Their graphics are A Link to the Past's sprite sheets (plus the frames Minish Cap's
  * motion adds), made at build time from the player's cartridge by
- * blend/enemies/alttp_enemies.py into sprites 155 and 329-332. Every frame is a
+ * blend/enemies/alttp_enemies.py (and alttp_enemies_late.py) into sprites 155 and
+ * 329-335. Every frame is a
  * one-frame animation, and these enemies pick their frames themselves.
  */
 #include "enemy.h"
@@ -117,10 +121,19 @@ static void AlttpInit(AlttpEnemy* this, u32 pal, u32 frame) {
     super->action = 1;
 }
 
+/** Puts back health a blow took (the enemy shrugs it off). A blow that took all of it
+ * has had the engine switch the enemy's collision off, so that goes back on too. */
+static void RestoreHealth(AlttpEnemy* this) {
+    if (super->health == 0) {
+        COLLISION_ON(super);
+    }
+    super->health = this->savedHealth;
+}
+
 /** A hit that only clinks off (shield up): put the health back and skip the knockback. */
 static void BlockHit(AlttpEnemy* this) {
     if (super->health < this->savedHealth) {
-        super->health = this->savedHealth;
+        RestoreHealth(this);
         super->knockbackDuration = 0;
         super->iframes = -12;
         EnqueueSFX(SFX_METAL_CLINK);
@@ -1881,7 +1894,7 @@ static void PokeyOnCollision(AlttpEnemy* this) {
             ball->direction = super->knockbackDirection;
         }
         this->turns--;
-        super->health = this->savedHealth;
+        RestoreHealth(this);
         super->speed += 0x40;
         super->knockbackDuration = 0;
         EnqueueSFX(SFX_HIT);
@@ -2129,6 +2142,7 @@ void MoldormSegment(AlttpEnemy* this) {
         u32 dmg = this->savedHealth - super->health;
         head->base.health = head->base.health > dmg ? head->base.health - dmg : 0;
         head->base.iframes = 30;
+        COLLISION_ON(super);
         super->health = this->savedHealth = 255;
         super->knockbackDuration = 0;
         EnqueueSFX(SFX_BOSS_HIT);
@@ -2303,7 +2317,7 @@ static void (*const Hardhat_Functions[])(AlttpEnemy*) = {
 static void HardhatOnCollision(AlttpEnemy* this) {
     if (super->health < this->savedHealth) {
         // unhurt, but sent flying, and it loses its momentum
-        super->health = this->savedHealth;
+        RestoreHealth(this);
         super->knockbackDuration = 16;
         super->knockbackSpeed = 0x300;
         this->targetX = this->targetY = 0;
@@ -2904,6 +2918,11 @@ static bool32 IsHeavy(Entity* e) {
                          (e->kind == PLAYER_ITEM && e->id == PLAYER_ITEM_BOMB));
 }
 
+/** A bomb's blast: the smoke it leaves (SMOKE_PARTICLE, a child of the bomb). */
+static bool32 IsBlast(Entity* e) {
+    return e != NULL && e->kind == OBJECT && e->id == SMOKE_PARTICLE;
+}
+
 /** The Hammer coming down within range of a point. */
 static bool32 HammerNear(Entity* at, s32 range) {
     LinkedList* list = &gEntityLists[6];
@@ -3114,7 +3133,7 @@ static void MiniHelmasaurOnCollision(AlttpEnemy* this) {
     if (super->health < this->savedHealth && !IsHeavy(super->contactedEntity) &&
         sFaceToDir[this->face] == ((GetFacingDirection(super, &gPlayerEntity.base) + 4) & 0x18)) {
         // the sword glances off the mask, and the blow sends it skidding back
-        super->health = this->savedHealth;
+        RestoreHealth(this);
         super->knockbackDuration = 12;
         super->knockbackSpeed = 0x280;
         this->targetX = this->targetY = 0;
@@ -3219,10 +3238,10 @@ static void (*const Terrorpin_Functions[])(AlttpEnemy*) = {
 static void TerrorpinOnCollision(AlttpEnemy* this) {
     if (IsHeavy(super->contactedEntity) && this->cooldown != 0) {
         // the same blow that just flipped it
-        super->health = this->savedHealth;
+        RestoreHealth(this);
         super->knockbackDuration = 0;
     } else if (IsHeavy(super->contactedEntity) && !this->coerced) {
-        super->health = this->savedHealth;
+        RestoreHealth(this);
         super->knockbackDuration = 0;
         TerrorpinFlip(this);
     } else if (this->shield) {
@@ -3915,7 +3934,7 @@ static void HelmasaurKingOnCollision(AlttpEnemy* this) {
     super->knockbackDuration = 0;
     if (super->health < this->savedHealth) {
         if (gHk.mask < 3) {
-            super->health = this->savedHealth;
+            RestoreHealth(this);
             if (IsHeavy(by)) {
                 // a chip off the mask
                 u32 hp = this->unused[0];
@@ -3944,6 +3963,9 @@ static void HelmasaurKingOnCollision(AlttpEnemy* this) {
             }
         } else {
             if (this->savedHealth - super->health > 4) {
+                if (super->health == 0) {
+                    COLLISION_ON(super);
+                }
                 super->health = this->savedHealth - 4;
             }
             EnqueueSFX(SFX_BOSS_HIT);
@@ -4430,7 +4452,7 @@ static void (*const Arrghi_Functions[])(AlttpEnemy*) = {
 static void ArrghiOnCollision(AlttpEnemy* this) {
     if (IsHook(super->contactedEntity) && super->action == AG_RING) {
         // caught on the Hookshot: pulled out of the ring
-        super->health = this->savedHealth;
+        RestoreHealth(this);
         super->action = AG_HOOKED;
         EnqueueSFX(SFX_14C);
     }
@@ -4680,4 +4702,3115 @@ void MothulaBeam(AlttpEnemy* this) {
         DeleteThisEntity();
     }
     SetFrame(super, AF_MBEAM_0 + (this->step & 1));
+}
+#include "item.h"
+
+/* =============================================================================
+ * The Ice Palace, Misery Mire, Turtle Rock and Thieves' Town: their enemies and
+ * their bosses (sprites 333-335). Included at the end of alttpEnemies.c, so it
+ * shares its helpers.
+ * ========================================================================== */
+
+const Hitbox gHitbox_Blind = { 0, -10, { 6, 4, 4, 6 }, 8, 14 };
+const Hitbox gHitbox_Kholdstare = { 0, 0, { 8, 8, 8, 8 }, 11, 11 };
+const Hitbox gHitbox_KholdShell = { 0, 0, { 16, 16, 16, 16 }, 38, 30 };
+const Hitbox gHitbox_Vitreous = { 0, 0, { 8, 8, 8, 8 }, 13, 13 };
+const Hitbox gHitbox_Trinexx = { 0, 0, { 6, 4, 4, 6 }, 12, 12 };
+const Hitbox gHitbox_TrinexxShell = { 0, 0, { 16, 16, 16, 16 }, 38, 28 };
+
+/** A shot from the Fire Rod (ITEM_FIRE_ROD) or the Ice Rod (ITEM_ICE_ROD). */
+static bool32 IsRodShot(Entity* e, u32 item) {
+    return e != NULL && e->kind == PLAYER_ITEM && e->id == PLAYER_ITEM_FIRE_ROD_PROJECTILE &&
+           ((u8*)e)[0x68] == item;
+}
+
+/** Fire: the Fire Rod's shot, or Bombos cast on this enemy (blend.c's CastMedallion
+ * keeps which medallion it was in gBlendLink.medallionUsed: 1 for Bombos). */
+static bool32 IsFire(Entity* self, Entity* e) {
+    return IsRodShot(e, ITEM_FIRE_ROD) || (e != NULL && e->kind == OBJECT && e->id == LINK_PARTNER &&
+                                           e->type == 2 && e->child == self && gBlendLink.medallionUsed == 1);
+}
+
+/** Takes away every enemy this one made (a beaten boss's parts and shots). */
+static void DeleteChildren(Entity* parent) {
+    u32 i;
+    for (i = 0; i < ARRAY_COUNT(gEntityLists); i++) {
+        LinkedList* list = &gEntityLists[i];
+        Entity* e = list->first;
+        while ((u32)e != (u32)list) {
+            Entity* next = e->next;
+            if (e != parent && e->kind == ENEMY && e->parent == parent) {
+                DeleteEntity(e);
+            }
+            e = next;
+        }
+    }
+}
+
+/** Sprite_DirectionToFaceLink: 0 right, 1 left, 2 down, 3 up, by the longer axis. */
+static u32 Face4ToLink(Entity* e) {
+    s32 dx = gPlayerEntity.base.x.HALF.HI - e->x.HALF.HI;
+    s32 dy = gPlayerEntity.base.y.HALF.HI - e->y.HALF.HI;
+    if (Abs(dx) >= Abs(dy)) {
+        return dx >= 0 ? 0 : 1;
+    }
+    return dy >= 0 ? 2 : 3;
+}
+
+/** The ALttP facing (0 right, 1 left, 2 down, 3 up) Link looks along. */
+static u32 LinkFace4(void) {
+    return DirToFace(gPlayerEntity.base.animationState << 2);
+}
+
+/** A Link to the Past 16-step heading where 0 is west and 4 south (Blind's) as a
+ * Minish Cap direction. */
+static u32 WestHeadingToDir(u32 h) {
+    return (24 - h * 2) & 0x1f;
+}
+
+/** MoveVelWalls with a different reach across and down. */
+static u32 MoveVelWalls2(Entity* e, s32 vx, s32 vy, s32 rx, s32 ry) {
+    u32 hit = 0;
+    if (vx != 0) {
+        if (WallAt(e, vx > 0 ? rx : -rx, 0)) {
+            hit |= 1;
+        } else {
+            e->x.WORD += vx << 12;
+        }
+    }
+    if (vy != 0) {
+        if (WallAt(e, 0, vy > 0 ? ry : -ry)) {
+            hit |= 2;
+        } else {
+            e->y.WORD += vy << 12;
+        }
+    }
+    return hit;
+}
+
+/** A jump or fall: z and its speed in 1/16 pixels, gravity per frame, landing at 0.
+ * Returns TRUE on landing. */
+static bool32 MoveZ16(s16* z, s16* vz, s32 gravity, s32 minVz) {
+    *z += *vz;
+    if (*vz > minVz) {
+        *vz -= gravity;
+    }
+    if (*z <= 0) {
+        *z = 0;
+        *vz = 0;
+        return TRUE;
+    }
+    return FALSE;
+}
+
+/** A hit that got through: TRUE once per blow (the engine took health off). The
+ * health is put back, for the bosses that count their blows themselves. */
+static bool32 TookHit(AlttpEnemy* this) {
+    if (super->health < this->savedHealth) {
+        RestoreHealth(this);
+        return TRUE;
+    }
+    return FALSE;
+}
+
+/* ---- shots and trails (ALTTP_BOLT) ------------------------------------------------
+ * By type: Blind's laser, Vitreous's lightning, falling ice (Kholdstare's), Trinexx's
+ * breath of ice and of fire and the flames it leaves, a Wizzrobe's beam, a Laser
+ * Eye's laser, a Zazak's fireball, and the trails the beams leave (types 1, 3, 10:
+ * one for each sprite). None of them can be hurt, and they never hold doors shut.
+ */
+enum {
+    BT_BLINDLASER, BT_TRAIL7, BT_LIGHTNING, BT_TRAIL8, BT_ICE, BT_TICE, BT_TFIRE, BT_FLAME,
+    BT_WIZZBEAM, BT_LASER, BT_TRAIL6, BT_PHLEGM,
+};
+
+/** Leaves a still copy of a beam's frame behind for a few frames. */
+static void SpawnTrail(Entity* from, u32 type, u32 frame, u32 pal, u32 life) {
+    AlttpEnemy* t = (AlttpEnemy*)CreateEnemy(ALTTP_BOLT, type);
+    if (t != NULL) {
+        CopyPosition(from, &t->base);
+        t->base.parent = from->parent;
+        t->targetX = frame;
+        t->idx = pal;
+        t->base.timer = life;
+    }
+}
+
+static Entity* SpawnBolt(Entity* from, u32 type, s32 dx, s32 dy, s32 vx, s32 vy) {
+    AlttpEnemy* b = (AlttpEnemy*)SpawnAt(ALTTP_BOLT, type, from, dx, dy);
+    if (b != NULL) {
+        b->targetX = vx;
+        b->targetY = vy;
+    }
+    return &b->base;
+}
+
+void AlttpBolt(AlttpEnemy* this) {
+    static const u8 boltPal[] = { AP_BLINDLASER, 0, AP_BOLT, 0, AP_ICEBALL, AP_ICEBALL, AP_KFIRE, AP_KFIRE,
+                                  AP_WIZZBEAM, AP_LASER, 0, AP_PHLEGM };
+    s16* z = &this->homeX;
+    s16* vz = &this->homeY;
+    if (super->action == 0) {
+        u32 type = super->type;
+        if (type == BT_TRAIL6 || type == BT_TRAIL7 || type == BT_TRAIL8) {
+            AlttpInit(this, this->idx, this->targetX);
+            if (type != BT_TRAIL8) {
+                COLLISION_OFF(super);
+            }
+        } else {
+            AlttpInit(this, boltPal[type], 0);
+        }
+        super->spriteSettings.shadow = 0;
+        super->spritePriority.b0 = 2;
+        this->step = 0;
+        if (type == BT_ICE) {
+            if (super->type2 == 0) {
+                // high above where Link stands, its shadow showing where it lands
+                *z = 160 << 4;
+                *vz = 0;
+                COLLISION_OFF(super);
+                super->spriteSettings.shadow = 1;
+                EnqueueSFX(SFX_FALL_HOLE);
+            } else {
+                *z = 0;
+                *vz = 32;
+            }
+        }
+    }
+    super->health = 0;
+    super->knockbackDuration = 0;
+    this->step++;
+    switch (super->type) {
+        case BT_TRAIL6:
+        case BT_TRAIL7:
+        case BT_TRAIL8:
+            if (--super->timer == 0) {
+                DeleteThisEntity();
+            }
+            super->spriteSettings.draw = super->timer > 2 || (super->timer & 1);
+            return;
+        case BT_BLINDLASER:
+            // eight pixels a frame along Blind's look, a trail of light behind it
+            if (super->timer) {
+                if (--super->timer == 0) {
+                    DeleteThisEntity();
+                }
+                return;
+            }
+            super->x.HALF.HI += this->targetX;
+            super->y.HALF.HI += this->targetY;
+            SetFrame(super, AF_BLINDLASER_0 + this->idx);
+            SpawnTrail(super, BT_TRAIL7, AF_BLINDLASER_0 + this->idx, AP_BLINDLASER, 6);
+            if (WallAt(super, 0, 0) || !InRoom(super, 0)) {
+                super->timer = 6;
+                COLLISION_OFF(super);
+                super->spriteSettings.draw = 0;
+                CreateFx(super, FX_SPARKLE2, 0);
+            }
+            return;
+        case BT_LIGHTNING: {
+            // Sprite_BF_Lightning: a fork every two frames, zigzagging down the room
+            static const s8 xoff[32] = { -15, 0, 0, -15, 0, -15, -15, 0, 0, 15, 15, 0, 15, 0, 0, 15,
+                                         0, 15, 15, 0, 15, 0, 0, 15, -15, 0, 0, -15, 0, -15, -15, 0 };
+            u32 a = this->idx & 7, r;
+            SetFrame(super, (a & 4 ? AF_BOLT_0_FLIP : AF_BOLT_0) + (a & 3) * 2);
+            if (this->step & 1) {
+                return;
+            }
+            SpawnTrail(super, BT_TRAIL8, super->animIndex, AP_BOLT, 10);
+            super->y.HALF.HI += 16;
+            if (super->y.HALF.HI > gRoomControls.origin_y + gRoomControls.height || this->step > 60) {
+                DeleteThisEntity();
+            }
+            r = Random() & 7;
+            super->x.HALF.HI += xoff[((a >> 1) & 3) * 8 + r];
+            this->idx = r;
+            return;
+        }
+        case BT_ICE:
+            // Sprite_A4_FallingIce: the block drops and bursts in four chunks, which
+            // bounce off and shatter
+            if (super->timer) {
+                if (--super->timer == 0) {
+                    DeleteThisEntity();
+                }
+                SetFrame(super, AF_ICEBALL_SPIN);
+                return;
+            }
+            if (super->type2 == 0) {
+                super->spriteSettings.draw = this->step & 1 ? 1 : *z < (96 << 4);
+                if (MoveZ16(z, vz, 3, -64)) {
+                    static const s8 qx[8] = { 0, 32, 0, -32, 24, 24, -24, -24 };
+                    static const s8 qy[8] = { -32, 0, 32, 0, -24, 24, -24, 24 };
+                    u32 b = Random() & 4, i;
+                    EnqueueSFX(SFX_ICE_BLOCK_STOP);
+                    CreateFx(super, FX_ICE, 0);
+                    for (i = 0; i < 4; i++) {
+                        AlttpEnemy* c = (AlttpEnemy*)SpawnBolt(super, BT_ICE, 0, 0, qx[i + b], qy[i + b]);
+                        if (c != NULL) {
+                            c->base.type2 = 1;
+                            c->base.parent = super->parent;
+                        }
+                    }
+                    DeleteThisEntity();
+                }
+                SetFrame(super, AF_ICEBALL_0);
+            } else {
+                MoveVel(super, this->targetX, this->targetY);
+                if (MoveZ16(z, vz, 3, -64) || WallAt(super, 0, 0)) {
+                    super->timer = 15;
+                    EnqueueSFX(SFX_ICE_BLOCK_MELT);
+                }
+                SetFrame(super, AF_ICEBALL_1);
+            }
+            SetHeight(super, *z >> 4);
+            return;
+        case BT_TICE:
+            // Sprite_CD: the ice head's breath, drifting toward Link as it falls
+            if (!(this->step & 3)) {
+                s32 m = gPlayerEntity.base.x.HALF.HI < super->x.HALF.HI ? -1 : 1;
+                if (this->idx != (u8)(m * 16)) {
+                    this->idx += m;
+                }
+            }
+            MoveVel(super, (s8)this->idx + this->targetX, 24);
+            if ((this->step & 7) == 0) {
+                CreateFx(super, FX_BLUE_SPARKLE, 0);
+            }
+            if (WallAt(super, 0, 0) || !InRoom(super, 0) || this->step > 200) {
+                CreateFx(super, FX_ICE, 0);
+                DeleteThisEntity();
+            }
+            SetFrame(super, AF_ICEBALL_1 + ((this->step >> 2) & 1) * (AF_ICEBALL_SPIN - AF_ICEBALL_1));
+            return;
+        case BT_TFIRE:
+            // Sprite_CC: the fire head's breath, leaving flames on the floor
+            if (!(this->step & 3)) {
+                s32 m = gPlayerEntity.base.x.HALF.HI < super->x.HALF.HI ? -1 : 1;
+                if (this->targetX != m * 16) {
+                    this->targetX += m;
+                }
+            }
+            MoveVel(super, this->targetX, 24);
+            if ((this->step & 15) == 0) {
+                SpawnBolt(super, BT_FLAME, 0, 0, 0, 0);
+                EnqueueSFX(SFX_ITEM_LANTERN_ON);
+            }
+            if (WallAt(super, 0, 0) || !InRoom(super, 0) || this->step > 200) {
+                CreateFx(super, FX_DEATH, 0);
+                DeleteThisEntity();
+            }
+            SetFrame(super, AF_KFIRE_0 + ((this->step >> 2) & 3));
+            return;
+        case BT_FLAME: {
+            static const u8 burn[8] = { 5, 4, 3, 1, 2, 0, 3, 0 };
+            if (this->step >= 64) {
+                DeleteThisEntity();
+            }
+            SetFrame(super, AF_KFLAME_0 + burn[(63 - this->step) >> 3]);
+            return;
+        }
+        case BT_WIZZBEAM:
+            MoveVel(super, this->targetX, this->targetY);
+            super->spriteSettings.draw = 1;
+            SetFrame(super, AF_WIZZBEAM_0 + this->idx);
+            break;
+        case BT_LASER:
+            MoveVel(super, this->targetX, this->targetY);
+            SetFrame(super, AF_LASER_0 + (this->idx >> 1));
+            SpawnTrail(super, BT_TRAIL6, AF_LASER_0 + (this->idx >> 1), AP_LASER, 8);
+            if (this->step < 5) {
+                return;
+            }
+            break;
+        case BT_PHLEGM:
+            MoveVel(super, this->targetX, this->targetY);
+            SetFrame(super, AF_PHLEGM_0_0 + this->idx * 2 + ((this->step >> 1) & 1));
+            break;
+    }
+    if (WallAt(super, 0, 0) || !InRoom(super, 0) || this->step > 240) {
+        CreateFx(super, FX_SPARKLE2, 0);
+        DeleteThisEntity();
+    }
+}
+
+/* ---- the bosses' pieces (BOSS_PIECE) ---------------------------------------------- */
+enum { BP_BLINDHEAD, BP_FLYHEAD, BP_KPUPIL, BP_TLEGS, BP_TSHELL, BP_TNECK, BP_TSEG, BP_CHAIN };
+
+/* ---- Blind -------------------------------------------------------------------------
+ * Thieves' Town's boss, the thief who hid in the maiden's guise. He backs up to the
+ * wall and sways along it, his head turning on its own and firing a laser from his
+ * eyes when it finds Link; when Link gets behind him he crosses the room to the other
+ * wall and whirls around. A blow makes him spin his head and spit a ring of
+ * fireballs; every third, his head flies off (and keeps flying, spitting fire,
+ * until he is beaten) and he hides behind the curtain to grow another. The third
+ * head he loses is the end of him.
+ *
+ * Fields: face the wall (0 the top, looking down; 1 the bottom), head where it
+ * looks (0 west, 4 south), pose the robes (kBlind_Dmd's graphics), turns the blows
+ * since a head came off, coerced the heads lost, targetX/Y the speed, idx and crusher
+ * the sway's turns (B and G), unused: [0] fireball flurry left, [1] [2] its spin,
+ * [3] the head's clock; rangeX the laser's wind-up, rangeY frames before it fires
+ * again, cooldown frames it shrugs off blows.
+ */
+enum { BL_INIT, BL_RETREAT, BL_SWAY, BL_SWITCH, BL_WHIRL, BL_CURTAIN, BL_REROBE };
+
+static void BlindRobes(AlttpEnemy* this) {
+    static const u8 gfx[8] = { 7, 8, 9, 8, 0, 1, 2, 1 };
+    this->pose = gfx[((this->step >> 3) & 3) + (this->face << 2)];
+}
+
+static void BlindAnimate(AlttpEnemy* this) {
+    static const u8 headDir[17] = { 0, 1, 2, 3, 4, 3, 2, 1, 0, 15, 14, 13, 12, 13, 14, 15, 0 };
+    static const u8 tab[8] = { 0, 1, 1, 2, 2, 3, 3, 4 };
+    if (this->unused[0] == 0) {
+        s32 lx = gPlayerEntity.base.x.HALF.HI - this->homeX + 128;
+        s32 t1;
+        u32 c = this->unused[3];
+        lx = lx < 0 ? 0 : lx > 255 ? 255 : lx;
+        t1 = tab[lx >> 5];
+        if (this->face) {
+            t1 = -t1;
+        }
+        this->head = (headDir[((c >> 3) & 7) + ((c >> 2) & 1) + this->face * 8] + t1) & 15;
+    }
+    BlindRobes(this);
+}
+
+/** Blind_SpitFireball: a fireball the way the head looks, from the head. */
+static Entity* BlindSpit(Entity* from, u32 head, s32 dy) {
+    Entity* fb = SpawnAt(ALTTP_FIREBALL, 0, from, 0, dy);
+    if (fb != NULL) {
+        fb->direction = WestHeadingToDir(head);
+        fb->collisionLayer = from->collisionLayer;
+        EnqueueSFX(SFX_ITEM_LANTERN_ON);
+    }
+    return fb;
+}
+
+static void BlindFlurry(AlttpEnemy* this) {
+    this->unused[0]--;
+    if ((s8)--this->unused[1] < 0) {
+        this->unused[1] = this->unused[2];
+        this->head = (this->head + 1) & 15;
+    }
+    if ((this->step & 31) == 0 && this->unused[2] != 5) {
+        this->unused[2]++;
+    }
+    BlindRobes(this);
+    if ((this->step & 15) == 0) {
+        BlindSpit(super, this->head, -12);
+    }
+}
+
+static void BlindDecelerate(AlttpEnemy* this) {
+    if (this->targetX != 0) {
+        this->targetX += this->targetX < 0 ? 2 : -2;
+    }
+    if (this->targetY != 0) {
+        this->targetY += this->targetY < 0 ? 4 : -4;
+        if (Abs(this->targetY) < 4) {
+            this->targetY = 0;
+        }
+    }
+}
+
+/** The look in his eyes: Link straight along it (Sprite_SpawnProbeAlways). */
+static bool32 BlindSeesLink(AlttpEnemy* this) {
+    s32 dx = gPlayerEntity.base.x.HALF.HI - super->x.HALF.HI;
+    s32 dy = gPlayerEntity.base.y.HALF.HI - (super->y.HALF.HI - 12);
+    u32 h = (AngleToHeading(AngleTo(dx, dy)) + 8) & 15;
+    return h == this->head;
+}
+
+static void BlindLaser(AlttpEnemy* this) {
+    static const s8 vx[16] = { -8, -8, -8, -4, 0, 4, 8, 8, 8, 8, 8, 4, 0, -4, -8, -8 };
+    static const s8 vy[16] = { 0, 0, 4, 8, 8, 8, 4, 0, 0, 0, -4, -8, -8, -8, -4, 0 };
+    AlttpEnemy* l = (AlttpEnemy*)SpawnBolt(super, BT_BLINDLASER, 0, -12, vx[this->head], vy[this->head]);
+    if (l != NULL) {
+        l->idx = this->head;
+        EnqueueSFX(SFX_ITEM_SWORD_BEAM);
+    }
+}
+
+/** The middle of Blind's room: the rooms here are not ALttP's, so his sway is
+ * centred between the walls found either side of where he was placed. */
+static s32 BlindScan(Entity* e, s32 sx, s32 sy) {
+    s32 d;
+    for (d = 8; d < 136; d += 8) {
+        if (WallAt(e, sx * d, sy * d)) {
+            return d;
+        }
+    }
+    return 0;
+}
+
+static void BlindFindCenter(AlttpEnemy* this) {
+    s32 l = BlindScan(super, -1, 0), r = BlindScan(super, 1, 0);
+    s32 u = BlindScan(super, 0, -1), d = BlindScan(super, 0, 1);
+    this->homeX = super->x.HALF.HI;
+    this->homeY = super->y.HALF.HI;
+    if (l && r) {
+        this->homeX += (r - l) / 2;
+    }
+    if (u && d) {
+        this->homeY += (d - u) / 2;
+    }
+    super->x.HALF.HI = this->homeX;
+    super->y.HALF.HI = this->homeY;
+}
+
+static void BlindTick(AlttpEnemy* this) {
+    static const s8 swayVy[2] = { 18, -18 };
+    static const s8 swayVx[2] = { 24, -24 };
+    static const s8 swayX[2] = { 44, -44 };
+    s16* vx = &this->targetX;
+    s16* vy = &this->targetY;
+    u32 j;
+    if (super->action == BL_INIT) {
+        AlttpInit(this, AP_BLIND, AF_BLIND_9);
+        ((Enemy*)this)->enemyFlags |= EM_FLAG_BOSS;
+        super->action = BL_RETREAT;
+        super->timer = 96;
+        super->spritePriority.b0 = 3;
+        BlindFindCenter(this);
+        this->face = 0;
+        this->head = 4;
+        this->pose = 9;
+        this->shield = 1;
+        this->turns = this->coerced = 0;
+        this->unused[0] = this->unused[1] = this->unused[2] = this->unused[3] = 0;
+        this->rangeX = this->rangeY = this->cooldown = 0;
+        *vx = *vy = 0;
+        {
+            Entity* h = SpawnAt(BOSS_PIECE, BP_BLINDHEAD, super, 0, 0);
+            if (h != NULL) {
+                h->collisionLayer = super->collisionLayer;
+            }
+        }
+    }
+    this->step++;
+    if (this->cooldown) {
+        this->cooldown--;
+    }
+    if (this->rangeY) {
+        this->rangeY--;
+    }
+    // the sway's timer runs at half speed (sprite_delay_main, nudged every other frame)
+    if (super->subtimer) {
+        super->subtimer--;
+    }
+    if (!(this->step & 1)) {
+        super->subtimer++;
+    }
+    if (this->rangeX) {
+        // a moment's stillness, and the laser
+        if (--this->rangeX == 8) {
+            BlindLaser(this);
+        }
+        goto done;
+    }
+    this->unused[3]++;
+    switch (super->action) {
+        case BL_RETREAT:
+            this->pose = 9;
+            this->head = 4;
+            if (--super->timer == 0) {
+                super->action = BL_SWAY;
+                super->subtimer = 255;
+                this->shield = 0;
+            } else if (super->timer < 64 && super->y.HALF.HI > this->homeY - 32) {
+                MoveVelWalls2(super, 0, -8, 18, 20);
+            }
+            BlindAnimate(this);
+            this->head = 4;
+            break;
+        case BL_SWAY: {
+            bool32 behind = this->face == 0 ? gPlayerEntity.base.y.HALF.HI < super->y.HALF.HI
+                                            : gPlayerEntity.base.y.HALF.HI > super->y.HALF.HI;
+            BlindAnimate(this);
+            if ((((this->step & 127) == 0 && behind) || super->subtimer == 0) &&
+                super->x.HALF.HI < this->homeX) {
+                super->action = BL_SWITCH;
+                *vx &= ~1;
+                *vy &= ~1;
+                super->timer = 0x30;
+                break;
+            }
+            j = this->idx & 1;
+            *vy += j ? -1 : 1;
+            if (*vy == swayVy[j]) {
+                this->idx++;
+            }
+            j = this->crusher & 1;
+            if (*vx != swayVx[j]) {
+                *vx += j ? -1 : 1;
+            }
+            if (j == 0 ? super->x.HALF.HI >= this->homeX + swayX[0] : super->x.HALF.HI <= this->homeX + swayX[1]) {
+                this->crusher++;
+            }
+            {
+                // the sway stays inside the walls, and turns back at one
+                u32 hit = MoveVelWalls2(super, *vx, *vy, 18, 20);
+                if ((hit & 1) && ((*vx > 0) == (j == 0))) {
+                    this->crusher++;
+                }
+                if (hit & 2) {
+                    *vy = -*vy;
+                    this->idx++;
+                }
+            }
+            if (this->unused[0]) {
+                BlindFlurry(this);
+            } else if (!(this->step & 7) && !this->rangeY && BlindSeesLink(this)) {
+                this->rangeX = 16;
+                this->rangeY = 128;
+            }
+            break;
+        }
+        case BL_SWITCH:
+            if (super->timer) {
+                super->timer--;
+                BlindDecelerate(this);
+                MoveVelWalls2(super, *vx, *vy, 18, 20);
+            } else {
+                s32 target = this->homeY + (this->face == 0 ? 32 : -32);
+                s32 want = this->face == 0 ? 64 : -64;
+                if (*vy != want) {
+                    *vy += this->face == 0 ? 2 : -2;
+                }
+                if (*vx != 0) {
+                    *vx += *vx < 0 ? 2 : -2;
+                }
+                if ((MoveVelWalls2(super, *vx, *vy, 18, 20) & 2) ||
+                    (this->face == 0 ? super->y.HALF.HI >= target : super->y.HALF.HI <= target)) {
+                    if (super->y.HALF.HI * (this->face == 0 ? 1 : -1) > target * (this->face == 0 ? 1 : -1)) {
+                        super->y.HALF.HI = target;
+                    }
+                    super->action = BL_WHIRL;
+                    this->idx = this->face == 0 ? 0 : 1;
+                    *vy = 0;
+                }
+            }
+            if (this->unused[0]) {
+                BlindFlurry(this);
+            } else {
+                BlindRobes(this);
+            }
+            break;
+        case BL_WHIRL:
+            // Blind_WhirlAround: the robes swing round, a pose every eight frames
+            if (!(this->step & 7)) {
+                u32 goal = this->face == 0 ? 0 : 9;
+                if (this->pose == goal) {
+                    super->subtimer = 254;
+                    super->action = BL_SWAY;
+                    this->face ^= 1;
+                    this->crusher = super->x.HALF.HI >= this->homeX;
+                } else if (this->pose > goal) {
+                    this->pose--;
+                } else {
+                    this->pose++;
+                }
+            }
+            if (*vy) {
+                *vy += *vy < 0 ? 4 : -4;
+            }
+            this->head = this->face == 0 ? 4 : 12;
+            break;
+        case BL_CURTAIN:
+            this->head = 12;
+            if (--super->timer == 0) {
+                super->action = BL_REROBE;
+                super->timer = 39;
+                EnqueueSFX(SFX_SUMMON);
+            } else if (super->timer >= 224) {
+                static const u8 curtain[4] = { 14, 13, 12, 10 };
+                this->pose = curtain[(super->timer - 224) >> 3];
+            } else {
+                this->pose = 14;
+            }
+            break;
+        case BL_REROBE:
+            if (super->timer == 0 || --super->timer == 0) {
+                super->action = BL_SWAY;
+                super->subtimer = 128;
+                this->face = super->y.HALF.HI > this->homeY;
+                this->crusher = super->x.HALF.HI >= this->homeX;
+                *vx = *vy = 0;
+                this->shield = 0;
+            } else {
+                static const u8 rerobe[5] = { 10, 11, 12, 13, 14 };
+                this->pose = rerobe[super->timer >> 3];
+            }
+            break;
+    }
+done:
+    SetFrame(super, AF_BLIND_0 + this->pose);
+    AlttpEndTick(this);
+}
+
+static void BlindOnCollision(AlttpEnemy* this);
+static void BlindOnDeath(AlttpEnemy* this) {
+    if (this->burst == 0) {
+        DeleteChildren(super);
+    }
+    if (BossBurst(this, 8, 12)) {
+        DeleteThisEntity();
+    }
+}
+
+static void (*const Blind_Functions[])(AlttpEnemy*) = {
+    BlindTick, BlindOnCollision, (void (*)(AlttpEnemy*))GenericKnockback,
+    BlindOnDeath, (void (*)(AlttpEnemy*))GenericConfused, AlttpGrabbed,
+};
+
+static void BlindOnCollision(AlttpEnemy* this) {
+    super->knockbackDuration = 0;
+    if (TookHit(this)) {
+        if (this->shield || this->cooldown) {
+            EnqueueSFX(SFX_METAL_CLINK);
+        } else {
+            this->cooldown = 48;
+            super->iframes = 24;
+            EnqueueSFX(SFX_BOSS_HIT);
+            if (++this->turns < 3) {
+                // stung: his head spins and spits fire all round
+                this->unused[0] = 96;
+                this->unused[2] = 1;
+            } else {
+                this->turns = 0;
+                if (++this->coerced == 3) {
+                    super->health = 0;
+                } else {
+                    // his head flies off, and he hides behind the curtain to grow another
+                    AlttpEnemy* h = (AlttpEnemy*)SpawnAt(BOSS_PIECE, BP_FLYHEAD, super, 0, -12);
+                    if (h != NULL) {
+                        h->head = this->head;
+                        h->base.collisionLayer = super->collisionLayer;
+                        h->homeX = this->homeX;
+                        h->homeY = this->homeY;
+                    }
+                    this->targetX = this->targetY = 0;
+                    this->unused[0] = 0;
+                    super->action = BL_CURTAIN;
+                    super->timer = 255;
+                    this->shield = 1;
+                }
+            }
+        }
+    }
+    EnemyFunctionHandlerAfterCollision(super, (void (*const*)())Blind_Functions);
+}
+
+void Blind(AlttpEnemy* this) {
+    EnemyFunctionHandler(super, (EntityActionArray)Blind_Functions);
+}
+
+/* ---- Kholdstare --------------------------------------------------------------------
+ * The Ice Palace's boss: a cloud with an eye, sealed in a shell of ice that drifts
+ * about the room with it. Only fire breaks the shell (the Fire Rod, or Bombos); when
+ * it melts, the eye flickers and splits in three. Each drifts on its own, speeding up
+ * and slowing down, bouncing off the walls. All the while ice falls from the
+ * ceiling onto Link and bursts.
+ *
+ * Type 0 the eye in the shell, type 1 the three it splits into. Fields: targetX/Y
+ * the speed, unused[0] [1] the speed it is heading for (z_vel, z_subpos), head the
+ * pupil's look (0 east, 4 south), idx its looks (0-3), coerced 1 while the ice is
+ * falling from this one.
+ */
+enum { KH_INIT, KH_SPEEDUP, KH_SLOW, KH_SPLIT };
+
+#define KHOLD_SHELL_HITS 6
+
+static void KholdstareSpawnIce(AlttpEnemy* this) {
+    if (++this->turns & 127) {
+        return;
+    }
+    {
+        AlttpEnemy* ice = (AlttpEnemy*)CreateEnemy(ALTTP_BOLT, BT_ICE);
+        if (ice != NULL) {
+            CopyPosition(&gPlayerEntity.base, &ice->base);
+            ice->base.parent = super;
+            ice->base.type2 = 0;
+        }
+    }
+}
+
+static void KholdstareTick(AlttpEnemy* this) {
+    s8* tx = (s8*)&this->unused[0];
+    s8* ty = (s8*)&this->unused[1];
+    bool32 shelled = super->type == 0;
+    u32 hit;
+    if (super->action == KH_INIT) {
+        AlttpInit(this, AP_KHOLD, AF_KHOLD_0);
+        ((Enemy*)this)->enemyFlags |= EM_FLAG_BOSS;
+        super->spritePriority.b0 = 3;
+        super->action = KH_SPEEDUP;
+        this->step = Random();
+        this->turns = 0;
+        this->burst = 0;
+        if (shelled) {
+            u32 i;
+            this->shield = 1;
+            this->coerced = 1;
+            super->spriteSettings.draw = 0;
+            super->timer = 64;
+            this->targetX = this->targetY = 0;
+            *tx = 16;
+            *ty = 16;
+            for (i = 0; i < 2; i++) {
+                Entity* s = SpawnAt(KHOLDSTARE_SHELL, i, super, 0, 0);
+                if (s != NULL) {
+                    s->collisionLayer = super->collisionLayer;
+                }
+            }
+        } else {
+            super->timer = 32;
+        }
+        {
+            Entity* p = SpawnAt(BOSS_PIECE, BP_KPUPIL, super, 0, 0);
+            if (p != NULL) {
+                p->collisionLayer = super->collisionLayer;
+            }
+        }
+    }
+    this->step++;
+    if (this->coerced) {
+        KholdstareSpawnIce(this);
+    }
+    // the cloud drifts by in four looks; the pupil follows Link
+    if ((s8)--this->rangeX < 0) {
+        this->rangeX = 10;
+        this->idx = (this->idx + 1) & 3;
+    }
+    if (!(this->step & 3)) {
+        this->head = AngleToHeading(AngleTo(gPlayerEntity.base.x.HALF.HI - super->x.HALF.HI,
+                                            gPlayerEntity.base.y.HALF.HI - super->y.HALF.HI));
+    }
+    if (shelled) {
+        hit = MoveVelWalls2(super, this->targetX, this->targetY, 40, 32);
+    } else {
+        hit = MoveVelWalls(super, this->targetX, this->targetY, 12);
+    }
+    switch (super->action) {
+        case KH_SPEEDUP:
+            if (super->timer == 0) {
+                super->action = KH_SLOW;
+                super->timer = (Random() & 63) + 32;
+                break;
+            }
+            super->timer--;
+            if (this->targetX != *tx) {
+                this->targetX += this->targetX < *tx ? 1 : -1;
+            }
+            if (this->targetY != *ty) {
+                this->targetY += this->targetY < *ty ? 1 : -1;
+            }
+            goto bounce;
+        case KH_SLOW:
+            if (super->timer == 0) {
+                u32 r = Random();
+                super->action = KH_SPEEDUP;
+                super->timer = (Random() & 63) + 96;
+                if (!(r & 0x1c)) {
+                    s16 ax, ay;
+                    AimVel(super, gPlayerEntity.base.x.HALF.HI, gPlayerEntity.base.y.HALF.HI, 24, &ax, &ay);
+                    *tx = ax;
+                    *ty = ay;
+                } else {
+                    static const s8 kx[4] = { 16, 16, -16, -16 };
+                    static const s8 ky[4] = { -16, 16, 16, -16 };
+                    *tx = kx[r & 3];
+                    *ty = ky[r & 3];
+                }
+                break;
+            }
+            super->timer--;
+            ApproachVel(&this->targetX, 0);
+            ApproachVel(&this->targetY, 0);
+        bounce:
+            if (hit & 1) {
+                this->targetX = -this->targetX;
+                *tx = -*tx;
+            }
+            if (hit & 2) {
+                this->targetY = -this->targetY;
+                *ty = -*ty;
+            }
+            break;
+        case KH_SPLIT:
+            // bare, it flickers, then splits in three
+            this->targetX = this->targetY = 0;
+            super->spriteSettings.draw = (this->step >> 1) & 1;
+            if (--super->timer == 0) {
+                static const s8 sx[3] = { 32, -32, 0 };
+                static const s8 sy[3] = { -32, -32, 48 };
+                u32 i;
+                Entity* first = NULL;
+                for (i = 0; i < 3; i++) {
+                    AlttpEnemy* e = (AlttpEnemy*)CreateEnemy(KHOLDSTARE, 1);
+                    if (e != NULL) {
+                        CopyPosition(super, &e->base);
+                        e->unused[0] = sx[i];
+                        e->unused[1] = sy[i];
+                        e->coerced = first == NULL;
+                        e->turns = this->turns;
+                        if (first == NULL) {
+                            first = &e->base;
+                        }
+                    }
+                }
+                EnqueueSFX(SFX_BOSS_DIE);
+                DeleteChildren(super);
+                DeleteThisEntity();
+            }
+            break;
+    }
+    if (shelled && super->action != KH_SPLIT) {
+        super->spriteSettings.draw = 0; // inside the ice
+    }
+    SetFrame(super, AF_KHOLD_0 + this->idx);
+    AlttpEndTick(this);
+}
+
+static void KholdstareOnCollision(AlttpEnemy* this);
+static void KholdstareOnDeath(AlttpEnemy* this) {
+    if (this->burst == 0) {
+        Entity* other;
+        // another eye takes over the falling ice
+        if (this->coerced) {
+            u32 i;
+            for (i = 0; i < ARRAY_COUNT(gEntityLists); i++) {
+                LinkedList* list = &gEntityLists[i];
+                for (other = list->first; (u32)other != (u32)list; other = other->next) {
+                    if (other != super && other->kind == ENEMY && other->id == KHOLDSTARE && other->health) {
+                        ((AlttpEnemy*)other)->coerced = 1;
+                        i = ARRAY_COUNT(gEntityLists);
+                        break;
+                    }
+                }
+            }
+        }
+        DeleteChildren(super);
+    }
+    if (BossBurst(this, 8, 8)) {
+        DeleteThisEntity();
+    }
+}
+
+static void (*const Kholdstare_Functions[])(AlttpEnemy*) = {
+    KholdstareTick, KholdstareOnCollision, (void (*)(AlttpEnemy*))GenericKnockback,
+    KholdstareOnDeath, (void (*)(AlttpEnemy*))GenericConfused, AlttpGrabbed,
+};
+
+static void KholdstareOnCollision(AlttpEnemy* this) {
+    super->knockbackDuration = 0;
+    if (this->shield) {
+        TookHit(this);
+    } else if (super->health < this->savedHealth) {
+        EnqueueSFX(SFX_BOSS_HIT);
+    }
+    EnemyFunctionHandlerAfterCollision(super, (void (*const*)())Kholdstare_Functions);
+}
+
+void Kholdstare(AlttpEnemy* this) {
+    EnemyFunctionHandler(super, (EntityActionArray)Kholdstare_Functions);
+}
+
+/** Kholdstare's shell of ice, in two halves (type 0 the left, which takes the hits;
+ * type 1 the right). Fire cracks it; at six blows it slumps and melts away. Fields:
+ * turns the blows of fire, pose 0-2 its cracks, then 3-5 melting. */
+static void KholdShellTick(AlttpEnemy* this) {
+    AlttpEnemy* eye = (AlttpEnemy*)super->parent;
+    bool32 left = super->type == 0;
+    if (super->action == 0) {
+        AlttpInit(this, AP_KSHELL, left ? AF_KSHELL_L_0 : AF_KSHELL_R_0);
+        ((Enemy*)this)->enemyFlags |= EM_FLAG_BOSS;
+        super->spritePriority.b0 = 2;
+        super->spriteSettings.shadow = 0;
+        this->pose = 0;
+        this->turns = 0;
+        if (!left) {
+            COLLISION_OFF(super);
+            super->health = 0;
+        }
+        this->savedHealth = super->health;
+    }
+    if (!ParentAlive(super)) {
+        DeleteThisEntity();
+    }
+    if (this->cooldown) {
+        this->cooldown--;
+    }
+    super->x.HALF.HI = eye->base.x.HALF.HI;
+    super->y.HALF.HI = eye->base.y.HALF.HI;
+    if (!left) {
+        // the right half copies the left one's state
+        AlttpEnemy* l = (AlttpEnemy*)super->child;
+        if (l == NULL) {
+            u32 i;
+            Entity* e;
+            for (i = 0; i < ARRAY_COUNT(gEntityLists) && l == NULL; i++) {
+                LinkedList* list = &gEntityLists[i];
+                for (e = list->first; (u32)e != (u32)list; e = e->next) {
+                    if (e->kind == ENEMY && e->id == KHOLDSTARE_SHELL && e->type == 0 && e->parent == super->parent) {
+                        l = (AlttpEnemy*)e;
+                        break;
+                    }
+                }
+            }
+            super->child = &l->base;
+        }
+        if (l == NULL || l->base.next == NULL || l->base.id != KHOLDSTARE_SHELL) {
+            DeleteThisEntity();
+        }
+        this->pose = l->pose;
+        super->spriteSettings.draw = l->base.spriteSettings.draw;
+    } else {
+        if (this->pose >= 3) {
+            // melting away
+            if (++this->step >= 8) {
+                this->step = 0;
+                if (++this->pose == 6) {
+                    eye->base.action = KH_SPLIT;
+                    eye->base.timer = 128;
+                    eye->shield = 1;
+                    eye->targetX = eye->targetY = 0;
+                    super->spriteSettings.draw = 0;
+                    DeleteThisEntity();
+                }
+            }
+        } else if (LinkNear(super, 36, 28) && gPlayerEntity.base.knockbackDuration == 0) {
+            // solid: it shoves Link back
+            BounceLink(super, 8);
+        }
+        super->health = 255;
+        this->savedHealth = 255;
+    }
+    if (this->pose < 3) {
+        SetFrame(super, (left ? AF_KSHELL_L_0 : AF_KSHELL_R_0) + this->pose);
+    } else {
+        SetFrame(super, (left ? AF_KSHELL_L_MELT_1 : AF_KSHELL_R_MELT_1) + this->pose - 3);
+    }
+}
+
+static void KholdShellOnCollision(AlttpEnemy* this);
+static void KholdShellOnDeath(AlttpEnemy* this) {
+    super->health = 255;
+}
+
+static void (*const KholdShell_Functions[])(AlttpEnemy*) = {
+    KholdShellTick, KholdShellOnCollision, (void (*)(AlttpEnemy*))GenericKnockback,
+    KholdShellOnDeath, (void (*)(AlttpEnemy*))GenericConfused, AlttpGrabbed,
+};
+
+static void KholdShellOnCollision(AlttpEnemy* this) {
+    Entity* by = super->contactedEntity;
+    super->knockbackDuration = 0;
+    super->health = 255;
+    if (this->pose < 3) {
+        if (IsFire(super, by)) {
+            if (this->cooldown == 0) {
+                this->cooldown = 16;
+                this->turns += (by->kind == OBJECT) ? KHOLD_SHELL_HITS : 1; // Bombos melts it at once
+                EnqueueSFX(SFX_ICE_BLOCK_MELT);
+                CreateFx(super, FX_FIRE, 0);
+                InitScreenShake(8, 0);
+                if (this->turns >= KHOLD_SHELL_HITS) {
+                    this->pose = 3;
+                    this->step = 0;
+                    COLLISION_OFF(super);
+                    EnqueueSFX(SFX_EVAPORATE);
+                } else {
+                    this->pose = this->turns * 3 / KHOLD_SHELL_HITS;
+                }
+            }
+        } else if (by != NULL && by->kind == PLAYER_ITEM) {
+            EnqueueSFX(SFX_METAL_CLINK);
+        }
+    }
+    EnemyFunctionHandlerAfterCollision(super, (void (*const*)())KholdShell_Functions);
+}
+
+void KholdstareShell(AlttpEnemy* this) {
+    if (super->type == 0) {
+        EnemyFunctionHandler(super, (EntityActionArray)KholdShell_Functions);
+    } else {
+        KholdShellTick(this);
+    }
+}
+
+/* ---- Vitreous ------------------------------------------------------------------------
+ * Misery Mire's boss: a great eye sunk in a mass of small ones. Now and then a small
+ * eye leaves the heap and flies at where Link stood, then back; while any are left
+ * the great eye sleeps, waking every so often to spew lightning. With the small eyes
+ * gone it heaves itself out and hops after Link.
+ *
+ * Fields: turns the small eyes still about (sprite_G), unused[0] the sleep's countdown
+ * (sprite_A), pose its look, homeX/Y its height and fall (1/16 pixel).
+ */
+enum { VI_INIT, VI_DORMANT, VI_SPEW, VI_PURSUE };
+
+static void VitreousLook(AlttpEnemy* this, u32 t) {
+    static const u8 look[2] = { 2, 1 };
+    s32 dx = gPlayerEntity.base.x.HALF.HI - super->x.HALF.HI;
+    if (t == 0x40 || t == 0x42) {
+        // Sprite_SpawnLightning
+        static const s8 lx[8] = { -8, 8, 8, -8, 8, -8, -8, 8 };
+        u32 i = Random() & 7;
+        AlttpEnemy* b = (AlttpEnemy*)SpawnBolt(super, BT_LIGHTNING, lx[i], 12, 0, 0);
+        if (b != NULL) {
+            b->idx = i;
+            b->base.collisionLayer = super->collisionLayer;
+            EnqueueSFX(SFX_ITEM_SWORD_BEAM);
+        }
+    }
+    this->pose = Abs(dx) >= 16 ? look[dx < 0] : 0;
+}
+
+static void VitreousTick(AlttpEnemy* this) {
+    static const u8 sleepFor[10] = { 0x20, 0x20, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0, 0 };
+    s16* z = &this->homeX;
+    s16* vz = &this->homeY;
+    if (super->action == VI_INIT) {
+        static const s8 ex[13] = { 8, 22, -8, -22, 0, 14, 19, 33, 26, -14, -19, -33, -26 };
+        static const s8 ey[13] = { -8, -12, -8, -12, 0, -20, -1, -12, -24, -20, -1, -12, -24 };
+        u32 i;
+        AlttpInit(this, AP_VITREOUS, AF_VITREOUS_4);
+        ((Enemy*)this)->enemyFlags |= EM_FLAG_BOSS;
+        super->action = VI_DORMANT;
+        super->spritePriority.b0 = 3;
+        this->shield = 1;
+        this->turns = 0;
+        this->unused[0] = 0x80;
+        *z = *vz = 0;
+        // the small eyes heaped in front of it; the four lowest stay shut (and can't be
+        // hurt) until the others are gone
+        for (i = 0; i < 13; i++) {
+            AlttpEnemy* e = (AlttpEnemy*)SpawnAt(VITREOUS_EYE, i < 4, super, ex[i], ey[i] + 32);
+            if (e != NULL) {
+                e->homeX = e->base.x.HALF.HI;
+                e->homeY = e->base.y.HALF.HI;
+                e->step = i * 8 + Random();
+                e->base.collisionLayer = super->collisionLayer;
+                this->turns++;
+            }
+        }
+    }
+    this->step++;
+    if (this->cooldown) {
+        this->cooldown--;
+    }
+    // Vitreous_SetMinionsForth: an eye goes for Link about once a second
+    if (this->turns && !(this->step & 63)) {
+        u32 n = Random() & 15, i, open = 0;
+        Entity* e;
+        Entity* shut = NULL;
+        for (i = 0; i < ARRAY_COUNT(gEntityLists); i++) {
+            LinkedList* list = &gEntityLists[i];
+            for (e = list->first; (u32)e != (u32)list; e = e->next) {
+                if (e->kind == ENEMY && e->id == VITREOUS_EYE && e->parent == super) {
+                    if (e->type == 0) {
+                        open++;
+                    } else {
+                        shut = e;
+                    }
+                }
+            }
+        }
+        if (open == 0 && shut != NULL) {
+            // the open eyes are all gone: a shut one opens
+            shut->type = 0;
+            ((AlttpEnemy*)shut)->shield = 0;
+            open = 1;
+        }
+        while (open && n >= open) {
+            n -= open;
+        }
+        for (i = 0; open && i < ARRAY_COUNT(gEntityLists); i++) {
+            LinkedList* list = &gEntityLists[i];
+            for (e = list->first; (u32)e != (u32)list; e = e->next) {
+                if (e->kind == ENEMY && e->id == VITREOUS_EYE && e->parent == super && e->type == 0 && n-- == 0) {
+                    if (e->action == 1) {
+                        e->action = 2;
+                        EnqueueSFX(SFX_14C);
+                    }
+                    i = ARRAY_COUNT(gEntityLists);
+                    break;
+                }
+            }
+        }
+    }
+    switch (super->action) {
+        case VI_DORMANT:
+            this->pose = (this->step & 0x30) ? 4 : 5;
+            if (!(this->step & 1) && --this->unused[0] == 0) {
+                this->cooldown = 16;
+                super->action = VI_SPEW;
+                super->timer = 128;
+                if (this->turns == 0) {
+                    super->action = VI_PURSUE;
+                    super->timer = 64;
+                    this->shield = 0;
+                    EnqueueSFX(SFX_BOSS_HIT);
+                }
+            }
+            break;
+        case VI_SPEW:
+            if (--super->timer == 0) {
+                this->cooldown = 16;
+                super->action = VI_DORMANT;
+                this->unused[0] = sleepFor[this->turns > 9 ? 9 : this->turns];
+                if (this->unused[0] == 0) {
+                    this->unused[0] = 1;
+                }
+            } else {
+                VitreousLook(this, super->timer);
+            }
+            break;
+        case VI_PURSUE:
+            VitreousLook(this, 0x8b);
+            if (super->timer) {
+                // shaking itself loose
+                super->timer--;
+                MoveVel(super, super->timer & 2 ? -8 : 8, 0);
+            } else if (this->rangeX) {
+                // a moment on the ground between hops (when the sword can reach it)
+                this->rangeX--;
+            } else {
+                if (*vz == 0 && *z == 0) {
+                    *vz = 32;
+                    AimVel(super, gPlayerEntity.base.x.HALF.HI, gPlayerEntity.base.y.HALF.HI, 16, &this->targetX,
+                           &this->targetY);
+                    EnqueueSFX(SFX_PLY_JUMP);
+                }
+                if (MoveZ16(z, vz, 2, -64)) {
+                    this->rangeX = 24;
+                }
+                MoveVelWalls(super, this->targetX, this->targetY, 14);
+            }
+            break;
+    }
+    SetHeight(super, *z >> 4);
+    if (this->cooldown) {
+        SetFrame(super, AF_VITREOUS_3);
+    } else if (super->action == VI_PURSUE && super->timer == 0) {
+        SetFrame(super, *z == 0 ? AF_VITREOUS_LAND : *vz > 0 ? AF_VITREOUS_HOP : AF_VITREOUS_0 + this->pose);
+    } else {
+        SetFrame(super, AF_VITREOUS_0 + this->pose);
+    }
+    AlttpEndTick(this);
+}
+
+static void VitreousOnCollision(AlttpEnemy* this);
+static void VitreousOnDeath(AlttpEnemy* this) {
+    if (this->burst == 0) {
+        DeleteChildren(super);
+    }
+    if (BossBurst(this, 10, 10)) {
+        DeleteThisEntity();
+    }
+}
+
+static void (*const Vitreous_Functions[])(AlttpEnemy*) = {
+    VitreousTick, VitreousOnCollision, (void (*)(AlttpEnemy*))GenericKnockback,
+    VitreousOnDeath, (void (*)(AlttpEnemy*))GenericConfused, AlttpGrabbed,
+};
+
+static void VitreousOnCollision(AlttpEnemy* this) {
+    super->knockbackDuration = 0;
+    AlttpOnCollision(this, (void (*const*)())Vitreous_Functions);
+}
+
+void Vitreous(AlttpEnemy* this) {
+    EnemyFunctionHandler(super, (EntityActionArray)Vitreous_Functions);
+}
+
+/** One of Vitreous's small eyes (type 1: one of the four that stay shut, until Vitreous
+ * opens it when the open ones are gone). It waits in
+ * the heap (homeX/Y), and when sent flies at where Link was (targetX/Y), then home. */
+enum { VE_INIT, VE_WAIT, VE_GO, VE_BACK };
+
+static void VitreousEyeTick(AlttpEnemy* this) {
+    static const s8 wx[4] = { 1, 0, -1, 0 };
+    static const s8 wy[4] = { 0, 1, 0, -1 };
+    s16 vx, vy;
+    if (super->action == VE_INIT) {
+        AlttpInit(this, AP_VITREOUS, super->type ? AF_VEYE_1 : AF_VEYE_0);
+        super->action = VE_WAIT;
+        super->spritePriority.b0 = 2;
+        super->spriteSettings.shadow = 0;
+        if (super->type) {
+            this->shield = 1;
+        }
+    }
+    if (!ParentAlive(super)) {
+        DeleteThisEntity();
+    }
+    this->step++;
+    super->spriteOffsetX = wx[(this->step >> 4) & 3];
+    super->spriteOffsetY = wy[(this->step >> 4) & 3];
+    switch (super->action) {
+        case VE_WAIT:
+            this->targetX = gPlayerEntity.base.x.HALF.HI;
+            this->targetY = gPlayerEntity.base.y.HALF.HI;
+            break;
+        case VE_GO:
+            AimVel(super, this->targetX, this->targetY, 16, &vx, &vy);
+            MoveVel(super, vx, vy);
+            if (Abs(super->x.HALF.HI - this->targetX) < 4 && Abs(super->y.HALF.HI - this->targetY) < 4) {
+                super->action = VE_BACK;
+            }
+            break;
+        case VE_BACK:
+            AimVel(super, this->homeX, this->homeY, 16, &vx, &vy);
+            MoveVel(super, vx, vy);
+            if (Abs(super->x.HALF.HI - this->homeX) < 4 && Abs(super->y.HALF.HI - this->homeY) < 4) {
+                super->x.HALF.HI = this->homeX;
+                super->y.HALF.HI = this->homeY;
+                super->action = VE_WAIT;
+            }
+            break;
+    }
+    if (super->type) {
+        SetFrame(super, AF_VEYE_1);
+    } else {
+        SetFrame(super, (this->step & 0x7f) < 6 ? AF_VEYE_BLINK : AF_VEYE_0);
+    }
+    AlttpEndTick(this);
+}
+
+static void VitreousEyeOnCollision(AlttpEnemy* this);
+static void VitreousEyeOnDeath(AlttpEnemy* this) {
+    AlttpEnemy* v = (AlttpEnemy*)super->parent;
+    if (ParentAlive(super) && v->turns) {
+        v->turns--;
+    }
+    CreateFx(super, FX_DEATH, 0);
+    DeleteThisEntity();
+}
+
+static void (*const VitreousEye_Functions[])(AlttpEnemy*) = {
+    VitreousEyeTick, VitreousEyeOnCollision, (void (*)(AlttpEnemy*))GenericKnockback,
+    VitreousEyeOnDeath, (void (*)(AlttpEnemy*))GenericConfused, AlttpGrabbed,
+};
+
+static void VitreousEyeOnCollision(AlttpEnemy* this) {
+    super->knockbackDuration = 0;
+    AlttpOnCollision(this, (void (*const*)())VitreousEye_Functions);
+}
+
+void VitreousEye(AlttpEnemy* this) {
+    EnemyFunctionHandler(super, (EntityActionArray)VitreousEye_Functions);
+}
+
+/* ---- Trinexx -----------------------------------------------------------------------
+ * Turtle Rock's boss: a stone turtle with three heads. The rock head and its shell
+ * plod between four places, and every other stop it lunges its head out at Link. The
+ * side heads sway on their long necks and breathe at Link: the red one fire, the blue
+ * one ice. Only the opposite cold or heat gets through to them: the Ice Rod for the
+ * fire head, the Fire Rod for the ice head; stunned by it, they can be cut. With both
+ * gone the shell bursts, and the rock head slithers out as a snake whose body has one
+ * soft, flashing scale.
+ */
+#define TRINEXX_HIST 64
+#define TRINEXX_SEGS 6
+#define TRINEXX_NECK 4
+#define TRINEXX_WEAK_HITS 8
+
+typedef struct {
+    u8 angle[2][9];  /**< each side head's neck, head first (alt_sprite_type) */
+    u8 radius[2][9]; /**< (alt_sprite_y_hi) */
+    u8 jaw[2];
+    u8 heads;        /**< side heads alive */
+    u8 alive[2];
+    u8 stunned[2];
+    u8 final;        /**< the snake */
+    u8 lunging;
+    u8 legStep;      /**< sprite_subtype2: the legs' step */
+    u8 hist;
+    u8 weakHits;
+    s16 bodyX, bodyY; /**< the shell's middle */
+    s16 headX, headY; /**< the rock head */
+    s16 histX[TRINEXX_HIST], histY[TRINEXX_HIST];
+} TrinexxState;
+#define gTrinexx (*(TrinexxState*)(gAlttpEnemyState + 0xc00))
+
+/* The rock head sits this far in front of the shell's middle. */
+#define TRINEXX_HEAD_DY 28
+
+enum { TX_INIT, TX_WAIT, TX_WALK, TX_WINDUP, TX_LUNGE, TX_BURST, TX_SNAKE, TX_HUNT };
+
+static void TrinexxTick(AlttpEnemy* this) {
+    static const u8 tabX[4] = { 0x60, 0x78, 0x78, 0x90 };
+    static const u8 tabY[4] = { 0x80, 0x70, 0x60, 0x80 };
+    static const s8 snakeVx[4] = { 0, -31, 0, 31 };
+    static const s8 snakeVy[4] = { 31, 0, -31, 0 };
+    static const u8 snakeGfx[8] = { 4, 5, 6, 7, 0, 1, 2, 3 };
+    s16* vx = &this->targetX;
+    s16* vy = &this->targetY;
+    u32 i;
+    if (super->action == TX_INIT) {
+        AlttpInit(this, AP_TRINEXX, AF_TRINEXX_0);
+        ((Enemy*)this)->enemyFlags |= EM_FLAG_BOSS;
+        MemClear(&gTrinexx, sizeof(gTrinexx));
+        super->action = TX_WAIT;
+        super->timer = 128;
+        super->spritePriority.b0 = 2;
+        super->spriteSettings.shadow = 0;
+        this->shield = 1;
+        this->homeX = super->x.HALF.HI;
+        this->homeY = super->y.HALF.HI;
+        this->turns = 0;
+        this->idx = 0;
+        *vx = *vy = 0;
+        gTrinexx.headX = super->x.HALF.HI;
+        gTrinexx.headY = super->y.HALF.HI;
+        gTrinexx.bodyX = super->x.HALF.HI;
+        gTrinexx.bodyY = super->y.HALF.HI - TRINEXX_HEAD_DY;
+        gTrinexx.heads = 2;
+        for (i = 0; i < 2; i++) {
+            u32 n;
+            Entity* e;
+            gTrinexx.alive[i] = 1;
+            for (n = 0; n < 9; n++) {
+                gTrinexx.angle[i][n] = 0x40;
+            }
+            e = SpawnAt(TRINEXX_HEAD, i, super, 0, 0);
+            if (e != NULL) {
+                e->collisionLayer = super->collisionLayer;
+            }
+            e = SpawnAt(BOSS_PIECE, BP_TSHELL, super, 0, 0);
+            if (e != NULL) {
+                e->type2 = i;
+                e->collisionLayer = super->collisionLayer;
+            }
+            for (n = 0; n < TRINEXX_NECK; n++) {
+                e = SpawnAt(BOSS_PIECE, BP_TNECK, super, 0, 0);
+                if (e != NULL) {
+                    e->type2 = i * 8 + n;
+                    e->collisionLayer = super->collisionLayer;
+                }
+            }
+        }
+        {
+            Entity* e = SpawnAt(BOSS_PIECE, BP_TLEGS, super, 0, 0);
+            if (e != NULL) {
+                e->collisionLayer = super->collisionLayer;
+            }
+            // the neck that shows as it lunges
+            for (i = 0; i < 3; i++) {
+                e = SpawnAt(BOSS_PIECE, BP_TSEG, super, 0, 0);
+                if (e != NULL) {
+                    e->type2 = 16 + i;
+                    e->collisionLayer = super->collisionLayer;
+                }
+            }
+        }
+    }
+    this->step++;
+    if (gTrinexx.final) {
+        // the snake: straight runs, turning at walls, then a while hunting Link
+        u32 a;
+        gTrinexx.hist = (gTrinexx.hist + 1) & (TRINEXX_HIST - 1);
+        gTrinexx.histX[gTrinexx.hist] = super->x.HALF.HI;
+        gTrinexx.histY[gTrinexx.hist] = super->y.HALF.HI;
+        if (!(this->step & 7)) {
+            EnqueueSFX(SFX_14C);
+        }
+        if (super->action == TX_SNAKE) {
+            if (--super->timer == 0) {
+                super->action = TX_HUNT;
+                super->timer = 192;
+            }
+            *vx = snakeVx[this->face];
+            *vy = snakeVy[this->face];
+            if (MoveVelWalls(super, *vx, *vy, 10)) {
+                this->face = (this->face + 1) & 3;
+                this->cooldown = 8;
+            }
+        } else {
+            if (!(this->step & 1)) {
+                s16 ax, ay;
+                AimVel(super, gPlayerEntity.base.x.HALF.HI, gPlayerEntity.base.y.HALF.HI, 31, &ax, &ay);
+                ApproachVel(vx, ax);
+                ApproachVel(vy, ay);
+            }
+            if (MoveVelWalls(super, *vx, *vy, 10) || --super->timer == 0) {
+                super->action = TX_SNAKE;
+                super->timer = 128;
+            }
+        }
+        if (this->cooldown) {
+            this->cooldown--;
+        }
+        a = AngleTo(*vx, *vy);
+        SetFrame(super, AF_TRINEXX_0 + snakeGfx[((a + 16) >> 5) & 7]);
+        if (gTrinexx.weakHits >= TRINEXX_WEAK_HITS) {
+            super->health = 0;
+        }
+        AlttpEndTick(this);
+        return;
+    }
+    if (gTrinexx.heads == 0 && super->action != TX_BURST) {
+        // both side heads gone: the shell bursts
+        super->action = TX_BURST;
+        super->timer = 255;
+        this->turns = 0;
+        gTrinexx.lunging = 0;
+        super->x.HALF.HI = gTrinexx.bodyX;
+        super->y.HALF.HI = gTrinexx.bodyY + TRINEXX_HEAD_DY;
+        EnqueueSFX(SFX_BOSS_DIE);
+    }
+    switch (super->action) {
+        case TX_WAIT:
+            if (super->timer) {
+                super->timer--;
+                break;
+            }
+            // the side heads keep it still while they breathe
+            if (gTrinexx.jaw[0] || gTrinexx.jaw[1]) {
+                break;
+            }
+            {
+                u32 j = Random() & 3;
+                if (j == this->idx) {
+                    break;
+                }
+                if (++this->turns == 2) {
+                    this->turns = 0;
+                    super->action = TX_WINDUP;
+                    super->timer = 80;
+                    break;
+                }
+                this->idx = j;
+                this->unused[0] = (Random() & 3) == 0; // fast
+                super->action = TX_WALK;
+            }
+            break;
+        case TX_WALK: {
+            s32 tx = this->homeX + tabX[this->idx] - 0x78;
+            s32 ty = this->homeY + tabY[this->idx] - 0x70;
+            u32 n = this->unused[0] ? 2 : 1;
+            AimVel(super, tx, ty, this->unused[0] ? 16 : 8, vx, vy);
+            MoveVel(super, *vx, *vy);
+            if (Abs(super->x.HALF.HI - tx) < 2 && Abs(super->y.HALF.HI - ty) < 2) {
+                super->action = TX_WAIT;
+                super->timer = 48;
+            }
+            do {
+                gTrinexx.legStep += *vx < 0 ? 1 : -1;
+                if (!(gTrinexx.legStep & 0xf)) {
+                    EnqueueSFX(SFX_THUD_HEAVY);
+                }
+            } while (--n);
+            gTrinexx.bodyX = super->x.HALF.HI;
+            gTrinexx.bodyY = super->y.HALF.HI - TRINEXX_HEAD_DY;
+            break;
+        }
+        case TX_WINDUP:
+            if (--super->timer == 0) {
+                super->action = TX_LUNGE;
+                super->timer = 64;
+                AimVel(super, gPlayerEntity.base.x.HALF.HI, gPlayerEntity.base.y.HALF.HI, 48, vx, vy);
+                gTrinexx.lunging = 1;
+                EnqueueSFX(SFX_14C);
+            }
+            break;
+        case TX_LUNGE:
+            MoveVel(super, *vx, *vy);
+            if (--super->timer == 0) {
+                super->x.HALF.HI = gTrinexx.bodyX;
+                super->y.HALF.HI = gTrinexx.bodyY + TRINEXX_HEAD_DY;
+                super->action = TX_WAIT;
+                super->timer = 48;
+                gTrinexx.lunging = 0;
+            } else if (super->timer == 0x20) {
+                *vx = -*vx;
+                *vy = -*vy;
+            }
+            break;
+        case TX_BURST:
+            if (super->timer == 0 || --super->timer == 0) {
+                // out of the shell: the snake
+                Entity* e;
+                gTrinexx.final = 1;
+                for (i = 0; i < ARRAY_COUNT(gEntityLists); i++) {
+                    LinkedList* list = &gEntityLists[i];
+                    Entity* next;
+                    for (e = list->first; (u32)e != (u32)list; e = next) {
+                        next = e->next;
+                        if (e->kind == ENEMY && e->parent == super && e->id == BOSS_PIECE) {
+                            DeleteEntity(e);
+                        }
+                    }
+                }
+                for (i = 0; i < TRINEXX_HIST; i++) {
+                    gTrinexx.histX[i] = super->x.HALF.HI;
+                    gTrinexx.histY[i] = super->y.HALF.HI;
+                }
+                for (i = 0; i < TRINEXX_SEGS; i++) {
+                    e = SpawnAt(BOSS_PIECE, BP_TSEG, super, 0, 0);
+                    if (e != NULL) {
+                        e->type2 = i;
+                        e->collisionLayer = super->collisionLayer;
+                    }
+                }
+                super->action = TX_SNAKE;
+                super->timer = 128;
+                this->face = 0;
+                this->shield = 1;
+                super->spritePriority.b0 = 1;
+                *vx = *vy = 0;
+            } else if (super->timer >= 0xe0) {
+                // the shell heaves up
+                gTrinexx.bodyY -= (super->timer & 1);
+                InitScreenShake(2, 0);
+            } else if (!(super->timer & 3)) {
+                Entity* fx = CreateFx(super, FX_GIANT_EXPLOSION4, 0);
+                if (fx != NULL) {
+                    fx->x.HALF.HI = gTrinexx.bodyX + (s32)(Random() & 63) - 32;
+                    fx->y.HALF.HI = gTrinexx.bodyY + (s32)(Random() & 47) - 24;
+                }
+                EnqueueSFX(SFX_ITEM_BOMB_EXPLODE);
+            }
+            break;
+    }
+    gTrinexx.headX = super->x.HALF.HI;
+    gTrinexx.headY = super->y.HALF.HI;
+    if (!(this->step & 63)) {
+        s32 dx = gPlayerEntity.base.x.HALF.HI - super->x.HALF.HI;
+        this->pose = Abs(dx) < 24 ? 0 : dx < 0 ? 1 : 7;
+    }
+    SetFrame(super, AF_TRINEXX_0 + this->pose);
+    AlttpEndTick(this);
+}
+
+static void TrinexxOnCollision(AlttpEnemy* this);
+static void TrinexxOnDeath(AlttpEnemy* this) {
+    if (this->burst == 0) {
+        DeleteChildren(super);
+    }
+    if (BossBurst(this, 8, 8)) {
+        DeleteThisEntity();
+    }
+}
+
+static void (*const Trinexx_Functions[])(AlttpEnemy*) = {
+    TrinexxTick, TrinexxOnCollision, (void (*)(AlttpEnemy*))GenericKnockback,
+    TrinexxOnDeath, (void (*)(AlttpEnemy*))GenericConfused, AlttpGrabbed,
+};
+
+static void TrinexxOnCollision(AlttpEnemy* this) {
+    super->knockbackDuration = 0;
+    if (super->health != 0) {
+        if (TookHit(this)) {
+            EnqueueSFX(SFX_METAL_CLINK);
+        }
+    }
+    EnemyFunctionHandlerAfterCollision(super, (void (*const*)())Trinexx_Functions);
+}
+
+void Trinexx(AlttpEnemy* this) {
+    EnemyFunctionHandler(super, (EntityActionArray)Trinexx_Functions);
+}
+
+/** A side head (type 0 the fire head, on the left; 1 the ice head). Fields: face its
+ * pose (sprite_D, 0-4), pose the jaw, cooldown frames left stunned. */
+enum { TH_INIT, TH_WAIT, TH_SWAY, TH_IDLE, TH_BREATHE };
+
+static const u8 sNeckAngle[45] = {
+    0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x58, 0x64, 0x6a, 0x6f, 0x74, 0x7a, 0x7e,
+    0x80, 0x80, 0x39, 0x48, 0x52, 0x5c, 0x65, 0x73, 0x77, 0x7a, 0x80, 0x1e, 0x24, 0x29, 0x2e, 0x34,
+    0x3a, 0x44, 0x4d, 0x80, 0x0a, 0x11, 0x17, 0x1c, 0x22, 0x2a, 0x36, 0x3a, 0x80,
+};
+static const u8 sNeckRadius[45] = {
+    0x30, 0x28, 0x23, 0x1e, 0x19, 0x13, 0x0c, 0x06, 0x00, 0x2f, 0x26, 0x21, 0x1d, 0x18, 0x12, 0x0c,
+    0x06, 0x00, 0x2f, 0x27, 0x22, 0x1d, 0x18, 0x12, 0x0c, 0x06, 0x00, 0x2f, 0x27, 0x22, 0x1d, 0x18,
+    0x12, 0x0c, 0x06, 0x00, 0x48, 0x3a, 0x32, 0x29, 0x22, 0x19, 0x10, 0x07, 0x00,
+};
+
+/** Where a part of a side head's neck is (n 0 the head, 8 the shell). */
+static void TrinexxNeckAt(u32 head, u32 n, s32* x, s32* y) {
+    u32 a = gTrinexx.angle[head][n];
+    s32 r = gTrinexx.radius[head][n];
+    if (head == 0) {
+        a = 0x200 - a; // the left neck mirrors the right
+    }
+    *x = gTrinexx.bodyX + (head ? 13 : -14) + HalfSin(a, r);
+    *y = gTrinexx.bodyY - 16 + HalfSin(a + 0x80, r);
+}
+
+static void TrinexxHeadTick(AlttpEnemy* this) {
+    u32 k = super->type;
+    s32 x, y;
+    if (super->action == TH_INIT) {
+        AlttpInit(this, k ? AP_TICE : AP_TFIRE, AF_THEAD_0);
+        ((Enemy*)this)->enemyFlags |= EM_FLAG_BOSS;
+        super->action = TH_WAIT;
+        super->timer = k ? 255 : 128;
+        super->spritePriority.b0 = 1;
+        super->spriteSettings.shadow = 0;
+        this->shield = 1;
+        this->face = 0;
+        this->pose = 0;
+        this->cooldown = 0;
+    }
+    if (!ParentAlive(super) || gTrinexx.final) {
+        DeleteThisEntity();
+    }
+    this->step++;
+    if (this->cooldown) {
+        // stunned (frozen or burnt): now the sword cuts it
+        this->shield = 0;
+        if (--this->cooldown == 0) {
+            this->shield = 1;
+            SetPalette(super, k ? AP_TICE : AP_TFIRE);
+            super->action = TH_IDLE;
+            super->timer = 32;
+        }
+        gTrinexx.stunned[k] = this->cooldown != 0;
+        gTrinexx.jaw[k] = 0;
+        this->pose = 0;
+    } else {
+        switch (super->action) {
+            case TH_WAIT:
+                if (--super->timer == 0) {
+                    super->action = TH_SWAY;
+                }
+                break;
+            case TH_IDLE:
+                if (super->timer) {
+                    super->timer--;
+                } else {
+                    u32 i = (Random() & 7) + 1;
+                    if (i < 5 && this->face != i) {
+                        u32 was = this->face;
+                        this->face = i;
+                        super->action = TH_SWAY;
+                        if (was == 1 && (Random() & 1) && !gTrinexx.lunging) {
+                            super->action = TH_BREATHE;
+                            super->timer = 127;
+                        }
+                    }
+                }
+                break;
+            case TH_SWAY: {
+                // each part of the neck creeps toward the pose
+                u32 j = this->face * 9, n, moved = 0;
+                for (n = 0; n < 9; n++, j++) {
+                    u8* a = &gTrinexx.angle[k][n];
+                    u8* r = &gTrinexx.radius[k][n];
+                    if (*a != sNeckAngle[j]) {
+                        *a += *a < sNeckAngle[j] ? 1 : -1;
+                        moved++;
+                    }
+                    if (*a != sNeckAngle[j]) {
+                        *a += *a < sNeckAngle[j] ? 1 : -1;
+                        moved++;
+                    }
+                    if (*r != sNeckRadius[j]) {
+                        *r += *r < sNeckRadius[j] ? 1 : -1;
+                        moved++;
+                    }
+                }
+                if (moved == 0) {
+                    super->action = TH_IDLE;
+                    super->timer = Random() & 15;
+                }
+                break;
+            }
+            case TH_BREATHE: {
+                u32 j = super->timer;
+                if (j == 0 || --super->timer == 0) {
+                    super->action = TH_IDLE;
+                    super->timer = 32;
+                    this->pose = 0;
+                    break;
+                }
+                if (j == 64) {
+                    // Sidenexx_ExhaleDanger
+                    if (k) {
+                        SpawnBolt(super, BT_TICE, 0, 8, -2, 0);
+                        SpawnBolt(super, BT_TICE, 0, 8, 1, 0);
+                        EnqueueSFX(SFX_ICE_BLOCK_SLIDE);
+                    } else {
+                        SpawnBolt(super, BT_TFIRE, 0, 8, 0, 0);
+                        EnqueueSFX(SFX_ITEM_LANTERN_ON);
+                    }
+                }
+                this->pose = j < 8 ? j : j < 121 ? 8 : 127 - j;
+                if (j >= 64 && !(this->step & 7)) {
+                    CreateFx(super, k ? FX_BLUE_SPARKLE : FX_SPARKLE2, 0);
+                }
+                break;
+            }
+        }
+        gTrinexx.jaw[k] = super->action == TH_BREATHE;
+        gTrinexx.stunned[k] = 0;
+    }
+    TrinexxNeckAt(k, 0, &x, &y);
+    super->x.HALF.HI = x;
+    super->y.HALF.HI = y;
+    super->spriteSettings.draw = this->cooldown ? (this->step & 2) != 0 || this->cooldown > 32 : 1;
+    SetFrame(super, AF_THEAD_0 + (this->pose >> 1));
+    AlttpEndTick(this);
+}
+
+static void TrinexxHeadOnCollision(AlttpEnemy* this);
+static void TrinexxHeadOnDeath(AlttpEnemy* this) {
+    if (this->burst == 0) {
+        gTrinexx.alive[super->type] = 0;
+        gTrinexx.jaw[super->type] = 0;
+        if (gTrinexx.heads) {
+            gTrinexx.heads--;
+        }
+        COLLISION_OFF(super);
+    }
+    // Sidenexx_Explode: a blast down the neck
+    if (++this->burst >= 48) {
+        DeleteThisEntity();
+    }
+    if ((this->burst & 7) == 0) {
+        s32 x, y;
+        Entity* fx = CreateFx(super, FX_GIANT_EXPLOSION4, 0);
+        TrinexxNeckAt(super->type, (this->burst >> 3) + 1 < 9 ? (this->burst >> 3) + 1 : 8, &x, &y);
+        if (fx != NULL) {
+            fx->x.HALF.HI = x;
+            fx->y.HALF.HI = y;
+        }
+        EnqueueSFX(SFX_ITEM_BOMB_EXPLODE);
+    }
+    super->spriteSettings.draw = this->burst < 16;
+}
+
+static void (*const TrinexxHead_Functions[])(AlttpEnemy*) = {
+    TrinexxHeadTick, TrinexxHeadOnCollision, (void (*)(AlttpEnemy*))GenericKnockback,
+    TrinexxHeadOnDeath, (void (*)(AlttpEnemy*))GenericConfused, AlttpGrabbed,
+};
+
+static void TrinexxHeadOnCollision(AlttpEnemy* this) {
+    Entity* by = super->contactedEntity;
+    u32 k = super->type;
+    super->knockbackDuration = 0;
+    if (IsRodShot(by, k ? ITEM_FIRE_ROD : ITEM_ICE_ROD)) {
+        // the one thing that gets through: it freezes (or burns) and hangs stunned
+        if (this->cooldown == 0) {
+            EnqueueSFX(k ? SFX_ITEM_LANTERN_ON : SFX_ICE_BLOCK_SLIDE);
+            EnqueueSFX(SFX_BOSS_HIT);
+            SetPalette(super, k ? AP_TFIRE : AP_ICEBALL);
+        }
+        this->cooldown = 128;
+        this->shield = 0;
+        super->action = TH_IDLE;
+    } else if (this->shield) {
+        if (TookHit(this)) {
+            EnqueueSFX(SFX_METAL_CLINK);
+        }
+    } else if (super->health < this->savedHealth) {
+        EnqueueSFX(SFX_BOSS_HIT);
+    }
+    EnemyFunctionHandlerAfterCollision(super, (void (*const*)())TrinexxHead_Functions);
+}
+
+void TrinexxHead(AlttpEnemy* this) {
+    EnemyFunctionHandler(super, (EntityActionArray)TrinexxHead_Functions);
+}
+
+/** The bosses' pieces: Blind's head (on his body, or flown off), Kholdstare's pupil,
+ * Trinexx's legs, a half of its shell, a part of a side head's neck, a part of the
+ * snake (or of the rock head's neck as it lunges), and a Chain Chomp's chain link. */
+/** The pieces Link can strike (Blind's flown head, Kholdstare's pupil, Trinexx's shell,
+ * necks and snake): they go through the collision handler. */
+static bool32 BossPieceArmored(AlttpEnemy* this) {
+    switch (super->type) {
+        case BP_FLYHEAD:
+        case BP_KPUPIL:
+        case BP_TSHELL:
+        case BP_TNECK:
+        case BP_TSEG:
+            return TRUE;
+    }
+    return FALSE;
+}
+
+static void BossPieceTick(AlttpEnemy* this) {
+    AlttpEnemy* boss = (AlttpEnemy*)super->parent;
+    u32 i = super->type2;
+    if (super->action == 0) {
+        static const u8 pal[] = { AP_BLINDHEAD, AP_BLINDHEAD, AP_KHOLD, AP_TRINEXX, AP_TSHELL, AP_TRINEXX,
+                                  AP_TRINEXX, AP_CHOMPLINK };
+        AlttpInit(this, pal[super->type], 0);
+        super->spriteSettings.shadow = 0;
+        super->spritePriority.b0 = 2;
+        this->step = 0;
+        switch (super->type) {
+            case BP_FLYHEAD:
+                super->timer = 48;
+                this->idx = 2;
+                this->crusher = super->x.HALF.HI >= this->homeX;
+                this->turns = 0;
+                this->unused[0] = 4;
+                this->targetX = this->targetY = 0;
+                super->spritePriority.b0 = 1;
+                break;
+            case BP_KPUPIL:
+                super->spritePriority.b0 = 2;
+                break;
+            case BP_TLEGS:
+                super->spritePriority.b0 = 4;
+                COLLISION_OFF(super);
+                break;
+            case BP_TSHELL:
+                super->spritePriority.b0 = 3;
+                if (i != 0) {
+                    COLLISION_OFF(super);
+                } else {
+                    super->hitbox = (Hitbox*)&gHitbox_TrinexxShell;
+                }
+                break;
+            case BP_TSEG:
+                super->spritePriority.b0 = i >= 16 ? 3 : 2;
+                this->shield = i != 3;
+                break;
+            case BP_CHAIN:
+                super->spritePriority.b0 = 3;
+                COLLISION_OFF(super);
+                break;
+            case BP_TNECK:
+                SetPalette(super, (i >> 3) ? AP_TICE : AP_TFIRE);
+                break;
+            default:
+                COLLISION_OFF(super);
+                break;
+        }
+        if (BossPieceArmored(this)) {
+            // armour: Link's sword clinks off it (not a Spark's shock, which would
+            // numb the sword), and it hurts Link to touch; the shell is only solid
+            super->health = 255;
+            super->hitType = super->type == BP_TSHELL ? 81 : 100;
+        }
+        this->savedHealth = super->health;
+    }
+    if (!ParentAlive(super) || (boss->base.health == 0 && super->type != BP_CHAIN)) {
+        DeleteThisEntity();
+    }
+    this->step++;
+    if (this->cooldown) {
+        this->cooldown--;
+    }
+    if (!BossPieceArmored(this)) {
+        super->health = 0;
+    }
+    super->knockbackDuration = 0;
+    super->collisionLayer = boss->base.collisionLayer;
+    switch (super->type) {
+        case BP_BLINDHEAD: {
+            static const s8 dx[15] = BLIND_HEAD_DX;
+            static const s8 dy[15] = BLIND_HEAD_DY;
+            static const u16 frame[16] = BLIND_HEAD_FRAME;
+            u32 g = boss->pose;
+            super->x.HALF.HI = boss->base.x.HALF.HI + dx[g];
+            super->y.HALF.HI = boss->base.y.HALF.HI + dy[g];
+            super->spriteSettings.draw = g < 10 && boss->base.spriteSettings.draw;
+            SetFrame(super, frame[boss->head & 15]);
+            break;
+        }
+        case BP_FLYHEAD: {
+            // Sprite_Blind_Head: it bounces about, spinning, spitting fire
+            static const s8 limX[2] = { 32, -32 };
+            static const s8 limY[2] = { 48, -48 };
+            static const s8 velX[2] = { 32, -32 };
+            static const s8 velY[2] = { 24, -24 };
+            static const u16 frame[16] = BLIND_HEAD_FRAME;
+            u32 j;
+            if (this->idx-- == 0) {
+                this->idx = 2;
+                this->head = (this->head + 1) & 15;
+            }
+            SetFrame(super, frame[this->head]);
+            if (super->timer) {
+                super->timer--;
+                break;
+            }
+            if (!(this->step & 31)) {
+                Entity* fb = BlindSpit(super, this->head, 0);
+                if (fb != NULL && --this->unused[0] == 0) {
+                    this->unused[0] = 4;
+                    fb->direction = GetFacingDirection(super, &gPlayerEntity.base);
+                }
+                if (fb != NULL) {
+                    fb->parent = &boss->base;
+                }
+            }
+            j = this->crusher & 1;
+            if (this->targetX != velX[j]) {
+                this->targetX += j ? -1 : 1;
+            }
+            if (j == 0 ? super->x.HALF.HI >= this->homeX + limX[0] : super->x.HALF.HI <= this->homeX + limX[1]) {
+                this->crusher++;
+            }
+            j = this->turns & 1;
+            if (this->targetY != velY[j]) {
+                this->targetY += j ? -1 : 1;
+            }
+            if (j == 0 ? super->y.HALF.HI >= this->homeY + limY[0] : super->y.HALF.HI <= this->homeY + limY[1]) {
+                this->turns++;
+            }
+            MoveVel(super, this->targetX, this->targetY);
+            break;
+        }
+        case BP_KPUPIL:
+            CopyPosition(&boss->base, super);
+            super->spriteSettings.draw = boss->base.spriteSettings.draw;
+            SetFrame(super, AF_KPUPIL_0 + (boss->head & 15));
+            break;
+        case BP_TLEGS: {
+            static const u8 bob[4] = { 0, 1, 2, 1 };
+            super->x.HALF.HI = gTrinexx.bodyX;
+            super->y.HALF.HI = gTrinexx.bodyY - 4 + bob[(gTrinexx.legStep >> 3) & 3] - 1;
+            SetFrame(super, AF_TLEGS_0 + ((gTrinexx.legStep >> 2) & 3));
+            break;
+        }
+        case BP_TSHELL:
+            super->x.HALF.HI = gTrinexx.bodyX;
+            super->y.HALF.HI = gTrinexx.bodyY;
+            // flushed with the colour of the head that is stunned
+            {
+                u32 pal = AP_TSHELL;
+                if ((gTrinexx.stunned[0] || gTrinexx.stunned[1]) && (this->step & 8)) {
+                    pal = gTrinexx.stunned[0] ? AP_TICE : AP_TFIRE;
+                }
+                if (pal != this->idx) {
+                    this->idx = pal;
+                    SetPalette(super, pal);
+                }
+            }
+            SetFrame(super, i ? AF_TSHELL_R : AF_TSHELL_L);
+            break;
+        case BP_TNECK: {
+            u32 head = i >> 3, n = (i & 7) * 2 + 1;
+            s32 x, y;
+            if (!gTrinexx.alive[head]) {
+                DeleteThisEntity();
+            }
+            TrinexxNeckAt(head, n, &x, &y);
+            super->x.HALF.HI = x;
+            super->y.HALF.HI = y;
+            super->spritePriority.b0 = 2;
+            SetFrame(super, AF_TNECK);
+            break;
+        }
+        case BP_TSEG:
+            if (i >= 16) {
+                // the rock head's neck, shown as it lunges
+                s32 f = (i - 15);
+                s32 bx = gTrinexx.bodyX, by = gTrinexx.bodyY + TRINEXX_HEAD_DY;
+                super->x.HALF.HI = bx + (gTrinexx.headX - bx) * f / 4;
+                super->y.HALF.HI = by + (gTrinexx.headY - by) * f / 4;
+                super->spriteSettings.draw = gTrinexx.lunging;
+                if (gTrinexx.lunging) {
+                    COLLISION_ON(super);
+                } else {
+                    COLLISION_OFF(super);
+                }
+                SetFrame(super, AF_TSEG_1);
+            } else {
+                // the snake's body, along the trail its head left
+                static const u8 back[TRINEXX_SEGS] = { 6, 12, 18, 24, 31, 38 };
+                static const u16 frame[TRINEXX_SEGS] = { AF_TSEG_2, AF_TRINEXX_8, AF_TRINEXX_8, AF_TRINEXX_8,
+                                                         AF_TSEG_2, AF_TSEG_1 };
+                u32 h = (gTrinexx.hist - back[i]) & (TRINEXX_HIST - 1);
+                super->x.HALF.HI = gTrinexx.histX[h];
+                super->y.HALF.HI = gTrinexx.histY[h];
+                super->spritePriority.b0 = 2 + (i > 2);
+                if (i == 3) {
+                    // the soft scale flashes
+                    if ((this->step & 3) == 0) {
+                        SetPalette(super, (this->step & 4) ? AP_TFIRE : AP_TRINEXX);
+                    }
+                    super->health = 255;
+                    this->savedHealth = 255;
+                }
+                SetFrame(super, i == 5 ? AF_TSEG_0 : frame[i]);
+            }
+            break;
+        case BP_CHAIN:
+            super->x.HALF.HI = this->homeX;
+            super->y.HALF.HI = this->homeY;
+            SetFrame(super, AF_CHOMPLINK);
+            break;
+    }
+}
+
+static void BossPieceOnCollision(AlttpEnemy* this);
+static void BossPieceOnDeath(AlttpEnemy* this) {
+    super->health = 255;
+    this->savedHealth = 255;
+}
+
+static void (*const BossPiece_Functions[])(AlttpEnemy*) = {
+    BossPieceTick, BossPieceOnCollision, (void (*)(AlttpEnemy*))GenericKnockback,
+    BossPieceOnDeath, (void (*)(AlttpEnemy*))GenericConfused, AlttpGrabbed,
+};
+
+static void BossPieceOnCollision(AlttpEnemy* this) {
+    super->knockbackDuration = 0;
+    if (super->health < this->savedHealth) {
+        super->health = 255;
+        if (this->cooldown == 0) {
+            if (super->type == BP_TSEG && super->type2 == 3) {
+                // a blow on the snake's soft scale goes to Trinexx
+                gTrinexx.weakHits++;
+                EnqueueSFX(SFX_BOSS_HIT);
+            } else {
+                EnqueueSFX(SFX_METAL_CLINK);
+            }
+            this->cooldown = 16;
+        }
+        super->iframes = -12;
+    }
+    EnemyFunctionHandlerAfterCollision(super, (void (*const*)())BossPiece_Functions);
+}
+
+void BossPiece(AlttpEnemy* this) {
+    if (super->action != 0 && BossPieceArmored(this)) {
+        EnemyFunctionHandler(super, (EntityActionArray)BossPiece_Functions);
+    } else {
+        BossPieceTick(this);
+    }
+}
+
+/* ---- Freezor ------------------------------------------------------------------------
+ * The Ice Palace's ghost of ice. It waits as a statue in the wall; when Link passes in
+ * front, it shudders awake, pulls free and glides after him, glittering. Fire melts it
+ * at once (the Fire Rod or Bombos), and when beaten it melts away.
+ */
+enum { FZ_INIT, FZ_STASIS, FZ_WAKE, FZ_MOVE, FZ_MELT };
+
+static void FreezorTick(AlttpEnemy* this) {
+    static const s8 vx[4] = { 8, -8, 0, 0 };
+    static const s8 vy[4] = { 0, 0, 18, -18 };
+    static const u8 glide[4] = { 1, 2, 1, 3 };
+    if (super->action == FZ_INIT) {
+        AlttpInit(this, AP_FREEZOR, AF_FREEZOR_0);
+        super->action = FZ_STASIS;
+        this->shield = 1;
+        super->spriteSettings.shadow = 0;
+    }
+    this->step++;
+    switch (super->action) {
+        case FZ_STASIS:
+            SetFrame(super, AF_FREEZOR_0);
+            if (Abs(gPlayerEntity.base.x.HALF.HI - super->x.HALF.HI) < 16 &&
+                Abs(gPlayerEntity.base.y.HALF.HI - super->y.HALF.HI) < 96) {
+                super->action = FZ_WAKE;
+                super->timer = 32;
+                EnqueueSFX(SFX_ICE_BLOCK_SLIDE);
+            }
+            break;
+        case FZ_WAKE:
+            super->x.HALF.HI += (super->timer & 1) ? -1 : 1;
+            if (--super->timer == 0) {
+                super->action = FZ_MOVE;
+                super->timer = 80;
+                this->face = 2;
+                this->shield = 0;
+                this->cooldown = 96;
+                super->spriteSettings.shadow = 1;
+            }
+            break;
+        case FZ_MOVE: {
+            if (super->timer) {
+                super->timer--;
+            } else {
+                this->face = Face4ToLink(super);
+            }
+            if (this->cooldown) {
+                this->cooldown--;
+                if (!(this->step & 7)) {
+                    Entity* fx = CreateFx(super, FX_BLUE_SPARKLE, 0);
+                    if (fx != NULL) {
+                        fx->x.HALF.HI += (s32)(Random() & 15) - 4;
+                        fx->y.HALF.HI -= 4;
+                    }
+                }
+            }
+            MoveVelWalls(super, vx[this->face], vy[this->face], 7);
+            SetFrame(super, this->face < 2 && (this->step & 16) ? AF_FREEZOR_LEAN : AF_FREEZOR_0 + glide[(this->step >> 2) & 3]);
+            break;
+        }
+    }
+    AlttpEndTick(this);
+}
+
+static void FreezorOnCollision(AlttpEnemy* this);
+static void FreezorOnDeath(AlttpEnemy* this) {
+    static const u8 melt[4] = { 7, 4, 5, 6 };
+    if (super->action != FZ_MELT) {
+        super->action = FZ_MELT;
+        super->timer = 32;
+        COLLISION_OFF(super);
+        EnqueueSFX(SFX_ICE_BLOCK_MELT);
+    }
+    if (--super->timer == 0) {
+        AlttpDeath(this, OCTOROK);
+        return;
+    }
+    SetFrame(super, AF_FREEZOR_0 + melt[super->timer >> 3]);
+}
+
+static void (*const Freezor_Functions[])(AlttpEnemy*) = {
+    FreezorTick, FreezorOnCollision, (void (*)(AlttpEnemy*))GenericKnockback,
+    FreezorOnDeath, (void (*)(AlttpEnemy*))GenericConfused, AlttpGrabbed,
+};
+
+static void FreezorOnCollision(AlttpEnemy* this) {
+    if (IsFire(super, super->contactedEntity) && super->action == FZ_MOVE) {
+        super->health = 0;
+    }
+    super->knockbackDuration = 0;
+    AlttpOnCollision(this, (void (*const*)())Freezor_Functions);
+}
+
+void Freezor(AlttpEnemy* this) {
+    EnemyFunctionHandler(super, (EntityActionArray)Freezor_Functions);
+}
+
+/* ---- Pengator ------------------------------------------------------------------------
+ * The Ice Palace's penguin. It turns to Link, waddles faster and faster, hops, and
+ * belly-slides on across the ice until it hits a wall. Fields: face (0 right, 1 left,
+ * 2 down, 3 up), pose its frame within the facing, homeX/Y its height and fall.
+ */
+enum { PG_INIT, PG_FACE, PG_SPEEDUP, PG_JUMP, PG_SLIDE };
+
+static void PengatorTick(AlttpEnemy* this) {
+    static const u8 base[4] = { 5, 0, 10, 15 };
+    static const s8 wantX[4] = { 16, -16, 0, 0 };
+    static const s8 wantY[4] = { 0, 0, 16, -16 };
+    static const u8 jump[4] = { 4, 4, 3, 2 };
+    s16* z = &this->homeX;
+    s16* vz = &this->homeY;
+    u32 hit;
+    if (super->action == PG_INIT) {
+        AlttpInit(this, AP_PENGATOR, AF_PENGATOR_0);
+        super->action = PG_FACE;
+        this->pose = 0;
+        *z = *vz = 0;
+        this->targetX = this->targetY = 0;
+    }
+    this->step++;
+    MoveZ16(z, vz, 2, -64);
+    hit = MoveVelWalls(super, this->targetX, this->targetY, 7);
+    if (hit) {
+        super->action = PG_FACE;
+        this->targetX = this->targetY = 0;
+    }
+    switch (super->action) {
+        case PG_FACE:
+            this->face = Face4ToLink(super);
+            super->action = PG_SPEEDUP;
+            break;
+        case PG_SPEEDUP:
+            if (!(this->step & 3)) {
+                bool32 more = FALSE;
+                if (this->targetX != wantX[this->face]) {
+                    this->targetX += wantX[this->face] > 0 ? 1 : -1;
+                    more = TRUE;
+                }
+                if (this->targetY != wantY[this->face]) {
+                    this->targetY += wantY[this->face] > 0 ? 1 : -1;
+                    more = TRUE;
+                }
+                if (!more) {
+                    super->action = PG_JUMP;
+                    super->timer = 15;
+                }
+            }
+            this->pose = (this->step & 4) >> 2;
+            break;
+        case PG_JUMP:
+            if (super->timer == 0 || --super->timer == 0) {
+                super->action = PG_SLIDE;
+            } else if (super->timer == 5) {
+                *vz = 24;
+            }
+            this->pose = jump[super->timer >> 2];
+            break;
+        case PG_SLIDE:
+            if (!(this->step & 7) && *z == 0) {
+                Entity* fx = CreateFx(super, FX_BLUE_SPARKLE, 0);
+                if (fx != NULL) {
+                    fx->y.HALF.HI += 4;
+                }
+            }
+            break;
+    }
+    SetHeight(super, *z >> 4);
+    SetFrame(super, AF_PENGATOR_0 + base[this->face] + this->pose);
+    AlttpEndTick(this);
+}
+
+static void PengatorOnCollision(AlttpEnemy* this);
+static void PengatorOnDeath(AlttpEnemy* this) {
+    AlttpDeath(this, OCTOROK);
+}
+
+static void (*const Pengator_Functions[])(AlttpEnemy*) = {
+    PengatorTick, PengatorOnCollision, (void (*)(AlttpEnemy*))GenericKnockback,
+    PengatorOnDeath, (void (*)(AlttpEnemy*))GenericConfused, AlttpGrabbed,
+};
+
+static void PengatorOnCollision(AlttpEnemy* this) {
+    if (super->health < this->savedHealth) {
+        super->action = PG_FACE;
+        this->targetX = this->targetY = 0;
+    }
+    AlttpOnCollision(this, (void (*const*)())Pengator_Functions);
+}
+
+void Pengator(AlttpEnemy* this) {
+    EnemyFunctionHandler(super, (EntityActionArray)Pengator_Functions);
+}
+
+/* ---- Stalfos Knight ---------------------------------------------------------------
+ * The Ice Palace's big skeleton. It waits in the ceiling and drops when Link comes
+ * under it, looks about, then hops at him again and again. Beaten, it falls to a heap
+ * of bones (the head bobbing down onto them); a bomb (or the Hammer) finishes it then,
+ * or else it shudders and pulls itself together again. Fields: head where it looks
+ * (0 right, 1 left, 2 at Link), pose its body (0-4), unused[0] the head's drop,
+ * homeX/Y its height and fall, rangeX the random stop, crusher frames before a hop,
+ * unused[1] its full health and unused[2] what is left of it.
+ */
+enum { SK_INIT, SK_CEILING, SK_FALL, SK_SETTLE, SK_LOOK, SK_CROUCH, SK_HOP, SK_HEAP, SK_SHUDDER };
+
+static void KnightGround(AlttpEnemy* this) {
+    super->action = SK_SETTLE;
+    super->timer = 63;
+    this->homeX = this->homeY = 0;
+    COLLISION_ON(super);
+    this->shield = 0;
+}
+
+static void StalfosKnightTick(AlttpEnemy* this) {
+    static const u8 lookAbout[16] = { 0, 0, 0, 2, 1, 1, 1, 2, 0, 0, 0, 2, 1, 1, 1, 2 };
+    s16* z = &this->homeX;
+    s16* vz = &this->homeY;
+    u32 f;
+    if (super->action == SK_INIT) {
+        AlttpInit(this, AP_KNIGHT, AF_KNIGHT_0_2);
+        super->action = SK_CEILING;
+        super->spriteSettings.draw = 0;
+        COLLISION_OFF(super);
+        this->head = 2;
+        this->pose = 2;
+        this->unused[0] = 0;
+        this->unused[1] = this->unused[2] = super->health; // what it pulls itself together with
+        super->health = 255;
+        *z = *vz = 0;
+    }
+    this->step++;
+    switch (super->action) {
+        case SK_CEILING:
+            if (LinkNear(super, 20, 20)) {
+                super->action = SK_FALL;
+                super->spriteSettings.draw = 1;
+                *z = 144 << 4;
+                *vz = 0;
+                EnqueueSFX(SFX_FALL_HOLE);
+            }
+            break;
+        case SK_FALL:
+            if (MoveZ16(z, vz, 3, -64)) {
+                EnqueueSFX(SFX_THUD_HEAVY);
+                KnightGround(this);
+            }
+            this->pose = 2;
+            break;
+        case SK_SETTLE:
+            if (--super->timer == 0) {
+                super->action = SK_LOOK;
+                this->rangeX = Random() & 63;
+                super->timer = 127;
+            } else {
+                this->pose = super->timer >> 5;
+                this->head = 2;
+            }
+            break;
+        case SK_LOOK:
+            if (super->timer == this->rangeX) {
+                this->head = gPlayerEntity.base.x.HALF.HI < super->x.HALF.HI;
+                super->action = SK_CROUCH;
+                super->timer = 32;
+            } else {
+                this->head = lookAbout[super->timer >> 3];
+                this->pose = 0;
+            }
+            super->timer--;
+            break;
+        case SK_CROUCH:
+            this->pose = 1;
+            if (--super->timer == 0) {
+                super->action = SK_HOP;
+                super->timer = 255;
+                this->crusher = 32;
+            }
+            break;
+        case SK_HOP:
+            if (super->timer) {
+                super->timer--;
+            }
+            if (this->crusher) {
+                if (--this->crusher == 0) {
+                    *vz = 48;
+                    AimVel(super, gPlayerEntity.base.x.HALF.HI, gPlayerEntity.base.y.HALF.HI, 16, &this->targetX,
+                           &this->targetY);
+                    this->head = gPlayerEntity.base.x.HALF.HI < super->x.HALF.HI;
+                    EnqueueSFX(SFX_PLY_JUMP);
+                }
+                this->pose = 1;
+            } else {
+                MoveVelWalls(super, this->targetX, this->targetY, 7);
+                if (MoveZ16(z, vz, 2, -64)) {
+                    if (super->timer == 0) {
+                        KnightGround(this);
+                    } else {
+                        this->crusher = 16;
+                    }
+                }
+                this->pose = *vz < 24 ? 2 : 0;
+            }
+            break;
+        case SK_HEAP: {
+            static const u8 drop[32] = { 0, 4, 8, 12, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14,
+                                         14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 15, 14, 12, 8, 4, 0 };
+            MoveZ16(z, vz, 2, -64);
+            if (super->timer == 0 || --super->timer == 0) {
+                if (Random() & 1) {
+                    KnightGround(this);
+                } else {
+                    super->action = SK_SHUDDER;
+                    super->timer = 80;
+                }
+                this->unused[2] = this->unused[1];
+            } else {
+                if (super->timer >= 224 && !(super->timer & 3)) {
+                    EnqueueSFX(SFX_METAL_CLINK);
+                }
+                this->unused[0] = drop[super->timer >> 3];
+                this->pose = 3;
+                this->head = 2;
+            }
+            break;
+        }
+        case SK_SHUDDER:
+            if (--super->timer == 0) {
+                KnightGround(this);
+            } else {
+                this->pose = (super->timer >> 2) & 1 ? 4 : 1;
+            }
+            break;
+    }
+    SetHeight(super, *z >> 4);
+    if (this->pose == 3) {
+        u32 d = this->unused[0];
+        f = d == 0 ? AF_KNIGHT_3_2 : d < 6 ? AF_KNIGHT_PILE_4 : d < 10 ? AF_KNIGHT_PILE_8 : d < 13 ? AF_KNIGHT_PILE_12 : AF_KNIGHT_PILE_14;
+    } else if (this->pose == 2) {
+        f = AF_KNIGHT_2;
+    } else {
+        static const u16 bodies[5] = { AF_KNIGHT_0_0, AF_KNIGHT_1_0, 0, 0, AF_KNIGHT_4_0 };
+        f = bodies[this->pose] + this->head;
+    }
+    SetFrame(super, f);
+    AlttpEndTick(this);
+}
+
+static void StalfosKnightOnCollision(AlttpEnemy* this);
+static void StalfosKnightOnDeath(AlttpEnemy* this) {
+    AlttpDeath(this, OCTOROK);
+}
+
+static void (*const StalfosKnight_Functions[])(AlttpEnemy*) = {
+    StalfosKnightTick, StalfosKnightOnCollision, (void (*)(AlttpEnemy*))GenericKnockback,
+    StalfosKnightOnDeath, (void (*)(AlttpEnemy*))GenericConfused, AlttpGrabbed,
+};
+
+static void StalfosKnightOnCollision(AlttpEnemy* this) {
+    Entity* by = super->contactedEntity;
+    if (super->action == SK_HEAP) {
+        // a heap of bones: only a bomb or the Hammer finishes it
+        if (IsHeavy(by) || IsBlast(by)) {
+            super->health = 0;
+        } else {
+            TookHit(this);
+        }
+    } else if (super->health < this->savedHealth) {
+        // its own count of the blows (unused[2]): the engine's health stays high, so the
+        // room never sees it at 0 between the blow and this
+        u32 d = this->savedHealth - super->health;
+        RestoreHealth(this);
+        this->unused[2] = this->unused[2] > d ? this->unused[2] - d : 0;
+        if (this->unused[2] == 0) {
+            // beaten down, not out: it falls to pieces
+            super->action = SK_HEAP;
+            super->timer = 255;
+            this->targetX = this->targetY = 0;
+            EnqueueSFX(SFX_HIT);
+        }
+    }
+    super->knockbackDuration = super->action == SK_HEAP ? 0 : super->knockbackDuration;
+    AlttpOnCollision(this, (void (*const*)())StalfosKnight_Functions);
+}
+
+void StalfosKnight(AlttpEnemy* this) {
+    EnemyFunctionHandler(super, (EntityActionArray)StalfosKnight_Functions);
+}
+
+/* ---- Wizzrobe -----------------------------------------------------------------------
+ * Misery Mire's wizards. Unseen, it waits, then flickers into sight facing Link, casts
+ * a beam at him, and fades away again. It can only be hurt while it casts.
+ */
+enum { WZ_INIT, WZ_CLOAKED, WZ_PHASE_IN, WZ_ATTACK, WZ_PHASE_OUT };
+
+static void WizzrobeTick(AlttpEnemy* this) {
+    static const u8 dirGfx[4] = { 4, 2, 0, 6 };
+    static const u8 attackGfx[8] = { 0, 1, 1, 1, 1, 1, 1, 0 };
+    static const s8 beamV[6] = { 32, -32, 0, 0, 32, -32 };
+    if (super->action == WZ_INIT) {
+        AlttpInit(this, AP_WIZZROBE, AF_WIZZROBE_0);
+        super->action = WZ_CLOAKED;
+        super->timer = (Random() & 31) + 32;
+        super->spriteSettings.draw = 0;
+        COLLISION_OFF(super);
+    }
+    this->step++;
+    switch (super->action) {
+        case WZ_CLOAKED:
+            super->spriteSettings.draw = 0;
+            COLLISION_OFF(super);
+            if (--super->timer == 0) {
+                super->action = WZ_PHASE_IN;
+                super->timer = 63;
+                this->face = Face4ToLink(super);
+                EnqueueSFX(SFX_APPARATE);
+            }
+            break;
+        case WZ_PHASE_IN:
+            super->spriteSettings.draw = super->timer & 1;
+            if (--super->timer == 0) {
+                super->action = WZ_ATTACK;
+                super->timer = 63;
+                COLLISION_ON(super);
+            }
+            SetFrame(super, AF_WIZZROBE_0 + dirGfx[this->face]);
+            break;
+        case WZ_ATTACK:
+            super->spriteSettings.draw = 1;
+            if (super->timer == 32) {
+                AlttpEnemy* b = (AlttpEnemy*)SpawnBolt(super, BT_WIZZBEAM, 0, 0, beamV[this->face], beamV[this->face + 2]);
+                if (b != NULL) {
+                    b->idx = this->face;
+                    b->base.collisionLayer = super->collisionLayer;
+                    EnqueueSFX(SFX_ITEM_SWORD_BEAM);
+                }
+            }
+            if (--super->timer == 0) {
+                super->action = WZ_PHASE_OUT;
+                super->timer = 63;
+                COLLISION_OFF(super);
+            }
+            SetFrame(super, AF_WIZZROBE_0 + dirGfx[this->face] + attackGfx[super->timer >> 3]);
+            break;
+        case WZ_PHASE_OUT:
+            super->spriteSettings.draw = super->timer & 1;
+            if (--super->timer == 0) {
+                super->action = WZ_CLOAKED;
+                super->timer = (Random() & 31) + 32;
+            }
+            break;
+    }
+    AlttpEndTick(this);
+}
+
+static void WizzrobeOnCollision(AlttpEnemy* this);
+static void WizzrobeOnDeath(AlttpEnemy* this) {
+    AlttpDeath(this, OCTOROK);
+}
+
+static void (*const Wizzrobe_Functions[])(AlttpEnemy*) = {
+    WizzrobeTick, WizzrobeOnCollision, (void (*)(AlttpEnemy*))GenericKnockback,
+    WizzrobeOnDeath, (void (*)(AlttpEnemy*))GenericConfused, AlttpGrabbed,
+};
+
+static void WizzrobeOnCollision(AlttpEnemy* this) {
+    super->knockbackDuration = 0;
+    AlttpOnCollision(this, (void (*const*)())Wizzrobe_Functions);
+}
+
+void Wizzrobe(AlttpEnemy* this) {
+    EnemyFunctionHandler(super, (EntityActionArray)Wizzrobe_Functions);
+}
+
+/* ---- Laser Eye ----------------------------------------------------------------------
+ * An eye in the wall (type: the way it looks, 0 right, 1 left, 2 down, 3 up). When Link
+ * crosses its line it opens and fires a laser along it. Some only open while Link
+ * looks at them (A Link to the Past's head_dir 0, from where they sit). They can't be
+ * hurt.
+ */
+void LaserEye(AlttpEnemy* this) {
+    static const s8 sx[4] = { 12, -4, 4, 4 };
+    static const s8 sy[4] = { 4, 4, 12, -4 };
+    static const s8 v[6] = { 112, -112, 0, 0, 112, -112 };
+    static const u8 facing[4] = { 1, 0, 3, 2 }; // the way Link looks to face each eye
+    u32 d = super->type & 3;
+    s32 off;
+    if (super->action == 0) {
+        AlttpInit(this, AP_LASEREYE, AF_LASEREYE_0_0 + d * 2);
+        super->spriteSettings.shadow = 0;
+        // SpritePrep_LaserEye: from its place, whether it waits to be looked at
+        this->head = d < 2 ? (super->y.HALF.HI >> 4) & 1 : ((super->x.HALF.HI >> 4) & 1) ^ 1;
+        super->action = 1;
+    }
+    super->health = 0;
+    super->knockbackDuration = 0;
+    switch (super->action) {
+        case 1:
+            this->pose = 0;
+            if (this->head == 0 && LinkFace4() != facing[d]) {
+                break;
+            }
+            off = d < 2 ? gPlayerEntity.base.y.HALF.HI - super->y.HALF.HI : gPlayerEntity.base.x.HALF.HI - super->x.HALF.HI;
+            if (off > -16 && off < 16 && InRoom(&gPlayerEntity.base, 0)) {
+                super->action = 2;
+                super->timer = 32;
+            }
+            break;
+        case 2:
+            this->pose = 1;
+            if (--super->timer == 0) {
+                AlttpEnemy* l = (AlttpEnemy*)SpawnBolt(super, BT_LASER, sx[d] - 8, sy[d] - 8, v[d], v[d + 2]);
+                super->action = 3;
+                super->timer = 12;
+                if (l != NULL) {
+                    l->idx = d;
+                    l->base.collisionLayer = super->collisionLayer;
+                    EnqueueSFX(SFX_ITEM_SWORD_BEAM);
+                }
+            }
+            break;
+        case 3:
+            if (--super->timer == 0) {
+                super->action = 1;
+            }
+            break;
+    }
+    SetFrame(super, AF_LASEREYE_0_0 + d * 2 + this->pose);
+}
+
+/* ---- Chain Chomp --------------------------------------------------------------------
+ * Turtle Rock's iron ball on a chain, staked to the floor (homeX/Y). It hops about the
+ * stake, and every fourth time lunges at Link as far as the chain lets it, snapping
+ * back. Nothing can hurt it. Its chain: four links (BOSS_PIECE), kept in order along
+ * the child pointers.
+ */
+#define CHOMP_LINKS 4
+
+static void ChompChain(AlttpEnemy* this, bool32 drawIn) {
+    // ChainChomp_HandleLeash and _MoveChain: each link stays within 8 pixels of the
+    // one before it, and creeps toward its place on the line to the stake
+    AlttpEnemy* l = (AlttpEnemy*)this->child;
+    s32 px = super->x.HALF.HI, py = super->y.HALF.HI - 4;
+    s32 i = 1;
+    while (l != NULL && i <= CHOMP_LINKS) {
+        s32 dx = px - l->homeX, dy = py - l->homeY;
+        if (dx > 8) {
+            l->homeX = px - 8;
+        } else if (dx < -8) {
+            l->homeX = px + 8;
+        }
+        if (dy > 8) {
+            l->homeY = py - 8;
+        } else if (dy < -8) {
+            l->homeY = py + 8;
+        }
+        if (drawIn) {
+            s32 tx = this->homeX + (super->x.HALF.HI - this->homeX) * (CHOMP_LINKS + 1 - i) / (CHOMP_LINKS + 1);
+            s32 ty = this->homeY + (super->y.HALF.HI - 4 - this->homeY) * (CHOMP_LINKS + 1 - i) / (CHOMP_LINKS + 1);
+            l->homeX += l->homeX < tx ? 1 : l->homeX > tx ? -1 : 0;
+            l->homeY += l->homeY < ty ? 1 : l->homeY > ty ? -1 : 0;
+        }
+        px = l->homeX;
+        py = l->homeY;
+        l = (AlttpEnemy*)l->child;
+        i++;
+    }
+}
+
+void ChainChomp(AlttpEnemy* this) {
+    static const s8 vx[16] = { 0, 8, 11, 14, 16, 14, 11, 8, 0, -8, -11, -14, -16, -14, -11, -8 };
+    static const s8 vy[16] = { -16, -14, -11, -8, 0, 8, 11, 14, 16, 14, 11, 8, 0, -9, -11, -14 };
+    static const u8 gfx[16] = { 0, 1, 2, 3, 3, 3, 2, 1, 0, 0, 0, 4, 4, 4, 0, 0 };
+    static const u8 flip[16] = { 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1 };
+    s16* z = (s16*)&this->unused[0];
+    s16* vz = (s16*)&this->unused[2];
+    bool32 inLeash;
+    u32 d;
+    if (super->action == 0) {
+        AlttpEnemy* prev = this;
+        u32 i;
+        AlttpInit(this, AP_CHOMP, AF_CHOMP_0);
+        super->action = 1;
+        super->timer = 32;
+        this->homeX = super->x.HALF.HI;
+        this->homeY = super->y.HALF.HI;
+        this->turns = 0;
+        this->face = 8;
+        this->targetX = this->targetY = 0;
+        *z = *vz = 0;
+        this->child = NULL;
+        for (i = 0; i < CHOMP_LINKS; i++) {
+            AlttpEnemy* l = (AlttpEnemy*)SpawnAt(BOSS_PIECE, BP_CHAIN, super, 0, 0);
+            if (l == NULL) {
+                break;
+            }
+            l->homeX = this->homeX;
+            l->homeY = this->homeY;
+            l->child = NULL;
+            prev->child = &l->base;
+            prev = l;
+        }
+        super->action = 1;
+    }
+    super->health = 0;
+    super->knockbackDuration = 0;
+    this->step++;
+    ChompChain(this, FALSE);
+    if (!(this->step & 3) && (this->targetX | this->targetY)) {
+        this->face = ((AngleTo(this->targetX, this->targetY) + 8) >> 4) & 15;
+    }
+    MoveVel(super, this->targetX, this->targetY);
+    MoveZ16(z, vz, 2, -64);
+    inLeash = Abs(super->x.HALF.HI - this->homeX) < 48 && Abs(super->y.HALF.HI - this->homeY) < 48;
+    switch (super->action) {
+        case 1: // waiting, then a hop or a lunge
+            if (super->timer == 0) {
+                if (++this->turns == 4) {
+                    this->turns = 0;
+                    super->action = 3;
+                    AimVel(super, gPlayerEntity.base.x.HALF.HI, gPlayerEntity.base.y.HALF.HI, 64, &this->targetX,
+                           &this->targetY);
+                    EnqueueSFX(SFX_14C);
+                } else {
+                    u32 j = Random() & 15;
+                    super->timer = (Random() & 31) + 16;
+                    this->targetX = vx[j];
+                    this->targetY = vy[j];
+                    super->action = 2;
+                }
+            } else {
+                super->timer--;
+                this->targetX = this->targetY = 0;
+            }
+            break;
+        case 2: // hopping about
+            if (super->timer == 0 || --super->timer == 0) {
+                super->timer = 32;
+                super->action = 1;
+            }
+            if (!(super->timer & 15)) {
+                ChompChain(this, TRUE);
+            }
+            if (*z == 0) {
+                *vz = 16;
+            }
+            if (!inLeash) {
+                AimVel(super, this->homeX, this->homeY, 16, &this->targetX, &this->targetY);
+                MoveVel(super, this->targetX, this->targetY);
+                super->timer = 12;
+            }
+            break;
+        case 3: // the lunge, to the end of the chain
+            if (!inLeash) {
+                MoveVel(super, -this->targetX, -this->targetY);
+                this->targetX = this->targetY = 0;
+                super->action = 4;
+                super->timer = 48;
+                InitScreenShake(4, 0);
+            }
+            ChompChain(this, TRUE);
+            ChompChain(this, TRUE);
+            break;
+        case 4: // jerked back, still
+            if (--super->timer == 0) {
+                super->action = 1;
+                super->timer = 48;
+            }
+            ChompChain(this, TRUE);
+            ChompChain(this, TRUE);
+            break;
+    }
+    SetHeight(super, *z >> 4);
+    d = this->face & 15;
+    SetFrame(super, super->action == 3 ? AF_CHOMP_BITE : AF_CHOMP_0 + gfx[d] * 2 + flip[d]);
+}
+
+/* ---- Zazak ---------------------------------------------------------------------------
+ * The lizard men of Thieves' Town. They walk a little, stop and look about (the head
+ * turns first, the body follows), and every fourth stop look at Link. The red ones
+ * (type 1) breathe a fireball when they face him. Fields: face the body, head the head
+ * (0 right, 1 left, 2 down, 3 up), turns the stops, cooldown the open mouth.
+ */
+enum { ZZ_INIT, ZZ_WALK, ZZ_HALT, ZZ_SHOOT };
+
+static void ZazakTick(AlttpEnemy* this) {
+    static const u8 bodyGfx[8] = { 6, 4, 0, 2, 7, 5, 1, 3 };
+    static const u8 stopFor[4] = { 16, 32, 64, 32 };
+    static const s8 vx[4] = { 16, -16, 0, 0 };
+    static const s8 vy[4] = { 0, 0, 16, -16 };
+    static const u8 turn[8] = { 2, 3, 2, 3, 0, 1, 0, 1 };
+    u32 g;
+    if (super->action == ZZ_INIT) {
+        AlttpInit(this, super->type ? AP_ZAZAK_RED : AP_ZAZAK_BLUE, AF_ZAZAK_0_0);
+        super->action = ZZ_WALK;
+        super->timer = 32;
+        this->face = this->head = Face4ToLink(super);
+        this->turns = 0;
+        this->idx = 0;
+        this->targetX = this->targetY = 0;
+    }
+    this->step++;
+    if (this->cooldown) {
+        this->cooldown--;
+    }
+    if (MoveVelWalls(super, this->targetX, this->targetY, 7) && super->action == ZZ_HALT) {
+        super->timer = 0;
+    }
+    switch (super->action) {
+        case ZZ_WALK: // a moment's look, then off the way the head looks
+            if (super->timer == 0 || --super->timer == 0) {
+                super->timer = stopFor[Random() & 3];
+                super->action = ZZ_HALT;
+                this->face = this->head;
+                this->targetX = vx[this->face];
+                this->targetY = vy[this->face];
+            }
+            break;
+        case ZZ_HALT:
+            if (super->timer) {
+                super->timer--;
+                if (++this->rangeX == 12) {
+                    this->rangeX = 0;
+                    this->idx++;
+                }
+                break;
+            }
+            this->targetX = this->targetY = 0;
+            if (super->type == 1 && this->face == Face4ToLink(super)) {
+                super->action = ZZ_SHOOT;
+                super->timer = 48;
+                this->cooldown = 48;
+                break;
+            }
+            super->timer = 32;
+            this->head = turn[this->face * 2 + (Random() & 1)];
+            super->action = ZZ_WALK;
+            if (++this->turns == 4) {
+                this->turns = 0;
+                this->head = Face4ToLink(super);
+                super->timer = 24;
+            }
+            break;
+        case ZZ_SHOOT:
+            if (--super->timer == 0) {
+                super->action = ZZ_WALK;
+            } else if (super->timer == 24) {
+                static const s8 fx[4] = { 16, -8, 4, 4 };
+                static const s8 fy[4] = { -2, -2, 8, -20 };
+                static const s8 fvx[4] = { 48, -48, 0, 0 };
+                static const s8 fvy[4] = { 0, 0, 48, -48 };
+                AlttpEnemy* b = (AlttpEnemy*)SpawnBolt(super, BT_PHLEGM, fx[this->face] - 4, fy[this->face] + 4,
+                                                       fvx[this->face], fvy[this->face]);
+                if (b != NULL) {
+                    b->idx = this->face;
+                    b->base.collisionLayer = super->collisionLayer;
+                    EnqueueSFX(SFX_ITEM_LANTERN_ON);
+                }
+            }
+            break;
+    }
+    g = bodyGfx[(this->idx & 1) * 4 + this->face];
+    if (this->cooldown) {
+        SetFrame(super, AF_ZAZAK_FIRE_0 + this->head);
+    } else {
+        SetFrame(super, AF_ZAZAK_0_0 + g * 4 + this->head);
+    }
+    AlttpEndTick(this);
+}
+
+static void ZazakOnCollision(AlttpEnemy* this);
+static void ZazakOnDeath(AlttpEnemy* this) {
+    AlttpDeath(this, OCTOROK);
+}
+
+static void (*const Zazak_Functions[])(AlttpEnemy*) = {
+    ZazakTick, ZazakOnCollision, (void (*)(AlttpEnemy*))GenericKnockback,
+    ZazakOnDeath, (void (*)(AlttpEnemy*))GenericConfused, AlttpGrabbed,
+};
+
+static void ZazakOnCollision(AlttpEnemy* this) {
+    AlttpOnCollision(this, (void (*const*)())Zazak_Functions);
+}
+
+void Zazak(AlttpEnemy* this) {
+    EnemyFunctionHandler(super, (EntityActionArray)Zazak_Functions);
+}
+
+/* ---- Gibo ------------------------------------------------------------------------------
+ * Thieves' Town's jelly (type 0): a wobbling shell nothing can hurt, which spits out
+ * its nucleus (type 1) and creeps after it to swallow it again. The nucleus can be
+ * beaten while it is out, and the shell goes with it. Fields (shell): child the
+ * nucleus, unused[0] the nucleus's health, unused[1] set when it is beaten, turns
+ * the spits (every third at Link).
+ */
+enum { GI_INIT, GI_EXPEL, GI_WAIT, GI_PURSUE };
+
+static void GiboTick(AlttpEnemy* this) {
+    static const s8 vx[8] = { 16, 16, 0, -16, -16, -16, 0, 16 };
+    static const s8 vy[8] = { 0, 0, 16, -16, 16, 16, -16, -16 };
+    if (super->type == 1) {
+        // the nucleus: thrown out, it bounces about a moment and stops
+        if (super->action == GI_INIT) {
+            if (this->unused[0]) {
+                super->health = this->unused[0]; // what it had left when swallowed
+            }
+            AlttpInit(this, AP_GIBOCORE, AF_GIBOCORE_0);
+            super->action = GI_EXPEL;
+            super->timer = 48;
+            super->spritePriority.b0 = 1;
+        }
+        if (!ParentAlive(super)) {
+            DeleteThisEntity();
+        }
+        this->step++;
+        if (super->timer) {
+            u32 hit;
+            super->timer--;
+            hit = MoveVelWalls(super, this->targetX, this->targetY, 6);
+            if (hit & 1) {
+                this->targetX = -this->targetX;
+            }
+            if (hit & 2) {
+                this->targetY = -this->targetY;
+            }
+        }
+        SetFrame(super, AF_GIBOCORE_0 + ((this->step >> 2) & 3));
+        AlttpEndTick(this);
+        return;
+    }
+    if (super->action == GI_INIT) {
+        AlttpInit(this, AP_GIBO, AF_GIBO_0);
+        super->action = GI_EXPEL;
+        super->timer = 32;
+        this->shield = 1;
+        this->child = NULL;
+        this->unused[0] = 0;
+        this->unused[1] = 0;
+        this->turns = 0;
+        super->spritePriority.b0 = 2;
+    }
+    super->health = 255;
+    this->savedHealth = 255;
+    if (this->unused[1]) {
+        super->health = 0;
+        return;
+    }
+    this->step++;
+    if (!(this->step & 63)) {
+        this->face = (gPlayerEntity.base.x.HALF.HI < super->x.HALF.HI) << 2;
+    }
+    switch (super->action) {
+        case GI_EXPEL:
+            if (super->timer == 0 || --super->timer == 0) {
+                AlttpEnemy* n = (AlttpEnemy*)SpawnAt(GIBO, 1, super, 0, 0);
+                super->action = GI_WAIT;
+                super->timer = 48;
+                if (n != NULL) {
+                    u32 i;
+                    n->unused[0] = this->unused[0];
+                    n->base.collisionLayer = super->collisionLayer;
+                    if (++this->turns == 3) {
+                        this->turns = 0;
+                        i = (GetFacingDirection(super, &gPlayerEntity.base) + 2) >> 2 & 7;
+                        AimVel(super, gPlayerEntity.base.x.HALF.HI, gPlayerEntity.base.y.HALF.HI, 16, &n->targetX,
+                               &n->targetY);
+                    } else {
+                        i = Random() & 7;
+                        n->targetX = vx[i];
+                        n->targetY = vy[i];
+                    }
+                    this->child = &n->base;
+                    EnqueueSFX(SFX_14C);
+                }
+            }
+            break;
+        case GI_WAIT:
+            if (--super->timer == 0) {
+                super->action = GI_PURSUE;
+            }
+            break;
+        case GI_PURSUE: {
+            Entity* n = this->child;
+            if (n == NULL || n->next == NULL || n->id != GIBO || n->parent != super) {
+                super->action = GI_EXPEL;
+                super->timer = 32;
+                break;
+            }
+            if (Abs(n->x.HALF.HI - super->x.HALF.HI) < 3 && Abs(n->y.HALF.HI - super->y.HALF.HI) < 3) {
+                // swallowed again
+                this->unused[0] = n->health;
+                DeleteEntity(n);
+                this->child = NULL;
+                super->action = GI_EXPEL;
+                super->timer = (Random() & 31) + 32;
+                break;
+            }
+            if (!(this->step & 3)) {
+                AimVel(super, n->x.HALF.HI, n->y.HALF.HI, 16, &this->targetX, &this->targetY);
+            }
+            MoveVel(super, this->targetX, this->targetY);
+            break;
+        }
+    }
+    SetFrame(super, AF_GIBO_0 + this->face + ((this->step >> 3) & 3));
+    AlttpEndTick(this);
+}
+
+static void GiboOnCollision(AlttpEnemy* this);
+static void GiboOnDeath(AlttpEnemy* this) {
+    if (super->type == 1) {
+        AlttpEnemy* shell = (AlttpEnemy*)super->parent;
+        if (ParentAlive(super)) {
+            shell->unused[1] = 1;
+        }
+        CreateFx(super, FX_DEATH, 0);
+        DeleteThisEntity();
+    }
+    AlttpDeath(this, OCTOROK);
+}
+
+static void (*const Gibo_Functions[])(AlttpEnemy*) = {
+    GiboTick, GiboOnCollision, (void (*)(AlttpEnemy*))GenericKnockback,
+    GiboOnDeath, (void (*)(AlttpEnemy*))GenericConfused, AlttpGrabbed,
+};
+
+static void GiboOnCollision(AlttpEnemy* this) {
+    if (super->type == 0) {
+        // the shell: nothing gets through
+        super->knockbackDuration = 0;
+        TookHit(this);
+        EnemyFunctionHandlerAfterCollision(super, (void (*const*)())Gibo_Functions);
+        return;
+    }
+    AlttpOnCollision(this, (void (*const*)())Gibo_Functions);
+}
+
+void Gibo(AlttpEnemy* this) {
+    EnemyFunctionHandler(super, (EntityActionArray)Gibo_Functions);
+}
+
+/* ---- fire bar (Guruguru bar) -----------------------------------------------------------
+ * A post with four fireballs on a bar, turning (type 0 clockwise, 1 the other way);
+ * type 2 is one of its fireballs. Nothing about it can be hurt.
+ */
+void FireBar(AlttpEnemy* this) {
+    if (super->type == 2) {
+        AlttpEnemy* bar = (AlttpEnemy*)super->parent;
+        s32 r;
+        u32 a;
+        if (super->action == 0) {
+            AlttpInit(this, AP_FIREBAR, AF_FIREBAR_0);
+            super->spriteSettings.shadow = 0;
+        }
+        if (!ParentAlive(super)) {
+            DeleteThisEntity();
+        }
+        super->health = 0;
+        super->knockbackDuration = 0;
+        r = 16 * (super->type2 + 1);
+        a = (u16)bar->targetX;
+        super->x.HALF.HI = bar->base.x.HALF.HI + HalfSin(a, r);
+        super->y.HALF.HI = bar->base.y.HALF.HI + HalfSin(a + 0x80, r);
+        SetFrame(super, AF_FIREBAR_0 + ((bar->step >> 2) & 3));
+        return;
+    }
+    if (super->action == 0) {
+        u32 i;
+        AlttpInit(this, AP_FIREBAR, AF_FIREBAR_0);
+        super->spriteSettings.draw = 0;
+        COLLISION_OFF(super);
+        this->targetX = 0;
+        for (i = 0; i < 4; i++) {
+            Entity* f = SpawnAt(FIRE_BAR, 2, super, 0, 0);
+            if (f != NULL) {
+                f->type2 = i;
+                f->collisionLayer = super->collisionLayer;
+            }
+        }
+    }
+    super->health = 0;
+    this->step++;
+    this->targetX = (this->targetX + (super->type ? -2 : 2)) & 0x1ff;
+}
+
+/* ---- the Stalfos head (sprite 0x7C) --------------------------------------------------
+ * A floating skull in Misery Mire: it creeps up on Link while he looks away and backs
+ * off when he turns to face it.
+ */
+static void StalfosHeadTick(AlttpEnemy* this) {
+    static const u8 linkFaces[4] = { 1, 0, 3, 2 };
+    if (super->action == 0) {
+        AlttpInit(this, AP_SKULL, AF_SKULL_1);
+        this->idx = 0;
+        this->targetX = this->targetY = 0;
+    }
+    this->step++;
+    if (LinkFace4() != linkFaces[Face4ToLink(super)]) {
+        // Link looks away: it speeds up toward him
+        if (!(this->step & 7)) {
+            if (this->idx != 4) {
+                this->idx++;
+            }
+            AimVel(super, gPlayerEntity.base.x.HALF.HI, gPlayerEntity.base.y.HALF.HI, this->idx, &this->targetX,
+                   &this->targetY);
+        }
+    } else if (!(this->step & 15)) {
+        if (this->idx) {
+            this->idx--;
+        }
+        AimVel(super, gPlayerEntity.base.x.HALF.HI, gPlayerEntity.base.y.HALF.HI, this->idx, &this->targetX,
+               &this->targetY);
+    }
+    MoveVelWalls(super, this->targetX * 4, this->targetY * 4, 6);
+    SetHeight(super, 4 + ((this->step >> 4) & 1));
+    SetFrame(super, gPlayerEntity.base.x.HALF.HI < super->x.HALF.HI ? AF_SKULL_1 : AF_SKULL_0);
+    AlttpEndTick(this);
+}
+
+static void StalfosHeadOnCollision(AlttpEnemy* this);
+static void StalfosHeadOnDeath(AlttpEnemy* this) {
+    AlttpDeath(this, OCTOROK);
+}
+
+static void (*const StalfosHead_Functions[])(AlttpEnemy*) = {
+    StalfosHeadTick, StalfosHeadOnCollision, (void (*)(AlttpEnemy*))GenericKnockback,
+    StalfosHeadOnDeath, (void (*)(AlttpEnemy*))GenericConfused, AlttpGrabbed,
+};
+
+static void StalfosHeadOnCollision(AlttpEnemy* this) {
+    AlttpOnCollision(this, (void (*const*)())StalfosHead_Functions);
+}
+
+void StalfosHead(AlttpEnemy* this) {
+    EnemyFunctionHandler(super, (EntityActionArray)StalfosHead_Functions);
 }

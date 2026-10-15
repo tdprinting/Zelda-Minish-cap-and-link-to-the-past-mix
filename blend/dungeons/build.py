@@ -86,6 +86,9 @@ ALTTP_ROPE, ALTTP_MOBLIN = 0x6c, 0x6d
 ALTTP_DEBIRANDO_PIT, ALTTP_KODONGO, MINI_MOLDORM = 0x7d, 0x80, 0x81
 HELMASAUR_KING, ARRGHUS, MOTHULA, ALTTP_SPIKE_BLOCK = 0x83, 0x86, 0x88, 0x8a
 MINI_HELMASAUR, TERRORPIN, HOVER, KYAMERON, ZOL, FIRESNAKE, ALTTP_SHOOTER = 0x8b, 0x8c, 0x8d, 0x8e, 0x8f, 0x90, 0x91
+BLIND, KHOLDSTARE, VITREOUS, TRINEXX = 0x92, 0x93, 0x95, 0x97
+FREEZOR, PENGATOR, STALFOS_KNIGHT, WIZZROBE, LASER_EYE, CHAIN_CHOMP = 0x9b, 0x9c, 0x9d, 0x9e, 0x9f, 0xa0
+ZAZAK, GIBO, FIRE_BAR, STALFOS_HEAD = 0xa1, 0xa2, 0xa3, 0xa4
 ENEMIES = {
     'A7-Stalfos': ALTTP_STALFOS,
     '105-StalfosDrop': (ALTTP_STALFOS, 1),    # waits in the ceiling and drops on Link
@@ -126,11 +129,38 @@ ENEMIES = {
     '8D-ArrghusFuzz': None,                     # Arrghus brings its own ring of puffs
     '88-Mothula': MOTHULA,                      # Skull Woods' boss
     '109-WallMaster': MC_WALL_MASTER,           # grabs Link and carries him to the entrance
+    # the last Dark World dungeons: Thieves' Town, the Ice Palace, Misery Mire, Turtle Rock
+    'CE-Blind': BLIND,
+    'B7-BlindMan': None,                        # the maiden; Blind himself stands in the room
+    'A2-KholdStare': KHOLDSTARE,                # it makes its own shell
+    'A3': None, 'A4': None,                     # zelda3's Kholdstare shell and its ice
+    'BD-Viterous': VITREOUS,                    # it brings its own small eyes
+    'CB-TriNexx1': TRINEXX,
+    'CC-TriNexx2': None, 'CD-TriNexx3': None,   # the side heads come with Trinexx
+    'A1-IceMan': FREEZOR,                       # waits in the wall as a statue
+    '99-Penguin': PENGATOR,
+    '91-StalfosKnight': STALFOS_KNIGHT,
+    '9B-Wizzrobe': WIZZROBE,
+    '95-EyeLaser(Right)': (LASER_EYE, 0),       # the way it looks and fires
+    '96-EyeLaser(Left)': (LASER_EYE, 1),
+    '97-EyeLaser(Down)': (LASER_EYE, 2),
+    '98-EyeLaser(Up)': (LASER_EYE, 3),
+    'CA-Chomp': CHAIN_CHOMP,
+    'A5-GreenLizard': (ZAZAK, 0),               # zelda3's name for the Zazaks
+    'A6-RedLizard': (ZAZAK, 1),                 # the red one breathes fire
+    'C3-Half-Bubble': GIBO,                     # Gibos: a shell and its nucleus
+    '7E-FireBlade': (FIRE_BAR, 0),              # the fire bars, turning one way
+    '7F-FireBlade2': (FIRE_BAR, 1),             # or the other
+    '7C-StalfosHead': STALFOS_HEAD,
+    'C7-FuzzyStack': ALTTP_POKEY,               # a Pokey stands in for the Pokey stack
+    '7D-BigSpikeBlock': ALTTP_SPIKE_BLOCK,
 }
 # enemies that live in the walls (statues) or on the water, not on the floor
 ENEMY_CELLS = {
     'C5-Shooter': None, 'C6-4WayShooter': None,
     '81-WaterBug': ('~',), '9A-Splash': ('~',), '8C-Arrghus': ('~',),
+    '95-EyeLaser(Right)': None, '96-EyeLaser(Left)': None, '97-EyeLaser(Down)': None,
+    '98-EyeLaser(Up)': None, 'A1-IceMan': None,
 }
 
 # Thieves' Town, the Ice Palace, Misery Mire and Turtle Rock: until their own enemies
