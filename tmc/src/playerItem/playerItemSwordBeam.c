@@ -5,6 +5,7 @@
  * @brief Sword Beam Player Item
  */
 #include "playeritem.h"
+#include "blend.h"
 #include "asm.h"
 #include "effects.h"
 #include "entity.h"
@@ -111,6 +112,11 @@ void PlayerItemSwordBeam_Action1(PlayerItemSwordBeamEntity* this) {
 }
 
 void PlayerItemSwordBeam_CyclePalettes(PlayerItemSwordBeamEntity* this) {
+    if (Blend_HasGoldenSword()) {
+        // blend: a golden beam keeps its gold, which shimmers by itself (blendGoldenSword.c)
+        Blend_GoldenSwordGild(super);
+        return;
+    }
     if (--this->unk_74 == 0) {
         this->unk_74 = 2;
         this->unk_70++;

@@ -84,7 +84,8 @@ static bool32 IsPaletteExempt(u32 palIdx) {
     // A Link to the Past's enemies already wear their own Dark World colors
     if (palIdx >= 16) {
         id = gPaletteList[palIdx - 16].objPaletteId;
-        return id >= 0x3d0 && id < 0x3f0;
+        // and the Golden Sword's gold (0x3f2-0x3f4) stays gold
+        return (id >= 0x3d0 && id < 0x3f0) || (id >= 0x3f2 && id <= 0x3f4);
     }
     return FALSE;
 }
@@ -251,6 +252,8 @@ u32 Blend_ItemSpriteAnim(u32 item) {
             return ITEM_EARTH_ELEMENT;
         case ITEM_ICE_ROD:
             return ITEM_FIRE_ROD;
+        case ITEM_GOLDEN_SWORD:
+            return ITEM_FOURSWORD; // gilded by blendGoldenSword.c
         default:
             if (item >= ITEM_HOOKSHOT && item <= ITEM_CANE_OF_SOMARIA) {
                 return sSlotShareIcons[item - ITEM_HOOKSHOT];
@@ -1819,6 +1822,7 @@ void Blend_GameUpdate(void) {
     UpdateMirror();
     Blend_ShrineUpdate();
     Blend_CoopDungeonsUpdate();
+    Blend_GoldenSwordUpdate();
     PublishSelf();
     UpdatePartner();
 }

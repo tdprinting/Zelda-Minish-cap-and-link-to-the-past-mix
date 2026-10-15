@@ -160,6 +160,9 @@ typedef enum {
     ITEM_CANE_OF_BYRNA,
     ITEM_MAGIC_POWDER,
     ITEM_CANE_OF_SOMARIA,
+    // The Temple of Bonds' reward (blendGoldenSword.c). A fixed id, clear of the co-op
+    // branch's items (0x7b-0x81), so the two can merge in any order.
+    ITEM_GOLDEN_SWORD = 0x82,
 
     // these are not actually item ids but special values used by item drops for example
     ITEM_KINSTONE_RED = 0xfc,
