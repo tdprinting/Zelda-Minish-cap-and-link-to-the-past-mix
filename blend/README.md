@@ -54,6 +54,21 @@ Run `zelda-blend.exe --single` to play alone.
 
 The ROM also runs in any GBA emulator for single-player.
 
+### Updates
+
+The game updates itself. When it starts, it looks for a newer `picori-seal-vX.Y.zip`
+in your Downloads folder and in an `updates` folder next to the game, and asks
+whether to install it. Installing swaps in the new game and program, keeps your
+saves, puts the old version (and a copy of the saves) in a `previous` folder, and
+restarts the game. So to update, download the new zip and start the game.
+
+Builds contain your ROM, so they never come from a public server. To have the game
+fetch new versions by itself, add a private place to `update.ini` (made next to the
+game on first start): a folder your cloud drive syncs, the URL of a `latest.json`
+manifest, or `github:you/your-private-repo` with a read-only `token`, for the latest
+release of a private GitHub repo. `check = 0` turns checks off, `ask = 0` installs
+without asking, and `--no-update` skips the check once.
+
 ## Building
 
 ROMs and anything built from them stay on your machine; `.gitignore` blocks them.
@@ -67,6 +82,9 @@ make -C blend/host                               # needs libsdl2-dev, libmgba-de
 
 # The co-op player, Windows (cross-compiled; see the script for its dependencies)
 ./blend/host/build-windows.sh                    # -> blend/out/zelda-blend.exe
+
+# A release zip and its latest.json manifest (version from blend/VERSION; bump it first)
+./blend/host/package.sh                          # -> blend/out/picori-seal-vX.Y.zip
 ```
 
 ## Code map
@@ -82,6 +100,7 @@ make -C blend/host                               # needs libsdl2-dev, libmgba-de
 | `blend/enemies/`, `tmc/src/enemy/alttpEnemies.c` | A Link to the Past's enemies: `alttp_enemies.py` cuts their sprites from your ALttP ROM, recolors them and adds new frames (as sprite 155); the C file gives each its behavior. Run by `make-dungeons.sh` |
 | `blend/overworld/`, `tmc/src/blendShadows.c` | The blended overworld: `build.py` restyles every overworld palette toward A Link to the Past's Light World colors and draws soft shadow maps; `blendShadows.c` shows the shadows on background 3. Run by `build.sh`; output goes to `tmc/custom/gen/ow` |
 | `blend/host/coop.c` | Split-screen co-op player (SDL2 + libmgba) |
+| `blend/host/updater.c` | The Windows player's auto updater: finds, checks (sha256, zip CRCs, ROM header), installs and restarts into newer builds |
 | `blend/harness/harness.c` | Headless test runner used to check builds |
 
 The shared state block `gBlendLink` sits at a fixed address, `0x0203F000`, so the
