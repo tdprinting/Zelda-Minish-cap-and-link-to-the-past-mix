@@ -244,6 +244,8 @@ enum {
     /*0xa2*/ GIBO,
     /*0xa3*/ FIRE_BAR,
     /*0xa4*/ STALFOS_HEAD,
+    /*0xa5*/ AGAHNIM,
+    /*0xa6*/ AGAHNIM_BALL,
 };
 
 void Octorok();
@@ -410,6 +412,8 @@ void Zazak();
 void Gibo();
 void FireBar();
 void StalfosHead();
+void Agahnim();
+void AgahnimBall();
 
 extern void (*const gUnk_080012C8[])(Entity*);
 

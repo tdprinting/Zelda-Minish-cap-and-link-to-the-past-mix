@@ -7814,3 +7814,580 @@ static void StalfosHeadOnCollision(AlttpEnemy* this) {
 void StalfosHead(AlttpEnemy* this) {
     EnemyFunctionHandler(super, (EntityActionArray)StalfosHead_Functions);
 }
+
+/* =============================================================================
+ * Agahnim (sprite 336): Hyrule Castle tower's wizard, and in Ganon's Tower his second
+ * fight with two shadows of himself.
+ * ========================================================================== */
+
+#include "save.h"
+
+const Hitbox gHitbox_Agahnim = { 0, -12, { 6, 4, 4, 6 }, 9, 11 };
+
+/* ---- Agahnim -------------------------------------------------------------------------
+ * He hangs in the air facing Link while the spell grows between his hands, and lets
+ * it go: an energy ball at Link (later on, now and then a seeker that bursts into six
+ * sparks), and every fifth spell lightning down the room. Then he shrinks into his
+ * warp shadow, glides off to another place in the room and rises out of it again.
+ * Only his own balls, batted back with the sword, or the sword itself while he casts,
+ * hurt him.
+ *
+ * Type 0 the castle tower's Agahnim (in the Dark World, as in Ganon's Tower, he is
+ * Agahnim 2), type 1 Agahnim 2: he first splits off two shadows (type 2), who cast
+ * and glide as he does but can't be hurt; balls batted back at a shadow fly on to
+ * Agahnim himself.
+ *
+ * Fields: face the way he looks (A Link to the Past's sprite_D, 0 up, 3 down), idx the
+ * spells cast (sprite_subtype), turns the damage taken, pose his pose, coerced the
+ * spell's stage (sprite_head_dir), targetX/Y where he glides to, unused[0] the glide's
+ * speed, unused[1] a shadow's side, cooldown frames he flinches, shield set while he
+ * can't be hurt, child the spell in his hands, burst his fall.
+ */
+enum { AH_INIT, AH_APPEAR, AH_CAST, AH_VANISH, AH_GLIDE, AH_SPLIT, AH_SHADOW_OUT };
+enum { AB_BALL, AB_SEEKER, AB_SPARK, AB_TRAIL, AB_GLOW };
+
+#define AGAHNIM_HP 8
+#define AGAHNIM2_HP 12
+
+static bool32 AgahnimIsSecond(Entity* e) {
+    return e->type == 1 || (e->type == 0 && BLEND_DARK_WORLD);
+}
+
+/** Damage to Agahnim (a ball batted back: 2, the sword: 1). FALSE while he can't be hurt. */
+static bool32 AgahnimHurt(AlttpEnemy* this, u32 damage) {
+    u32 hp = AgahnimIsSecond(super) ? AGAHNIM2_HP : AGAHNIM_HP;
+    if (super->type == 2 || this->shield || super->health == 0) {
+        return FALSE;
+    }
+    this->turns += damage;
+    this->cooldown = 16;
+    super->iframes = 24;
+    EnqueueSFX(SFX_BOSS_HIT);
+    if (this->turns >= hp) {
+        super->health = 0;
+        COLLISION_OFF(super);
+    }
+    return TRUE;
+}
+
+/** The six ways he looks (sprite_D) from where Link is (kAgahnim_Dir). */
+static u32 AgahnimLook(Entity* e) {
+    static const u8 dirs[25] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 5, 0, 1, 1, 4, 4, 0, 2, 2, 4, 4, 3, 2, 2 };
+    s16 vx, vy;
+    AimVel(e, gPlayerEntity.base.x.HALF.HI, gPlayerEntity.base.y.HALF.HI - 8, 2, &vx, &vy);
+    vx = vx < -2 ? -2 : vx > 2 ? 2 : vx;
+    vy = vy < -2 ? -2 : vy > 2 ? 2 : vy;
+    return dirs[(vy + 2) * 5 + 2 + vx];
+}
+
+static AlttpEnemy* AgahnimSpawnBall(Entity* from, u32 type, s32 dx, s32 dy, s32 vx, s32 vy) {
+    AlttpEnemy* b = (AlttpEnemy*)SpawnAt(AGAHNIM_BALL, type, from, dx, dy);
+    if (b != NULL) {
+        b->targetX = vx;
+        b->targetY = vy;
+        b->base.collisionLayer = from->collisionLayer;
+        b->base.z.WORD = 0; // on Link's level, or his sword passes under it
+        // the balls answer to the real Agahnim, whoever cast them
+        if (from->kind == ENEMY && from->id == AGAHNIM && from->type == 2 && from->parent != NULL) {
+            b->base.parent = from->parent;
+        }
+    }
+    return b;
+}
+
+/** Agahnim_PerformAttack: a ball (or a seeker), or every fifth spell lightning. */
+static void AgahnimAttack(AlttpEnemy* this) {
+    static const s8 bx[6] = { 0, 10, 8, 0, -10, -10 };
+    static const s8 by[6] = { -9, -2, -2, -9, -2, -2 };
+    if (super->type != 2) {
+        this->idx++;
+    }
+    if (this->idx == 5) {
+        static const s8 lx[8] = { -8, 8, 8, -8, 8, -8, -8, 8 };
+        u32 i;
+        this->idx = 0;
+        for (i = 0; i < 4; i++) {
+            u32 r = Random() & 7;
+            AlttpEnemy* b = (AlttpEnemy*)SpawnBolt(super, BT_LIGHTNING, lx[r], -2, 0, 0);
+            if (b != NULL) {
+                b->idx = r;
+                b->base.collisionLayer = super->collisionLayer;
+            }
+        }
+        EnqueueSFX(SFX_ITEM_SWORD_BEAM);
+        EnqueueSFX(SFX_THUD_HEAVY);
+    } else {
+        s16 vx, vy;
+        u32 seeker = this->idx >= 2 && (Random() & 1);
+        AlttpEnemy* b;
+        AimVel(super, gPlayerEntity.base.x.HALF.HI, gPlayerEntity.base.y.HALF.HI - 4, 32, &vx, &vy);
+        b = AgahnimSpawnBall(super, seeker ? AB_SEEKER : AB_BALL, bx[this->face], by[this->face] - 14, vx, vy);
+        if (b != NULL && seeker) {
+            b->base.timer = 32;
+        }
+        EnqueueSFX(SFX_ITEM_LANTERN_ON);
+    }
+}
+
+/** The middle of the floor he was placed on, and how far he may glide from it
+ * (rangeX/rangeY): the walls found either side, as for Blind. */
+static s32 AgahnimScan(Entity* e, s32 sx, s32 sy) {
+    s32 d;
+    for (d = 8; d < 256; d += 8) {
+        if (WallAt(e, sx * d, sy * d)) {
+            return d;
+        }
+    }
+    return 0;
+}
+
+static void AgahnimFindCenter(AlttpEnemy* this) {
+    s32 l = AgahnimScan(super, -1, 0), r = AgahnimScan(super, 1, 0);
+    s32 u = AgahnimScan(super, 0, -1), d = AgahnimScan(super, 0, 1);
+    s32 w, h;
+    this->homeX = super->x.HALF.HI;
+    this->homeY = super->y.HALF.HI;
+    if (l == 0 || r == 0) {
+        l = r = 120;
+    }
+    if (u == 0 || d == 0) {
+        u = d = 96;
+    }
+    this->homeX += (r - l) / 2;
+    this->homeY += (d - u) / 2;
+    w = (l + r) / 2 - 24;
+    h = (u + d) / 2 - 20;
+    this->rangeX = w < 16 ? 16 : w > 96 ? 96 : w;
+    this->rangeY = h < 16 ? 16 : h > 80 ? 80 : h;
+}
+
+/** Somewhere on the floor to glide to (kAgahnim_Tab3/4 about its middle), clear of
+ * walls and not on top of Link. */
+static void AgahnimPickSpot(AlttpEnemy* this) {
+    static const u8 tx[16] = { 0x38, 0x38, 0x38, 0x58, 0x78, 0x98, 0xb8, 0xb8, 0xb8, 0x98, 0x58, 0x58, 0x60, 0x90, 0x98, 0x78 };
+    static const u8 ty[16] = { 0xb8, 0x78, 0x58, 0x48, 0x48, 0x48, 0x58, 0x78, 0xb8, 0xb8, 0xb8, 0x90, 0x70, 0x70, 0x90, 0xa0 };
+    u32 j = Random() & 15, k;
+    s32 x = this->homeX, y = this->homeY;
+    for (k = 0; k < 16; k++, j = (j + 5) & 15) {
+        // the table spans 0x40 either way across and 0x38 down; scaled to this floor
+        x = this->homeX + (tx[j] - 0x78) * this->rangeX / 0x40;
+        y = this->homeY + (ty[j] - 0x80) * this->rangeY / 0x38;
+        if (GetCollisionDataAtWorldCoords(x, y, super->collisionLayer) == 0 &&
+            GetCollisionDataAtWorldCoords(x, y - 16, super->collisionLayer) == 0 &&
+            Distance(x - gPlayerEntity.base.x.HALF.HI, y - gPlayerEntity.base.y.HALF.HI) > 40) {
+            break;
+        }
+    }
+    this->targetX = x;
+    this->targetY = y;
+}
+
+static void AgahnimSetPalette(AlttpEnemy* this) {
+    static const u8 pals[3] = { AP_AGAHNIM_DW, AP_AGAHNIM_SHADOW1, AP_AGAHNIM_SHADOW2 };
+    if (super->type == 2) {
+        SetPalette(super, pals[1 + (this->unused[1] & 1)]);
+    } else {
+        SetPalette(super, AgahnimIsSecond(super) ? pals[0] : AP_AGAHNIM);
+    }
+}
+
+static void AgahnimTick(AlttpEnemy* this) {
+    static const u8 gfx1[6] = { 2, 10, 8, 0, 4, 6 };
+    static const u8 hands[16] = { 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0 };
+    static const u8 stage[16] = { 0, 0, 0, 0, 0, 0, 0, 6, 5, 4, 3, 2, 1, 0, 0, 0 };
+    static const u8 stageBase[6] = { 30, 24, 12, 0, 6, 18 };
+    u32 t;
+    if (super->action == AH_INIT) {
+        AlttpInit(this, AP_AGAHNIM, AF_AGAHNIM_0);
+        AgahnimSetPalette(this);
+        super->spritePriority.b0 = 3;
+        this->face = 3;
+        this->idx = this->turns = this->coerced = this->cooldown = 0;
+        this->burst = 0;
+        if (super->type != 2) {
+            Entity* glow;
+            AgahnimFindCenter(this);
+            ((Enemy*)this)->enemyFlags |= EM_FLAG_BOSS;
+            if (AgahnimIsSecond(super)) {
+                // Agahnim 2: shows himself, then splits off his shadows
+                super->action = AH_SPLIT;
+                super->timer = 80;
+                this->pose = AF_AGAHNIM_0;
+            } else {
+                super->action = AH_CAST;
+                super->timer = 255;
+            }
+            this->shield = 1;
+            glow = SpawnAt(AGAHNIM_BALL, AB_GLOW, super, 0, 0);
+            if (glow != NULL) {
+                glow->collisionLayer = super->collisionLayer;
+            }
+        } else {
+            // a shadow, sliding out sideways from Agahnim
+            AlttpEnemy* ag = (AlttpEnemy*)super->parent;
+            super->action = AH_SHADOW_OUT;
+            super->timer = 32;
+            this->homeX = ag->homeX;
+            this->homeY = ag->homeY;
+            this->rangeX = ag->rangeX;
+            this->rangeY = ag->rangeY;
+            this->shield = 1;
+            this->targetY = 0;
+            COLLISION_OFF(super);
+            {
+                Entity* glow = SpawnAt(AGAHNIM_BALL, AB_GLOW, super, 0, 0);
+                if (glow != NULL) {
+                    glow->collisionLayer = super->collisionLayer;
+                }
+            }
+        }
+    }
+    this->step++;
+    if (this->cooldown) {
+        this->cooldown--;
+    }
+    this->coerced = 0;
+    t = super->timer;
+    switch (super->action) {
+        case AH_SPLIT:
+            this->pose = AF_AGAHNIM_0;
+            super->spriteSettings.draw = 1;
+            if (t == 64) {
+                u32 i;
+                EnqueueSFX(SFX_SUMMON);
+                for (i = 0; i < 2; i++) {
+                    AlttpEnemy* s = (AlttpEnemy*)SpawnAt(AGAHNIM, 2, super, 0, 0);
+                    if (s != NULL) {
+                        s->unused[1] = i;
+                        s->base.collisionLayer = super->collisionLayer;
+                    }
+                }
+            }
+            if (--super->timer == 0) {
+                super->action = AH_CAST;
+                super->timer = 32;
+            }
+            break;
+        case AH_SHADOW_OUT:
+            // kAgahnim_Tab5: out to the side, sinking faster and faster
+            this->targetY += 2;
+            MoveVel(super, this->unused[1] ? -32 : 32, this->targetY);
+            {
+                s32 lx = gRoomControls.origin_x + 24, rx = gRoomControls.origin_x + gRoomControls.width - 24;
+                s32 by = gRoomControls.origin_y + gRoomControls.height - 24;
+                if (super->x.HALF.HI < lx) {
+                    super->x.HALF.HI = lx;
+                }
+                if (super->x.HALF.HI > rx) {
+                    super->x.HALF.HI = rx;
+                }
+                if (super->y.HALF.HI > by) {
+                    super->y.HALF.HI = by;
+                }
+            }
+            this->pose = AF_AGAHNIM_0;
+            super->spriteSettings.draw = this->step & 1;
+            if (--super->timer == 0) {
+                super->action = AH_CAST;
+                super->timer = 32;
+            }
+            break;
+        case AH_CAST: {
+            u32 j = t >> 4;
+            // the first and last sixteen frames he flickers in and out of sight
+            bool32 solid = t < 239 && t >= 16;
+            super->spriteSettings.draw = solid || (this->step & 1);
+            this->shield = !solid || super->type == 2;
+            if (super->type != 2) {
+                if (solid) {
+                    COLLISION_ON(super);
+                } else {
+                    COLLISION_OFF(super);
+                }
+            }
+            if (t >= 128) {
+                this->face = AgahnimLook(super);
+            } else if (t == 112) {
+                AgahnimAttack(this);
+            }
+            this->coerced = stage[j] ? stage[j] + stageBase[this->face] : 0;
+            this->pose = AF_AGAHNIM_0 + gfx1[this->face] + hands[j];
+            if (this->idx == 4 && hands[j] && super->type != 2) {
+                // he stretches up as he calls the lightning down
+                this->pose = AF_AGAHNIM_CALL;
+            }
+            if (--super->timer == 0) {
+                super->action = AH_VANISH;
+                super->timer = 51;
+                this->shield = 1;
+                COLLISION_OFF(super);
+                EnqueueSFX(SFX_EVAPORATE);
+            }
+            break;
+        }
+        case AH_VANISH: {
+            // the robe thins into his warp shadow, which shrinks to a dot
+            static const u8 shrink[5] = { 4, 3, 2, 1, 0 };
+            super->spriteSettings.draw = 1;
+            if (t >= 40) {
+                this->pose = AF_AGAHNIM_FADE_1 + ((51 - t) >> 2);
+            } else {
+                this->pose = AF_AGAHNIM_WARP_0 + 4 - shrink[t >> 3];
+            }
+            if (--super->timer == 0) {
+                super->action = AH_GLIDE;
+                this->unused[0] = 8;
+                AgahnimPickSpot(this);
+            }
+            break;
+        }
+        case AH_GLIDE: {
+            s32 dx = this->targetX - super->x.HALF.HI, dy = this->targetY - super->y.HALF.HI;
+            this->pose = AF_AGAHNIM_WARP_4;
+            if (Abs(dx) < 7 && Abs(dy) < 7) {
+                super->x.HALF.HI = this->targetX;
+                super->y.HALF.HI = this->targetY;
+                super->action = AH_APPEAR;
+                super->timer = 51;
+                EnqueueSFX(SFX_APPARATE);
+            } else {
+                s16 vx, vy;
+                AimVel(super, this->targetX, this->targetY, this->unused[0], &vx, &vy);
+                MoveVel(super, vx, vy);
+                if (this->unused[0] < 64) {
+                    this->unused[0]++;
+                }
+            }
+            break;
+        }
+        case AH_APPEAR:
+            // the shadow grows, and he rises out of it
+            if (t >= 12) {
+                this->pose = AF_AGAHNIM_WARP_0 + 4 - ((t - 12) >> 3);
+            } else {
+                this->pose = AF_AGAHNIM_FADE_1 + (t >> 2);
+            }
+            if (--super->timer == 0) {
+                super->action = AH_CAST;
+                super->timer = 255;
+            }
+            break;
+    }
+    if (this->cooldown && super->action == AH_CAST) {
+        this->pose = AF_AGAHNIM_HURT;
+    }
+    // he floats, bobbing gently (not while a warp shadow on the floor)
+    SetHeight(super, (this->pose >= AF_AGAHNIM_WARP_0 && this->pose <= AF_AGAHNIM_WARP_4) ? 0
+                                                                                      : 3 + ((this->step >> 4) & 1));
+    super->spriteSettings.shadow = !(this->pose >= AF_AGAHNIM_WARP_0 && this->pose <= AF_AGAHNIM_WARP_4);
+    SetFrame(super, this->pose);
+    AlttpEndTick(this);
+}
+
+static void AgahnimOnCollision(AlttpEnemy* this);
+static void AgahnimOnDeath(AlttpEnemy* this) {
+    // he falls in a heap, flickers and is gone; his shadows and spells with him
+    if (this->burst == 0) {
+        DeleteChildren(super);
+        COLLISION_OFF(super);
+        SetHeight(super, 0);
+        SetFrame(super, AF_AGAHNIM_DEAD);
+        EnqueueSFX(SFX_BOSS_DIE);
+    }
+    if (++this->burst < 112) {
+        super->spriteSettings.draw = this->burst < 48 || ((this->burst >> 1) & 1);
+        if ((this->burst & 15) == 0) {
+            Entity* fx = CreateFx(super, FX_DEATH, 0);
+            if (fx != NULL) {
+                fx->x.HALF.HI += (Random() & 15) - 8;
+                fx->y.HALF.HI += (Random() & 7) - 8;
+            }
+        }
+        return;
+    }
+    CreateFx(super, FX_GIANT_EXPLOSION4, 0);
+    EnqueueSFX(SFX_BOSS_EXPLODE);
+    DeleteThisEntity();
+}
+
+static void (*const Agahnim_Functions[])(AlttpEnemy*) = {
+    AgahnimTick, AgahnimOnCollision, (void (*)(AlttpEnemy*))GenericKnockback,
+    AgahnimOnDeath, (void (*)(AlttpEnemy*))GenericConfused, AlttpGrabbed,
+};
+
+static void AgahnimOnCollision(AlttpEnemy* this) {
+    super->knockbackDuration = 0;
+    if (TookHit(this)) {
+        if (!AgahnimHurt(this, 1)) {
+            EnqueueSFX(SFX_METAL_CLINK);
+        }
+    }
+    EnemyFunctionHandlerAfterCollision(super, (void (*const*)())Agahnim_Functions);
+}
+
+void Agahnim(AlttpEnemy* this) {
+    EnemyFunctionHandler(super, (EntityActionArray)Agahnim_Functions);
+}
+
+/* ---- his balls (AGAHNIM_BALL) ----------------------------------------------------------
+ * Sprite_7B_AgahnimBalls. The energy ball flies straight, a trail of smaller balls
+ * behind it; a blow of the sword bats it back at Agahnim, where it strikes him (or
+ * flies past while he is a warp shadow). The seeker homes in on Link for half a second
+ * and bursts into six sparks on a wall or a blow. Fields: targetX/Y the speed, idx 1
+ * once batted back, step its clock.
+ */
+static void AgahnimSparks(Entity* from) {
+    static const s8 vx[6] = { 0, 24, 24, 0, -24, -24 };
+    static const s8 vy[6] = { -32, -16, 16, 32, 16, -16 };
+    u32 i;
+    for (i = 0; i < 6; i++) {
+        AlttpEnemy* s = AgahnimSpawnBall(from, AB_SPARK, 0, 0, vx[i], vy[i]);
+        if (s != NULL) {
+            s->base.parent = from->parent;
+        }
+    }
+    EnqueueSFX(SFX_ITEM_BOMB_EXPLODE);
+}
+
+static void AgahnimBallTick(AlttpEnemy* this) {
+    static const u8 trailGfx[16] = { 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 0, 0, 0, 0 };
+    u32 type = super->type;
+    if (super->action == 0) {
+        AlttpInit(this, AP_AGBALL_A, type == AB_GLOW ? AF_AGGLOW_0 : AF_AGBALL_0);
+        super->spriteSettings.shadow = 0;
+        super->spritePriority.b0 = type == AB_GLOW ? 2 : 3;
+        this->step = 0;
+        this->idx = 0;
+        if (type == AB_TRAIL || type == AB_GLOW) {
+            COLLISION_OFF(super);
+        }
+    }
+    this->step++;
+    super->knockbackDuration = 0;
+    switch (type) {
+        case AB_GLOW: {
+            // the spell between Agahnim's hands: it follows him, and grows
+            AlttpEnemy* ag = (AlttpEnemy*)super->parent;
+            super->health = 0;
+            if (!ParentAlive(super) || super->parent->id != AGAHNIM) {
+                DeleteThisEntity();
+            }
+            CopyPosition(&ag->base, super);
+            super->spriteSettings.draw = ag->coerced != 0 && ag->base.spriteSettings.draw;
+            if (ag->coerced) {
+                SetFrame(super, AF_AGGLOW_0 + ag->coerced - 1);
+            }
+            if (!(this->step & 1)) {
+                SetPalette(super, (this->step & 2) ? AP_AGBALL_B : AP_AGBALL_A);
+            }
+            return;
+        }
+        case AB_TRAIL:
+            super->health = 0;
+            if (super->timer == 0 || --super->timer == 0) {
+                DeleteThisEntity();
+            }
+            SetFrame(super, AF_AGBALL_0 + trailGfx[super->timer]);
+            return;
+        case AB_SPARK:
+            super->health = 0;
+            MoveVel(super, this->targetX, this->targetY);
+            SetFrame(super, AF_AGBALL_SPARK);
+            if (!(this->step & 3)) {
+                SetPalette(super, (this->step & 4) ? AP_AGBALL_B : AP_AGBALL_A);
+            }
+            if (WallAt(super, 0, 0) || !InRoom(super, 0) || this->step > 120) {
+                CreateFx(super, FX_SPARKLE2, 0);
+                DeleteThisEntity();
+            }
+            return;
+    }
+    // the energy ball and the seeker
+    if (type == AB_SEEKER && super->timer) {
+        super->timer--;
+        AimVel(super, gPlayerEntity.base.x.HALF.HI, gPlayerEntity.base.y.HALF.HI - 4, 32, &this->targetX,
+               &this->targetY);
+    }
+    MoveVel(super, this->targetX, this->targetY);
+    if (this->idx) {
+        // batted back: it strikes the real Agahnim if it reaches him
+        Entity* ag = super->parent;
+        if (ag != NULL && ag->next != NULL && ag->kind == ENEMY && ag->id == AGAHNIM && ag->health != 0 &&
+            Abs(ag->x.HALF.HI - super->x.HALF.HI) < 14 && Abs(ag->y.HALF.HI - 12 - super->y.HALF.HI) < 14 &&
+            AgahnimHurt((AlttpEnemy*)ag, 2)) {
+            CreateFx(super, FX_SPARKLE2, 0);
+            DeleteThisEntity();
+        }
+    }
+    if (WallAt(super, 0, 0) || !InRoom(super, 0) || this->step > 240) {
+        if (type == AB_SEEKER) {
+            AgahnimSparks(super);
+        } else {
+            CreateFx(super, FX_SPARKLE2, 0);
+        }
+        DeleteThisEntity();
+    }
+    if (type == AB_SEEKER) {
+        SetFrame(super, AF_AGBALL_SEEK_0 + ((this->step >> 2) & 1));
+        if (this->step == 1) {
+            SetPalette(super, AP_AGBALL_B);
+        }
+    } else {
+        SetFrame(super, AF_AGBALL_0);
+        if (!(this->step & 1)) {
+            SetPalette(super, (this->step & 2) ? AP_AGBALL_B : AP_AGBALL_A);
+        }
+        if (!(this->step & 3)) {
+            Entity* tr = SpawnAt(AGAHNIM_BALL, AB_TRAIL, super, 0, 0);
+            if (tr != NULL) {
+                tr->timer = 15;
+                tr->parent = super->parent;
+                tr->collisionLayer = super->collisionLayer;
+            }
+        }
+    }
+    AlttpEndTick(this);
+}
+
+static void AgahnimBallOnCollision(AlttpEnemy* this);
+static void AgahnimBallOnDeath(AlttpEnemy* this) {
+    DeleteThisEntity();
+}
+
+static void (*const AgahnimBall_Functions[])(AlttpEnemy*) = {
+    AgahnimBallTick, AgahnimBallOnCollision, (void (*)(AlttpEnemy*))GenericKnockback,
+    AgahnimBallOnDeath, (void (*)(AlttpEnemy*))GenericConfused, AlttpGrabbed,
+};
+
+static void AgahnimBallOnCollision(AlttpEnemy* this) {
+    super->knockbackDuration = 0;
+    if ((super->type == AB_BALL || super->type == AB_SEEKER) && TookHit(this)) {
+        if (super->type == AB_SEEKER) {
+            AgahnimSparks(super);
+            DeleteThisEntity();
+        } else if (!this->idx) {
+            // batted back at Agahnim, faster
+            Entity* ag = super->parent;
+            this->idx = 1;
+            COLLISION_OFF(super);
+            EnqueueSFX(SFX_ITEM_SHIELD_BOUNCE);
+            if (ag != NULL && ag->next != NULL && ag->kind == ENEMY && ag->id == AGAHNIM) {
+                AimVel(super, ag->x.HALF.HI, ag->y.HALF.HI - 12, 48, &this->targetX, &this->targetY);
+            } else {
+                this->targetX = -this->targetX * 3 / 2;
+                this->targetY = -this->targetY * 3 / 2;
+            }
+        }
+    }
+    super->iframes = 0;
+    EnemyFunctionHandlerAfterCollision(super, (void (*const*)())AgahnimBall_Functions);
+}
+
+void AgahnimBall(AlttpEnemy* this) {
+    if (this->base.type >= AB_SPARK) {
+        // sparks, trails and the glow never take a blow
+        AgahnimBallTick(this);
+        return;
+    }
+    EnemyFunctionHandler(super, (EntityActionArray)AgahnimBall_Functions);
+}

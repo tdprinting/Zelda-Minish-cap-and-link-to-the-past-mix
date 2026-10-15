@@ -67,6 +67,8 @@ extern const EnemyDefinition gEnemyDefinition_AlttpBolt[];
 extern const EnemyDefinition gEnemyDefinition_Zazak[];
 extern const EnemyDefinition gEnemyDefinition_Gibo[];
 extern const EnemyDefinition gEnemyDefinition_FireBar[];
+extern const Hitbox gHitbox_Agahnim;
+extern const EnemyDefinition gEnemyDefinition_AgahnimBall[];
 #include "../custom/gen/alttp_enemies.h"
 /** Swapped gfx: the enemy's frames are copied into this many 16-tile slots as it animates. */
 #define ALTTP_GFX(slots) (0x4000 | ((slots) << 4))
@@ -275,6 +277,9 @@ const EnemyDefinition gEnemyDefinitions[] = {
     MULTI_FORM(gEnemyDefinition_Gibo),
     MULTI_FORM(gEnemyDefinition_FireBar),
     { ALTTP_GFX(AS_SKULL), 0, { &gHitbox_0 }, ALTTP_ENEMY_SPRITE_6, { 1, 1, 1, 1 }, 4, 0, 25, 139 },
+    // Agahnim and his energy balls: sprite 336
+    { ALTTP_GFX(AS_AGAHNIM), 0, { &gHitbox_Agahnim }, ALTTP_ENEMY_SPRITE_9, { 1, 1, 1, 2 }, 255, 0, 100, 139 },
+    MULTI_FORM(gEnemyDefinition_AgahnimBall),
 };
 
 /** The bosses' parts, by type: the Helmasaur King's lower body, a leg, its face, a
@@ -341,6 +346,16 @@ const EnemyDefinition gEnemyDefinition_FireBar[] = {
     { ALTTP_GFX(AS_FIREBAR), 0, { &gHitbox_AlttpLaser }, ALTTP_ENEMY_SPRITE_6, { 1, 0, 0, 0 }, 0, 0, 72, 139 },
     { ALTTP_GFX(AS_FIREBAR), 0, { &gHitbox_AlttpLaser }, ALTTP_ENEMY_SPRITE_6, { 1, 0, 0, 0 }, 0, 0, 72, 139 },
     { ALTTP_GFX(AS_FIREBAR), 0, { &gHitbox_AlttpLaser }, ALTTP_ENEMY_SPRITE_6, { 1, 1, 1, 0 }, 0, 0, 72, 139 },
+};
+
+/** Agahnim's balls, by type: the energy ball, the seeker, a spark of a burst seeker,
+ * the trail a ball leaves, and the spell glowing between his hands. */
+const EnemyDefinition gEnemyDefinition_AgahnimBall[] = {
+    { ALTTP_GFX(AS_AGBALL), 0, { &gHitbox_AlttpCentered }, ALTTP_ENEMY_SPRITE_9, { 1, 1, 1, 0 }, 255, 0, 100, 139 },
+    { ALTTP_GFX(AS_AGBALL), 0, { &gHitbox_AlttpCentered }, ALTTP_ENEMY_SPRITE_9, { 1, 1, 1, 0 }, 255, 0, 100, 139 },
+    { ALTTP_GFX(AS_AGBALL), 0, { &gHitbox_AlttpLaser }, ALTTP_ENEMY_SPRITE_9, { 1, 1, 1, 0 }, 0, 0, 72, 139 },
+    { ALTTP_GFX(AS_AGBALL), 0, { &gHitbox_0 }, ALTTP_ENEMY_SPRITE_9, { 1, 0, 1, 0 }, 0, 0, 72, 139 },
+    { ALTTP_GFX(AS_AGGLOW), 0, { &gHitbox_0 }, ALTTP_ENEMY_SPRITE_9, { 1, 0, 1, 0 }, 0, 0, 72, 139 },
 };
 
 const EnemyDefinition gEnemyDefinition_AlttpEyegore[] = {
@@ -768,5 +783,7 @@ void (*const gEnemyFunctions[])(Entity* ent) = {
     [GIBO] = Gibo,
     [FIRE_BAR] = FireBar,
     [STALFOS_HEAD] = StalfosHead,
+    [AGAHNIM] = Agahnim,
+    [AGAHNIM_BALL] = AgahnimBall,
 };
 // clang-format on
