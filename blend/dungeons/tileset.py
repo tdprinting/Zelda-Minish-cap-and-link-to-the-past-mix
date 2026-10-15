@@ -158,6 +158,11 @@ class Blend:
             for (nx, ny), side in (((cx - 1, cy), 'l'), ((cx + 1, cy), 'r'), ((cx, cy - 1), 't'), ((cx, cy + 1), 'b')):
                 if 0 <= nx < 32 and 0 <= ny < 32 and plan.cells[ny * 32 + nx] in PASSABLE:
                     continue
+                # only where it meets the dark: floor beside an invisible wall stays plain
+                if 0 <= nx < 32 and 0 <= ny < 32:
+                    ncell = img[ny * 16:ny * 16 + 16, nx * 16:nx * 16 + 16]
+                    if np.all(ncell == VOID, axis=-1).mean() <= 0.5:
+                        continue
                 edge = {'l': (slice(y0, y0 + 16), slice(x0, x0 + 2)), 'r': (slice(y0, y0 + 16), slice(x0 + 14, x0 + 16)),
                         't': (slice(y0, y0 + 2), slice(x0, x0 + 16)), 'b': (slice(y0 + 14, y0 + 16), slice(x0, x0 + 16))}[side]
                 img[edge] = celshade.OUTLINE
