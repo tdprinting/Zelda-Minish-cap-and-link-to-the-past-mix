@@ -5,5 +5,5 @@
     .align 2
 
 gFrameObjLists:: @ 082F3D74
-	@ the extracted table plus the blend's own sprites (blend/anim/objlists.py)
+	@ blend: the game's table with new lists spliced in (blend/anim/objlists.py)
 	.include "custom/gen/frame_obj_lists.inc"
