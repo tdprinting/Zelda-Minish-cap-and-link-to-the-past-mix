@@ -243,7 +243,9 @@ static int isSharedItem(unsigned item) {
 		return 1; // Elements, Grip Ring, Bracelets, Flippers, map, sword skills
 	if (item == 0x67)
 		return 1; // Kinstone Bag
-	return item >= 0x70 && item <= 0x7a; // butterflies, scrolls, A Link to the Past items
+	if (item >= 0x7c && item <= 0x81)
+		return 1; // Book of Mudora, Magic Cape, Bug Net, Mushroom, Shovel, Titan's Mitt
+	return item >= 0x70 && item <= 0x7a; // butterflies, scrolls, A Link to the Past items (not the Revive Fairy)
 }
 
 /* ---- Starting the games --------------------------------------------------- */

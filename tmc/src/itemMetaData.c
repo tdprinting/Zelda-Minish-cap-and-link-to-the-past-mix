@@ -128,6 +128,12 @@ const ItemMetaData gItemMetaData[] = {
     [ITEM_MAGIC_POWDER] = { 0u, 0u, 0u, 0u, 0x9au, TEXT_ITEM_GET, 0x9au, 0x5u },
     [ITEM_CANE_OF_SOMARIA] = { 0u, 0u, 0u, 0u, 0x9bu, TEXT_ITEM_GET, 0x9bu, 0x5u },
     [ITEM_REVIVE_FAIRY] = { 0x63u, 0x13u, 0u, 0x2u, 0x9cu, TEXT_ITEM_GET, 0x9cu, 0x5u },
+    [ITEM_BOOK_OF_MUDORA] = { 0x63u, 0u, 0u, 0u, 0x9du, TEXT_ITEM_GET, 0x9du, 0x5u },
+    [ITEM_MAGIC_CAPE] = { 0x63u, 0u, 0u, 0u, 0x9eu, TEXT_ITEM_GET, 0x9eu, 0x5u },
+    [ITEM_BUG_NET] = { 0x63u, 0u, 0u, 0u, 0x9fu, TEXT_ITEM_GET, 0x9fu, 0x5u },
+    [ITEM_MUSHROOM] = { 0x63u, 0u, 0u, 0u, 0xa0u, TEXT_ITEM_GET, 0xa0u, 0x5u },
+    [ITEM_SHOVEL] = { 0x63u, 0u, 0u, 0u, 0xa1u, TEXT_ITEM_GET, 0xa1u, 0x5u },
+    [ITEM_TITANS_MITT] = { 0x63u, 0u, 0u, 0u, 0xa2u, TEXT_ITEM_GET, 0xa2u, 0x5u },
 };
 
 // TODO Shop price and item get message
@@ -273,5 +279,11 @@ const struct_080FD964 gUnk_080FD964[] = {
     [ITEM_MAGIC_POWDER] = { 0, 0, 0x0, TEXT_INDEX(TEXT_ITEM_GET, 0x9a) },
     [ITEM_CANE_OF_SOMARIA] = { 0, 0, 0x0, TEXT_INDEX(TEXT_ITEM_GET, 0x9b) },
     [ITEM_REVIVE_FAIRY] = { 60, 0, TEXT_INDEX(TEXT_STOCKWELL, 0x26), TEXT_INDEX(TEXT_ITEM_GET, 0x9c) },
+    [ITEM_BOOK_OF_MUDORA] = { 0, 0, 0x0, TEXT_INDEX(TEXT_ITEM_GET, 0x9d) },
+    [ITEM_MAGIC_CAPE] = { 0, 0, 0x0, TEXT_INDEX(TEXT_ITEM_GET, 0x9e) },
+    [ITEM_BUG_NET] = { 0, 0, 0x0, TEXT_INDEX(TEXT_ITEM_GET, 0x9f) },
+    [ITEM_MUSHROOM] = { 0, 0, 0x0, TEXT_INDEX(TEXT_ITEM_GET, 0xa0) },
+    [ITEM_SHOVEL] = { 0, 0, 0x0, TEXT_INDEX(TEXT_ITEM_GET, 0xa1) },
+    [ITEM_TITANS_MITT] = { 0, 0, 0x0, TEXT_INDEX(TEXT_ITEM_GET, 0xa2) },
 
 };

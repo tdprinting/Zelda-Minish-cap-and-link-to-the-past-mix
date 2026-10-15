@@ -186,6 +186,14 @@ def tiles16(pix):
     return out
 
 
+# A keyframe's frame index is a byte, so the icons can't go past frame 255; they take
+# frames of sprite 322 that the English game never shows instead. Frames 113 to 241
+# belong to no animation: 113-117 are the HUD's hearts, and from 130 on come the R
+# button's words in each language, 16 frames per language (gUnk_080C9044: Japanese from
+# 130, English from 146, then French, German, Spanish and Italian from 162).
+FIRST_FRAME = 162
+
+
 def frame0_list_offset():
     """Where frame 0's object list (one 16x16 object) sits in gFrameObjLists, and the sprite's offsets."""
     d = open(os.path.join(ASSETS, 'gfx', 'gFrameObjLists.bin'), 'rb').read()
@@ -219,7 +227,7 @@ def main():
         img = pearl_icon() if words is None else cut_out(alttp_icon(gfx, hud_pal, words))
         off, pix = quantize(img, pals)
         new_tiles += tiles16(pix)
-        frame = nframes + k
+        frame = FIRST_FRAME + k
         new_frames.append('\tsprite_frame first_tile_index=0x%x, num_tiles=4' % (first_tile + 4 * k))
         lists.append((frame, off))
         anims.append((label, frame))
@@ -228,8 +236,13 @@ def main():
     os.makedirs(OVERRIDE, exist_ok=True)
     with open(os.path.join(OVERRIDE, 'gSprite_082E68F4.4bpp'), 'wb') as f:
         f.write(tiles + new_tiles)
+    # the new frames take the place of frames no animation of the sprite uses
+    lines = frames_src.split('\n')
+    at = [i for i, line in enumerate(lines) if 'sprite_frame' in line]
+    for k, line in enumerate(new_frames):
+        lines[at[FIRST_FRAME + k]] = line + ' @ blend/menu/icons.py: ' + ICONS[k][1]
     with open(os.path.join(OVERRIDE, 'gSpriteFrames_%d.s' % SPRITE), 'w') as f:
-        f.write(frames_src + '\n@ blend/menu/icons.py: the A Link to the Past item icons\n' + '\n'.join(new_frames) + '\n')
+        f.write('\n'.join(lines) + '\n')
 
     os.makedirs(os.path.join(GEN, 'menu'), exist_ok=True)
     with open(os.path.join(GEN, 'menu', 'icon_anims.inc'), 'w') as f:
@@ -242,10 +255,12 @@ def main():
     os.makedirs(os.path.join(GEN, 'objlists'), exist_ok=True)
     with open(os.path.join(GEN, 'objlists', '%d.s' % SPRITE), 'w') as f:
         f.write('@ Made by blend/menu/icons.py\n\t.align 2\nBlendObjLists_%d:\n' % SPRITE)
+        mine = dict(lists)
         for i in range(nframes):
-            f.write('\t.4byte 0x%x\n' % struct.unpack_from('<I', d, first + i * 4)[0])
-        for frame, off in lists:
-            f.write('\t.4byte BlendObjLists_%d_%d - gFrameObjLists\n' % (SPRITE, frame))
+            if i in mine:
+                f.write('\t.4byte BlendObjLists_%d_%d - gFrameObjLists\n' % (SPRITE, i))
+            else:
+                f.write('\t.4byte 0x%x\n' % struct.unpack_from('<I', d, first + i * 4)[0])
         for frame, off in lists:
             f.write('BlendObjLists_%d_%d:\n\t.byte 1\n\t.byte %d, %d, 0x%x\n\t.2byte 0x%x\n'
                     % (SPRITE, frame, x, y, b3, (attr & 0x0fff) | (off << 12)))
@@ -262,7 +277,7 @@ def main():
                             im.putpixel(((n * 20 + 2 + xx) * z + q % z, (2 + yy) * z + q // z), pal[pix[yy][xx]])
         im.save(sys.argv[sys.argv.index('--preview') + 1])
     print('Menu icons: %d A Link to the Past items (sprite %d frames %d-%d)'
-          % (len(ICONS), SPRITE, nframes, nframes + len(ICONS) - 1))
+          % (len(ICONS), SPRITE, FIRST_FRAME, FIRST_FRAME + len(ICONS) - 1))
 
 
 if __name__ == '__main__':

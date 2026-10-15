@@ -778,6 +778,122 @@ static void UseSomaria(void) {
     }
 }
 
+
+/* ---- Bug Net, Shovel, Magic Cape --------------------------------------- */
+
+extern s32 DoItemTileInteraction(Entity*, u32, ItemBehavior*);
+
+/** The Bug Net catches the fairy in front of Link into an empty bottle, as in A Link to the Past. */
+static void UseBugNet(void) {
+    s32 x, y;
+    u32 i, bottle;
+    Entity* e;
+    PointInFront(14, &x, &y);
+    SoundReq(SFX_ITEM_SWORD_BEAM);
+    for (bottle = 0; bottle < ARRAY_COUNT(gSave.stats.bottles); bottle++) {
+        if (gSave.stats.bottles[bottle] == ITEM_BOTTLE_EMPTY) {
+            break;
+        }
+    }
+    for (i = 0; i < ARRAY_COUNT(gEntityLists); i++) {
+        LinkedList* list = &gEntityLists[i];
+        for (e = list->first; (u32)e != (u32)list; e = e->next) {
+            bool32 fairy = (e->kind == OBJECT && e->id == FAIRY) ||
+                           (e->kind == OBJECT && e->id == GROUND_ITEM && e->type == ITEM_FAIRY);
+            s32 dx = e->x.HALF.HI - x, dy = e->y.HALF.HI - y;
+            if (!fairy || dx < -14 || dx > 14 || dy < -18 || dy > 14) {
+                continue;
+            }
+            if (bottle < ARRAY_COUNT(gSave.stats.bottles)) {
+                gSave.stats.bottles[bottle] = ITEM_BOTTLE_FAIRY;
+                SoundReq(SFX_ITEM_GET);
+            } else {
+                ModHealth(32); // no empty bottle: the fairy heals Link instead
+                SoundReq(SFX_HEART_GET);
+            }
+            FxAt(FX_SPARKLE, e->x.HALF.HI, e->y.HALF.HI);
+            DeleteEntity(e);
+            return;
+        }
+    }
+}
+
+/**
+ * The Shovel digs the soft ground in front of Link, the way the Mole Mitts do (so it
+ * finds what is buried), and now and then turns up a rupee or a heart.
+ */
+static void UseShovel(void) {
+    ItemBehavior dig;
+    Entity* e;
+    MemClear(&dig, sizeof(dig));
+    if (!DoItemTileInteraction(&gPlayerEntity.base, 0xd, &dig)) {
+        SoundReq(SFX_ITEM_GLOVES_AIR);
+        return;
+    }
+    e = CreateObjectWithParent(&gPlayerEntity.base, OBJECT_1F, 0, dig.field_0x2[1]);
+    if (e != NULL) {
+        e->timer = dig.timer;
+        e->subtimer = dig.subtimer;
+        e->animationState = gPlayerEntity.base.animationState & 6;
+    }
+    SoundReq(SFX_108);
+    if ((Random() & 7) == 0) {
+        s32 x, y;
+        PointInFront(14, &x, &y);
+        e = CreateObject(GROUND_ITEM, (Random() & 1) ? ITEM_RUPEE5 : ITEM_HEART, 0);
+        if (e != NULL) {
+            e->x.HALF.HI = x;
+            e->y.HALF.HI = y;
+            e->collisionLayer = gPlayerEntity.base.collisionLayer;
+        }
+    }
+}
+
+#define CAPE_FRAMES 600
+
+/** The Magic Cape: Link vanishes and nothing can hurt him for a while. Again to take it off. */
+static void UseCape(void) {
+    Entity* p = &gPlayerEntity.base;
+    gBlendLink.capeTimer = gBlendLink.capeTimer ? 0 : CAPE_FRAMES;
+    FxAt(FX_BROWN_SMOKE_LARGE, p->x.HALF.HI, p->y.HALF.HI - 8);
+    SoundReq(SFX_SUMMON);
+    if (!gBlendLink.capeTimer) {
+        p->spriteSettings.draw = 1;
+    }
+}
+
+static void UpdateCape(void) {
+    Entity* p = &gPlayerEntity.base;
+    if (gBlendLink.capeTimer == 0) {
+        return;
+    }
+    if (--gBlendLink.capeTimer == 0 || gBlendLink.bunny) {
+        gBlendLink.capeTimer = 0;
+        p->spriteSettings.draw = 1;
+        FxAt(FX_BROWN_SMOKE_LARGE, p->x.HALF.HI, p->y.HALF.HI - 8);
+        return;
+    }
+    if (p->iframes < 2) {
+        p->iframes = 2;
+    }
+    // a faint shimmer is all that shows of him, and it flickers faster near the end
+    p->spriteSettings.draw = (gBlendLink.capeTimer & (gBlendLink.capeTimer < 120 ? 3 : 15)) == 0;
+}
+
+/**
+ * The Mushroom from the woods: Syrup the witch brews it into Magic Powder, as the
+ * witch near Kakariko does in A Link to the Past.
+ */
+static void UpdateMushroomTrade(void) {
+    if (gRoomControls.area != AREA_TREE_INTERIORS || gRoomControls.room != ROOM_TREE_INTERIORS_WITCH_HUT ||
+        !HasItem(ITEM_MUSHROOM) || HasItem(ITEM_MAGIC_POWDER) || !IsPlayerFree() || gBlendLink.awardCooldown) {
+        return;
+    }
+    SetInventoryValue(ITEM_MUSHROOM, 0);
+    InitItemGetSequence(ITEM_MAGIC_POWDER, 0, 0);
+    gBlendLink.awardCooldown = 120;
+}
+
 static void CastMedallion(u32 m);
 static void OpenMedallionGate(u32 medallion);
 static s32 MedallionIndex(u32 item);
@@ -806,6 +922,15 @@ static void UseVariant(u32 item) {
             break;
         case ITEM_MAGIC_MIRROR:
             UseMirror();
+            break;
+        case ITEM_BUG_NET:
+            UseBugNet();
+            break;
+        case ITEM_SHOVEL:
+            UseShovel();
+            break;
+        case ITEM_MAGIC_CAPE:
+            UseCape();
             break;
     }
 }
@@ -842,6 +967,12 @@ static u32 ItemAnim(u32 item) {
             return ANIM_BLEND_ETHER;
         case ITEM_QUAKE:
             return ANIM_BLEND_QUAKE;
+        case ITEM_BUG_NET:
+            return ANIM_BLEND_BUG_NET;
+        case ITEM_SHOVEL:
+            return ANIM_BLEND_SHOVEL;
+        case ITEM_MAGIC_CAPE:
+            return ANIM_BLEND_CAPE;
         default:
             return ANIM_BLEND_MIRROR;
     }
@@ -1044,7 +1175,8 @@ typedef struct {
     u16 x; /**< room coordinates */
     u16 y;
     u8 needs; /**< item Link must have before this one shows up, or ITEM_NONE */
-    u8 kind;  /**< ground item kind: 4 lies in the open, 7 is buried (dig with the Mole Mitts) */
+    u8 kind;  /**< ground item kind: 4 lies in the open, 7 is buried (dig with the Mole Mitts or the Shovel) */
+    u8 needs2; /**< and this one too, or ITEM_NONE */
 } Treasure;
 
 #define TREASURE_OPEN 4
@@ -1058,9 +1190,10 @@ static const Treasure sTreasures[] = {
     // Skull Woods: the Fire Rod waits in the Dark World Minish Woods
     { AREA_MINISH_WOODS, 0, 1, ITEM_FIRE_ROD, 0x228, 0x160, ITEM_MOON_PEARL, TREASURE_OPEN },
     // the Bombos tablet stands in the ruins; its medallion is buried in the Dark World ruins
-    { AREA_RUINS, 0, 1, ITEM_BOMBOS, 200, 230, ITEM_MOON_PEARL, TREASURE_BURIED },
+    // (its tablet is in Hylian: only the Book of Mudora reads it, as with Ether's)
+    { AREA_RUINS, 0, 1, ITEM_BOMBOS, 200, 230, ITEM_MOON_PEARL, TREASURE_BURIED, ITEM_BOOK_OF_MUDORA },
     // Ether waits on the Dark World mountain, as on Death Mountain
-    { AREA_MT_CRENEL, 0, 1, ITEM_ETHER, 0xc8, 0x60, ITEM_MOON_PEARL, TREASURE_OPEN },
+    { AREA_MT_CRENEL, 0, 1, ITEM_ETHER, 0xc8, 0x60, ITEM_MOON_PEARL, TREASURE_OPEN, ITEM_BOOK_OF_MUDORA },
     // Quake is the gift of the Dark World lake, on the same island
     { AREA_LAKE_HYLIA, 0, 1, ITEM_QUAKE, 0x148, 0x108, ITEM_MOON_PEARL, TREASURE_OPEN },
     // the Ice Rod waits on Lake Hylia's stump island in the Light World, for swimmers
@@ -1071,8 +1204,20 @@ static const Treasure sTreasures[] = {
     { AREA_HYRULE_FIELD, 3, 1, ITEM_HAMMER, 0x12c, 0xb4, ITEM_MOON_PEARL, TREASURE_OPEN },
     // the Cane of Byrna is buried high on the Dark World mountain
     { AREA_MT_CRENEL, 3, 1, ITEM_CANE_OF_BYRNA, 0x240, 0xf0, ITEM_MOON_PEARL, TREASURE_BURIED },
-    // Magic Powder lies deep in the Light World woods, for whoever brings a light
-    { AREA_MINISH_WOODS, 0, 0, ITEM_MAGIC_POWDER, 0x150, 0x300, ITEM_LANTERN_OFF, TREASURE_OPEN },
+    // the Mushroom grows deep in the Light World woods, for whoever brings a light, like the
+    // Lost Woods' (Syrup brews it into Magic Powder: UpdateMushroomTrade)
+    { AREA_MINISH_WOODS, 0, 0, ITEM_MUSHROOM, 0x150, 0x300, ITEM_LANTERN_OFF, TREASURE_OPEN },
+    // the Book of Mudora on the floor of Hyrule Town's library, as in Kakariko's
+    { AREA_HOUSE_INTERIORS_1, ROOM_HOUSE_INTERIORS_1_LIBRARY_1F, 0, ITEM_BOOK_OF_MUDORA, 0x78, 0x50, ITEM_NONE,
+      TREASURE_OPEN },
+    // the Bug Net in the schoolroom, left by the children who catch bugs (for whoever has a bottle)
+    { AREA_HOUSE_INTERIORS_1, ROOM_HOUSE_INTERIORS_1_SCHOOL_EAST, 0, ITEM_BUG_NET, 0x30, 0x60, ITEM_BOTTLE1,
+      TREASURE_OPEN },
+    // the Magic Cape under the Royal Valley graves, as under Hyrule's graveyard
+    { AREA_ROYAL_VALLEY_GRAVES, ROOM_ROYAL_VALLEY_GRAVES_HEART_PIECE, 0, ITEM_MAGIC_CAPE, 0x40, 0x60, ITEM_NONE,
+      TREASURE_OPEN },
+    // the Shovel at Dampe's, the graveyard keeper's house
+    { AREA_HOUSE_INTERIORS_2, ROOM_HOUSE_INTERIORS_2_DAMPE, 0, ITEM_SHOVEL, 0x78, 0x60, ITEM_NONE, TREASURE_OPEN },
     // the Cane of Somaria waits past the dark falls, like Misery Mire
     { AREA_VEIL_FALLS, 0, 1, ITEM_CANE_OF_SOMARIA, 0x180, 0xf0, ITEM_MOON_PEARL, TREASURE_OPEN },
 };
@@ -1088,12 +1233,17 @@ static void SpawnTreasures(void) {
         if (HasItem(t->item) || (t->needs != ITEM_NONE && !HasItem(t->needs))) {
             continue;
         }
+        if ((t->needs2 != ITEM_NONE && !HasItem(t->needs2)) || (t->item == ITEM_MUSHROOM && HasItem(ITEM_MAGIC_POWDER))) {
+            continue;
+        }
         e = CreateObject(GROUND_ITEM, t->item, 0);
         if (e != NULL) {
             e->timer = t->kind;
             e->x.HALF.HI = gRoomControls.origin_x + t->x;
             e->y.HALF.HI = gRoomControls.origin_y + t->y;
-            e->collisionLayer = 1;
+            // indoors, on the floor Link stands on (some rooms' floors are the upper layer)
+            e->collisionLayer = (gArea.areaMetadata & AR_IS_OVERWORLD) ? 1 : gPlayerEntity.base.collisionLayer;
+            UpdateSpriteForCollisionLayer(e);
         }
     }
 }
@@ -1140,14 +1290,17 @@ static void UpdateMilestoneAwards(void) {
 // the Desert Palace in the Trilby Highlands after the Fire Element (when the Magic
 // Mirror comes), the Tower of Hera high on Mt. Crenel after the Ocarina (when the
 // Moon Pearl comes, as in A Link to the Past after the third dungeon).
+// The Desert Palace also needs the Book of Mudora, as in A Link to the Past, where Link
+// reads the Hylian words at its door (the Book lies in Hyrule Town's library).
 typedef struct {
     u8 item;     /**< the item that opens it */
     u8 flag;     /**< the cave's local flag in the overworld bank */
+    u8 item2;    /**< and this one too, or ITEM_NONE */
 } DungeonCave;
 
 static const DungeonCave sDungeonCaves[] = {
     { ITEM_EARTH_ELEMENT, 0x70 }, // Eastern Palace: Eastern Hills
-    { ITEM_FIRE_ELEMENT, 0x90 },  // Desert Palace: Trilby Highlands
+    { ITEM_FIRE_ELEMENT, 0x90, ITEM_BOOK_OF_MUDORA }, // Desert Palace: Trilby Highlands
     { ITEM_OCARINA, 0x44 },       // Tower of Hera: Mt. Crenel
 };
 
@@ -1184,7 +1337,9 @@ static const DarkDungeon sDarkDungeons[] = {
     { AREA_NULL_1F, ITEM_FIRE_ROD, ITEM_NONE },   // Skull Woods: the Fire Rod burns its way in
     { AREA_NULL_39, ITEM_HAMMER, ITEM_NONE },     // Thieves' Town
     { AREA_NULL_3A, ITEM_FLIPPERS, ITEM_FIRE_ROD }, // Ice Palace
-    { AREA_NULL_3B, ITEM_ETHER, ITEM_NONE, STORY_MIRE_OPEN }, // Misery Mire
+    // Misery Mire: as in A Link to the Past, the Titan's Mitt (from Thieves' Town's big chest)
+    // lifts the boulders on the way to it
+    { AREA_NULL_3B, ITEM_ETHER, ITEM_TITANS_MITT, STORY_MIRE_OPEN },
     { AREA_NULL_3C, ITEM_QUAKE, ITEM_CANE_OF_SOMARIA, STORY_TURTLE_OPEN }, // Turtle Rock
     { AREA_NULL_3D, ITEM_MOON_PEARL, ITEM_NONE, GATE_CRYSTALS },          // Ganon's Tower
     { AREA_NULL_3E, ITEM_MOON_PEARL, ITEM_NONE, GATE_AGAHNIM },           // the Pyramid of Power
@@ -1290,7 +1445,8 @@ static void UpdateStory(void) {
     u32 i;
     for (i = 0; i < ARRAY_COUNT(sDungeonCaves); i++) {
         const DungeonCave* c = &sDungeonCaves[i];
-        if (HasItem(c->item) && !CheckLocalFlagByBank(FLAG_BANK_1, c->flag)) {
+        if (HasItem(c->item) && (c->item2 == ITEM_NONE || HasItem(c->item2)) &&
+            !CheckLocalFlagByBank(FLAG_BANK_1, c->flag)) {
             SetLocalFlagByBank(FLAG_BANK_1, c->flag);
         }
     }
@@ -1445,9 +1601,17 @@ static void UpdateDevHooks(void) {
         gBlendLink.devItemGet = 0;
     }
     if (gBlendLink.devSpawnEnemy) {
-        Entity* e = CreateEnemy(gBlendLink.devSpawnEnemy - 1, 0);
+        // 0xff: a fairy instead, for the Bug Net
+        Entity* e = gBlendLink.devSpawnEnemy == 0xff ? CreateObject(FAIRY, 0x60, 0)
+                                                    : CreateEnemy(gBlendLink.devSpawnEnemy - 1, 0);
+        u32 fairy = gBlendLink.devSpawnEnemy == 0xff;
         gBlendLink.devSpawnEnemy = 0;
-        if (e != NULL) {
+        if (e != NULL && fairy) {
+            e->timer = 0;
+            e->x.HALF.HI = gPlayerEntity.base.x.HALF.HI + 18;
+            e->y.HALF.HI = gPlayerEntity.base.y.HALF.HI;
+            e->collisionLayer = gPlayerEntity.base.collisionLayer;
+        } else if (e != NULL) {
             Blend_ApplyDarkWorldEnemy(e);
             e->x.HALF.HI = gPlayerEntity.base.x.HALF.HI + 44;
             e->y.HALF.HI = gPlayerEntity.base.y.HALF.HI;
@@ -1800,6 +1964,8 @@ void Blend_GameUpdate(void) {
     UpdateEquippedSpells();
     UpdateMedallions();
     UpdateByrna();
+    UpdateCape();
+    UpdateMushroomTrade();
     UpdateFrozen();
     UpdateMirror();
     PublishSelf();
@@ -1895,10 +2061,13 @@ bool32 Blend_MenuEquip(u32 item, u32 slot) {
             ForceEquipItem(item, slot);
             return TRUE;
         case ITEM_MAGIC_MIRROR:
+        case ITEM_BUG_NET:
+        case ITEM_SHOVEL:
+        case ITEM_MAGIC_CAPE:
             EquipRaw(item, slot);
             return TRUE;
         default:
-            return FALSE;
+            return FALSE; // the Moon Pearl, the Book and the Mushroom work on their own
     }
 }
 
@@ -1907,9 +2076,24 @@ void Blend_MenuEquipMinishCap(u32 item) {
     Blend_SetSlotShare(item, FALSE);
 }
 
+static bool32 IsButtonOnlyItem(u32 item) {
+    switch (item) {
+        case ITEM_MAGIC_MIRROR:
+        case ITEM_BOMBOS:
+        case ITEM_ETHER:
+        case ITEM_QUAKE:
+        case ITEM_BUG_NET:
+        case ITEM_SHOVEL:
+        case ITEM_MAGIC_CAPE:
+            return TRUE;
+    }
+    return FALSE;
+}
+
 /**
- * The medallions and the Mirror on A or B: pressing the button raises them, as
- * R + Select and L + R do. The game itself never sees the press.
+ * The medallions, the Mirror, the Bug Net, the Shovel and the Magic Cape on A or B:
+ * pressing the button uses them (the medallions and the Mirror also answer
+ * R + Select and L + R). The game itself never sees the press.
  */
 static void UpdateEquippedSpells(void) {
     static const u16 sKeys[] = { A_BUTTON, B_BUTTON };
@@ -1917,7 +2101,7 @@ static void UpdateEquippedSpells(void) {
     for (slot = EQUIP_SLOT_A; slot <= EQUIP_SLOT_B; slot++) {
         u32 item = gSave.stats.equipped[slot];
         u32 key = sKeys[slot];
-        if (item != ITEM_MAGIC_MIRROR && item != ITEM_BOMBOS && item != ITEM_ETHER && item != ITEM_QUAKE) {
+        if (!IsButtonOnlyItem(item)) {
             continue;
         }
         gInput.heldKeys &= ~key;
@@ -1930,6 +2114,12 @@ static void UpdateEquippedSpells(void) {
                 StartItemAction(ITEM_MAGIC_MIRROR);
             } else {
                 SoundReq(SFX_MENU_ERROR);
+            }
+        } else if (item == ITEM_BUG_NET || item == ITEM_SHOVEL || item == ITEM_MAGIC_CAPE) {
+            if (!HasItem(item) || gBlendLink.bunny) {
+                SoundReq(SFX_MENU_ERROR);
+            } else {
+                StartItemAction(item);
             }
         } else if (!HasItem(item) || !HasSword() || gBlendLink.medallionUsed || gBlendLink.bunny) {
             SoundReq(SFX_MENU_ERROR);

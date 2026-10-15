@@ -80,6 +80,7 @@ typedef struct {
     /*0x95*/ u8 bossMaxHealth;    /**< Link's max health when the Heart Container appeared */
     /*0x96*/ u8 endingTimer;      /**< frames since Ganon fell (the ending, then the credits) */
     /*0x97*/ u8 menuPage;         /**< the pause menu's Items page: 0 Minish Cap's items, 1 A Link to the Past's */
+    /*0x98*/ u16 capeTimer;       /**< frames the Magic Cape keeps Link hidden */
 } BlendLink;
 
 #define BLEND_MAGIC 0x444E4C42 /* "BLND" */
@@ -115,6 +116,9 @@ extern BlendLink gBlendLink;
 #define ANIM_BLEND_ETHER 0x9f20
 #define ANIM_BLEND_QUAKE 0x9f24
 #define ANIM_BLEND_MIRROR 0x9f28
+#define ANIM_BLEND_BUG_NET 0x9f2c
+#define ANIM_BLEND_SHOVEL 0x9f30
+#define ANIM_BLEND_CAPE 0x9f34
 
 /** Which new items are switched in for their Minish Cap partner (one bit per item, from ITEM_HOOKSHOT). */
 #define BLEND_VARIANTS_ON (gSave.fillerA[3])

@@ -544,7 +544,13 @@
         "{04:10:0E}You got the {Color:Red}Cane of Byrna{Color:White}!\nA ring of magic guards\nyou and stings foes.\nIt shares the {Color:Red}shield{Color:White}'s slot:\n{Color:Red}L and its button{Color:White} switches.",
         "{04:10:0E}You got the {Color:Red}Magic Powder{Color:White}!\nSprinkle it on a weak foe\nand see what happens!\nIt shares the {Color:Red}lantern{Color:White}'s slot:\n{Color:Red}L and its button{Color:White} switches.",
         "{04:10:0E}You got the {Color:Red}Cane of Somaria{Color:White}!\nIt conjures a block you\ncan push onto switches.\nIt shares the {Color:Red}bombs{Color:White}'s slot:\n{Color:Red}L and its button{Color:White} switches.",
-        "{04:10:0E}You got a {Color:Red}Revive Fairy{Color:White}!\nIf your partner falls, stand by\nthem and press {Key:Right} to bring\nthem back. You can carry nine."
+        "{04:10:0E}You got a {Color:Red}Revive Fairy{Color:White}!\nIf your partner falls, stand by\nthem and press {Key:Right} to bring\nthem back. You can carry nine.",
+        "{04:10:0E}You got the {Color:Red}Book of Mudora{Color:White}!\nNow you can read the old\nHylian words on tablets\nand at the desert's door.",
+        "{04:10:0E}You got the {Color:Red}Magic Cape{Color:White}!\nWear it to vanish for a while.\nNothing can touch you\nuntil it slips off.",
+        "{04:10:0E}You got the {Color:Red}Bug Net{Color:White}!\nSwing it at a fairy to catch\nit in an empty bottle.",
+        "{04:10:0E}You got a {Color:Red}Mushroom{Color:White}!\nIt smells strange... Syrup\nthe witch could brew\nsomething from it.",
+        "{04:10:0E}You got the {Color:Red}Shovel{Color:White}!\nDig soft ground with it.\nWho knows what's buried?",
+        "{04:10:0E}You got the {Color:Red}Titan's Mitt{Color:White}!\nNow you can lift the boulders\nthat block the dark marsh\nof Misery Mire."
     ],
     [
         "",

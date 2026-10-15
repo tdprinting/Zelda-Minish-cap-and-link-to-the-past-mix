@@ -66,9 +66,8 @@ ITEMS = {
     # Skull Woods's Fire Rod already lies in the dark Minish Woods (and opens the way
     # in): its big chest holds a bigger wallet
     0x07: (0x64, 0),
-    # Thieves' Town's Titan's Mitt has no Minish Cap match (the Power Bracelets already do
-    # the lifting): its big chest holds the Magic Boomerang, which A Link to the Past has too
-    0x1c: (0x0c, 0),
+    # Thieves' Town's Titan's Mitt (tmc's ITEM_TITANS_MITT): it opens the way to Misery Mire
+    0x1c: (0x81, 0),
     # the Ice Palace's Blue Mail neither (Minish Cap has no armor): a bigger bomb bag
     0x22: (0x65, 0),
     # Misery Mire's Cane of Somaria already lies at the dark Veil Falls: a bigger wallet

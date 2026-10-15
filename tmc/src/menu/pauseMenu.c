@@ -701,6 +701,12 @@ void sub_080A5594(void) {
             }
         }
     }
+    // the Titan's Mitt takes the Power Bracelets' place, as it upgrades A Link to the Past's Power Glove
+    if (GetInventoryValue(ITEM_TITANS_MITT) == 1) {
+        uVar2 = gItemMetaData[ITEM_POWER_BRACELETS].menuSlot;
+        gGenericMenu.unk10.a[uVar2] = ITEM_TITANS_MITT;
+        sub_080A5F48(ITEM_TITANS_MITT, uVar2 * 8 + 0x380);
+    }
     if (GetInventoryValue(ITEM_QST_TINGLE_TROPHY) == 0) {
         iVar5 = 0;
         if (GetInventoryValue(ITEM_KINSTONE_BAG) != 0) {
@@ -837,7 +843,7 @@ void sub_080A56A0(void) {
                 item = 0x73;
         }
     }
-    sub_080A6F6C(TEXT_INDEX(TEXT_ITEMS, 0) + item);
+    sub_080A6F6C(item == ITEM_TITANS_MITT ? Blend_MenuItemText(item) : TEXT_INDEX(TEXT_ITEMS, 0) + item);
 }
 
 void sub_080A57F4(void) {
